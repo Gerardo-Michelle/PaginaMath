@@ -241,4 +241,19 @@ if __name__ == '__main__':
     # with app.app_context():
     #     db.create_all()
     app.run() # No pasar debug=True directamente. Dejar que Flask lo maneje.
+
+# --- RUTA TEMPORAL PARA CREAR TABLAS EN PRODUCCIÓN (SOLO RENDER FREE TIER) ---
+# !!! IMPORTANTE: Visita esta ruta UNA SOLA VEZ después del primer despliegue !!!
+# !!! LUEGO, ELIMINA O COMENTA ESTA RUTA Y REDESPLIEGA POR SEGURIDAD !!!
+@app.route('/create-initial-db-tables-a1b2c3d4e5f6-do-not-share') # ¡Cambia esta URL secreta!
+def create_initial_tables_route():
+    # Considera añadir algún tipo de autenticación o token aquí si necesitas más seguridad,
+    # pero para un uso único y luego eliminación, una URL muy secreta puede ser suficiente.
+    try:
+        with app.app_context():
+            db.create_all()
+        return "Tablas creadas (o ya existían). ¡Recuerda eliminar esta ruta!", 200
+    except Exception as e:
+        return f"Error al crear tablas: {str(e)}", 500
+# --- FIN DE RUTA TEMPORAL ---
               # Puedes especificar host y port para desarrollo: app.run(host=os.environ.get('HOST', '127.0.0.1'), port=int(os.environ.get('PORT', 5000))) 
