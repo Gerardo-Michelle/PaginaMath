@@ -1,0 +1,1779 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interpolación Polinómica (Ax=b) - Métodos Numéricos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'custom-blue': '#242A38',
+                        'custom-red': '#E94560', // Adjusted for this page, can be changed
+                        'custom-gray-bg': '#F3F4F6',
+                        'sidebar-bg': '#FFFFFF', // Main content area background
+                        'sidebar-text': '#4B5563',
+                        'sidebar-hover-bg': '#FEF2F2', // Example, can adjust
+                    }
+                }
+            }
+        }
+    </script>
+    <script>
+        window.MathJax = {
+            tex: { packages: {'[+]': ['input/mml', 'output/chtml']} },
+            chtml: { matchFontHeight: false },
+            options: { ignoreHtmlClass: 'tex2jax_ignore', processHtmlClass: 'tex2jax_process' }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        /* Styles from gauss-jordan.html, adapted with IAXB suffix for uniqueness */
+        @keyframes animatedRainbowBorderIAXB { 0% { background-position: 0% center; } 100% { background-position: 200% center; } }
+        .animate-rainbow-border-iax::before {
+            content: ''; position: absolute; z-index: -1; top: -2px; left: -2px; right: -2px; bottom: -2px;
+            border-radius: 9999px;
+            background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #007bff, #8a2be2, #ff00ff, #ff0000);
+            background-size: 200% 100%;
+            animation: animatedRainbowBorderIAXB 3s linear infinite;
+        }
+        .animate-rainbow-border-iax { position: relative; z-index: 0; }
+        .correct-answer-iax { border-color: #10B981; background-color: #D1FAE5; }
+        .incorrect-answer-iax { border-color: #EF4444; background-color: #FEE2E2; }
+
+        .iax-output-fullscreen {
+            position: fixed !important; top: 0 !important; left: 0 !important;
+            width: 100vw !important; height: 100vh !important;
+            z-index: 9990 !important; background-color: #111827 !important;
+            padding: 20px !important; margin: 0 !important; border-radius: 0 !important;
+            overflow-y: auto !important; max-height: 100vh !important;
+        }
+        .iax-body-fullscreen-active { overflow: hidden !important; }
+        .iax-output-controls-container-fixed {
+            position: fixed !important; top: 15px !important; right: 15px !important;
+            z-index: 9999 !important; display: flex !important;
+            align-items: center !important; gap: 0.25rem !important;
+        }
+        .iax-font-button-flash-red { animation: iax-flash-red 0.4s ease-out; }
+        @keyframes iax-flash-red { 0% { background-color: #EF4444; } 100% { background-color: #374151; } }
+        .iax-font-button-flash-blue { animation: iax-flash-blue 0.4s ease-out; }
+        @keyframes iax-flash-blue { 0% { background-color: #3B82F6; } 100% { background-color: #374151; } }
+
+        .matrix-table { border-collapse: collapse; margin: 10px auto; font-family: monospace; font-size:0.9em; }
+        .matrix-table th, .matrix-table td { border: 1px solid #555; padding: 6px 10px; text-align: right; }
+        .matrix-table th { background-color: #333; font-weight:normal; }
+        .matrix-separator { border-right: 2px solid #999 !important; }
+        .step-description { margin-top:15px; margin-bottom:5px; font-style: italic; text-align:center; font-size:0.9em;}
+        .tex2jax_process h3, .tex2jax_process p, .tex2jax_process li, .tex2jax_process ol, .tex2jax_process ul, .tex2jax_process div {
+             margin-bottom: 0.75rem; /* Consistent spacing for MathJax processed elements */
+        }
+        .tex2jax_process ol, .tex2jax_process ul { padding-left: 1.75rem; }
+        
+        /* D3 Visualization Styles for Interpolation Ax=b */
+        #iax-d3-svg-container .point-marker {
+            stroke: #263238; stroke-width: 1.5px; fill: #E94560;
+        }
+        #iax-d3-svg-container .axis path, #iax-d3-svg-container .axis line {
+            fill: none; stroke: #78909c; shape-rendering: crispEdges;
+        }
+        #iax-d3-svg-container .axis text { font-size: 0.75em; fill: #4B5563; }
+        #iax-d3-svg-container .polynomial-line {
+            fill: none; stroke: #242A38; stroke-width: 2px;
+        }
+        #iax-d3-svg-container .matrix-display-area rect {
+            stroke: #b0bec5; stroke-width: 1px; fill: white; shape-rendering: crispEdges;
+        }
+        #iax-d3-svg-container .matrix-display-area text {
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+            text-anchor: middle; dominant-baseline: central; fill: #263238; font-size: 0.8em;
+            pointer-events: none;
+        }
+         #iax-d3-svg-container .matrix-title {
+            font-family: 'Inter', sans-serif; font-size: 0.9em; text-anchor: middle; fill: #242A38;
+        }
+
+    </style>
+</head>
+<body class="bg-custom-gray-bg text-gray-700 font-sans antialiased">
+    <div id="app-iax">
+        <header class="bg-custom-blue text-white shadow-md">
+            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                <h1 class="text-xl font-semibold"><a href="../index.html" class="hover:text-gray-300">Métodos Numéricos</a></h1>
+                <nav><a href="../index.html#method-cards-container" class="text-sm px-4 py-2 rounded-md hover:bg-gray-700 transition-colors duration-150">Volver a Métodos</a></nav>
+            </div>
+        </header>
+
+        <div class="container mx-auto mt-8 mb-8 flex flex-col lg:flex-row lg:space-x-8 px-4">
+            <left-sidebar-iax></left-sidebar-iax>
+            <main class="w-full flex-1 min-w-0 bg-white shadow-xl rounded-lg p-6 md:p-8 order-2 mb-6 lg:mb-0">
+                <article class="method-content">
+                    <h2 class="text-3xl font-bold mb-6 text-gray-800 border-b border-gray-200 pb-4">Interpolación Polinómica (Resolviendo Ax=b)</h2>
+
+                    <section id="teoria-iax" class="mb-10 scroll-mt-24 tex2jax_process">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Fundamento Teórico</h3>
+                        <p>
+                            Una forma directa de encontrar un polinomio que interpole un conjunto de \(n+1\) puntos \((x_0, y_0), (x_1, y_1), \ldots, (x_n, y_n)\) es plantear un sistema de ecuaciones lineales.
+                            Si buscamos un polinomio de grado \(n\) (o menor) de la forma:
+                        </p>
+                        <div style="text-align:center;"><em>\[ P(x) = a_0 + a_1 x + a_2 x^2 + \ldots + a_n x^n \]</em></div>
+                        <p>
+                            Este polinomio debe pasar por cada uno de los puntos dados. Es decir, para cada punto \((x_i, y_i)\), se debe cumplir que \(P(x_i) = y_i\). Sustituyendo cada punto en la ecuación del polinomio, obtenemos un sistema de \(n+1\) ecuaciones lineales con \(n+1\) incógnitas (los coeficientes \(a_0, a_1, \ldots, a_n\)):
+                        </p>
+                        <div style="text-align:center;">
+                            <em>
+                            \[ a_0 + a_1 x_0 + a_2 x_0^2 + \ldots + a_n x_0^n = y_0 \]
+                            \[ a_0 + a_1 x_1 + a_2 x_1^2 + \ldots + a_n x_1^n = y_1 \]
+                            \[ \vdots \]
+                            \[ a_0 + a_1 x_n + a_2 x_n^2 + \ldots + a_n x_n^n = y_n \]
+                            </em>
+                        </div>
+                        <p>
+                            Este sistema se puede escribir en forma matricial como \(Va = y\), donde:
+                        </p>
+                        <ul class="list-disc list-inside space-y-2 pl-4">
+                            <li>\(V\) es la <strong>matriz de Vandermonde</strong>:
+                                <div style="text-align:center;"><em>
+                                \[ V = \begin{pmatrix}
+                                1 & x_0 & x_0^2 & \cdots & x_0^n \\
+                                1 & x_1 & x_1^2 & \cdots & x_1^n \\
+                                \vdots & \vdots & \vdots & \ddots & \vdots \\
+                                1 & x_n & x_n^2 & \cdots & x_n^n
+                                \end{pmatrix} \]
+                                </em></div>
+                            </li>
+                            <li>\(a\) es el vector de coeficientes desconocidos:
+                                <div style="text-align:center;"><em>
+                                \[ a = \begin{pmatrix} a_0 \\ a_1 \\ \vdots \\ a_n \end{pmatrix} \]
+                                </em></div>
+                            </li>
+                            <li>\(y\) es el vector de los valores \(y_i\) conocidos:
+                                <div style="text-align:center;"><em>
+                                \[ y = \begin{pmatrix} y_0 \\ y_1 \\ \vdots \\ y_n \end{pmatrix} \]
+                                </em></div>
+                            </li>
+                        </ul>
+                        <p>
+                            Si todos los \(x_i\) son distintos, la matriz de Vandermonde es no singular, y el sistema \(Va = y\) tiene una solución única para los coeficientes \(a_j\).
+                        </p>
+                    </section>
+
+                    <section id="algoritmo-iax" class="mb-10 scroll-mt-24 tex2jax_process">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Pasos del Algoritmo</h3>
+                        <ol class="list-decimal list-inside space-y-3 pl-4 text-gray-600 leading-relaxed">
+                            <li>
+                                Dados \(n+1\) puntos \((x_0, y_0), (x_1, y_1), \ldots, (x_n, y_n)\). El grado del polinomio interpolador será \(n\).
+                            </li>
+                            <li>
+                                Construir la matriz de Vandermonde \(V\) de tamaño \((n+1) \times (n+1)\). La fila \(i\)-ésima (comenzando en 0) es \([1, x_i, x_i^2, \ldots, x_i^n]\).
+                            </li>
+                            <li>
+                                Construir el vector \(y = [y_0, y_1, \ldots, y_n]^T\).
+                            </li>
+                            <li>
+                                Resolver el sistema de ecuaciones lineales \(Va = y\) para obtener el vector de coeficientes \(a = [a_0, a_1, \ldots, a_n]^T\). Esto se puede hacer usando métodos como la Eliminación Gaussiana, descomposición LU, o funciones de librería (ej. `numpy.linalg.solve`).
+                            </li>
+                            <li>
+                                Con los coeficientes obtenidos, el polinomio interpolador es \(P(x) = a_0 + a_1 x + a_2 x^2 + \ldots + a_n x^n\).
+                            </li>
+                        </ol>
+                    </section>
+
+                    <section id="ejemplo-iax" class="mb-10 scroll-mt-24 tex2jax_process">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Ejemplo</h3>
+                        <p>
+                            Interpolar los puntos \((1, 2), (2, 3), (3, 6)\) con un polinomio de grado 2: \(P(x) = a_0 + a_1 x + a_2 x^2\).
+                        </p>
+                        <p>
+                            Puntos: \(x_0=1, y_0=2\); \(x_1=2, y_1=3\); \(x_2=3, y_2=6\).
+                        </p>
+                        <p>
+                            El sistema de ecuaciones es:
+                            \[ a_0 + a_1(1) + a_2(1)^2 = 2 \]
+                            \[ a_0 + a_1(2) + a_2(2)^2 = 3 \]
+                            \[ a_0 + a_1(3) + a_2(3)^2 = 6 \]
+                        </p>
+                        <p>
+                            Que se simplifica a:
+                            \[ a_0 +  a_1 +  a_2 = 2 \]
+                            \[ a_0 + 2a_1 + 4a_2 = 3 \]
+                            \[ a_0 + 3a_1 + 9a_2 = 6 \]
+                        </p>
+                        <p>
+                            En forma matricial \(Va = y\):
+                            \[ \begin{pmatrix}
+                            1 & 1 & 1 \\
+                            1 & 2 & 4 \\
+                            1 & 3 & 9
+                            \end{pmatrix}
+                            \begin{pmatrix} a_0 \\ a_1 \\ a_2 \end{pmatrix} =
+                            \begin{pmatrix} 2 \\ 3 \\ 6 \end{pmatrix} \]
+                        </p>
+                        <p>
+                            Resolviendo este sistema (por ejemplo, mediante eliminación gaussiana):
+                            <br>R2 = R2 - R1: \(a_1 + 3a_2 = 1\)
+                            <br>R3 = R3 - R1: \(2a_1 + 8a_2 = 4 \Rightarrow a_1 + 4a_2 = 2\)
+                            <br>
+                            <br>Nuevo sistema para \(a_1, a_2\):
+                            <br>\(a_1 + 3a_2 = 1\)
+                            <br>\(a_1 + 4a_2 = 2\)
+                            <br>(R2') - (R1'): \(a_2 = 1\).
+                            <br>Sustituyendo \(a_2=1\) en \(a_1 + 3a_2 = 1 \Rightarrow a_1 + 3(1) = 1 \Rightarrow a_1 = -2\).
+                            <br>Sustituyendo \(a_1=-2, a_2=1\) en \(a_0 + a_1 + a_2 = 2 \Rightarrow a_0 - 2 + 1 = 2 \Rightarrow a_0 - 1 = 2 \Rightarrow a_0 = 3\).
+                        </p>
+                        <p>
+                            Los coeficientes son \(a_0 = 3, a_1 = -2, a_2 = 1\).
+                            El polinomio interpolador es \(P(x) = 3 - 2x + x^2\), o \(P(x) = x^2 - 2x + 3\).
+                        </p>
+                        <p>
+                            Verificación:
+                            <br>\(P(1) = 3 - 2(1) + (1)^2 = 3 - 2 + 1 = 2\) (Correcto)
+                            <br>\(P(2) = 3 - 2(2) + (2)^2 = 3 - 4 + 4 = 3\) (Correcto)
+                            <br>\(P(3) = 3 - 2(3) + (3)^2 = 3 - 6 + 9 = 6\) (Correcto)
+                        </p>
+                    </section>
+
+                    <section id="codigo-iax" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Código de Implementación (Python)</h3>
+                        <p class="text-gray-600 leading-relaxed mb-3">
+                            El siguiente código implementa la interpolación polinómica resolviendo el sistema \(Va=y\). Puedes modificar `x_points_str` e `y_points_str` para interpolar diferentes conjuntos de puntos.
+                            La salida de texto mostrará la matriz de Vandermonde, el vector \(y\), los coeficientes calculados y el polinomio resultante.
+                        </p>
+                        <div class="code-editor-container bg-gray-50 p-4 rounded-lg shadow-inner">
+                            <textarea id="iax-code-input" class="code-input w-full h-[600px] p-3 border border-gray-300 rounded-md font-mono text-sm" style="resize: none;">
+import numpy as np
+
+def format_matrix_html(matrix, is_vector=False, precision=5):
+    html = '<table class="matrix-table" style="margin: 5px auto;">'
+    if matrix.ndim == 1: # Convert 1D array to 2D column vector for display
+        matrix = matrix.reshape(-1, 1)
+    
+    for i, row in enumerate(matrix):
+        html += '<tr>'
+        for j, val in enumerate(row):
+            current_val_display = val
+            if abs(val) < 1e-9: # Treat very small numbers as zero for display
+                 current_val_display = 0.0
+
+            if isinstance(current_val_display, float):
+                formatted_val = f"{current_val_display:.{precision}f}"
+                # Clean up trailing zeros and decimal point if it's effectively an integer
+                if formatted_val.endswith('.' + '0' * precision):
+                    formatted_val = str(int(round(current_val_display)))
+                elif '.' in formatted_val: # Remove trailing zeros for floats
+                    formatted_val = formatted_val.rstrip('0').rstrip('.')
+            else:
+                formatted_val = str(current_val_display)
+            
+            html += f'<td>{formatted_val}</td>'
+        html += '</tr>'
+    html += '</table>'
+    return html
+
+def polynomial_to_string(coeffs_a0_an, precision=4):
+    # coeffs_a0_an is [a0, a1, ..., an]
+    terms = []
+    for i, coeff in enumerate(coeffs_a0_an):
+        if abs(coeff) < 1e-9: continue # Skip zero terms
+
+        coeff_str = f"{coeff:.{precision}f}".rstrip('0').rstrip('.')
+        if coeff_str == "1" and i > 0: coeff_str = ""
+        elif coeff_str == "-1" and i > 0: coeff_str = "-"
+        
+        if i == 0:
+            terms.append(coeff_str)
+        elif i == 1:
+            terms.append(f"{coeff_str}x")
+        else:
+            terms.append(f"{coeff_str}x^{i}")
+    
+    if not terms: return "0"
+    
+    poly_str = terms[0]
+    for i in range(1, len(terms)):
+        term = terms[i]
+        if not term.startswith('-'):
+            poly_str += " + " + term
+        else:
+            poly_str += " - " + term[1:] # Add space and remove minus
+    return poly_str.replace("+ -", "- ")
+
+
+def interpol_vandermonde_solve_pyodide(x_points_str, y_points_str):
+    html_log_parts = []
+    visualization_steps = []
+
+    try:
+        x_pts_list = eval(x_points_str)
+        y_pts_list = eval(y_points_str)
+        x_points = np.array(x_pts_list, dtype=float)
+        y_points = np.array(y_pts_list, dtype=float)
+
+        if len(x_points) != len(y_points):
+            raise ValueError("Los puntos X e Y deben tener la misma cantidad de elementos.")
+        if len(np.unique(x_points)) != len(x_points):
+             raise ValueError("Los valores de X deben ser únicos para una interpolación polinómica estándar.")
+        if len(x_points) < 1:
+            raise ValueError("Se requiere al menos un punto para la interpolación.")
+
+    except Exception as e:
+        error_msg = f'<p style="color: red; text-align:center;">Error al parsear la entrada: {e}. Asegúrate que los puntos estén en formato Python, ej: [1,2,3] y [4,5,6].</p>'
+        return None, error_msg, []
+
+    n_plus_1 = len(x_points) # Number of points (and dimension of V)
+    degree = n_plus_1 - 1
+
+    html_log_parts.append(f'<p class="step-description">Puntos de entrada ({n_plus_1} puntos, polinomio de grado {degree}):</p>')
+    points_table = '<table class="matrix-table"><tr><th>x</th><th>y</th></tr>'
+    for xp, yp in zip(x_points, y_points):
+        points_table += f'<tr><td>{xp}</td><td>{yp}</td></tr>'
+    points_table += '</table>'
+    html_log_parts.append(points_table)
+    visualization_steps.append({
+        "type": "initial_points", "points": {"x": x_points.tolist(), "y": y_points.tolist()},
+        "description": f"Puntos iniciales para interpolar (grado {degree})."
+    })
+
+    # Construir Matriz de Vandermonde V
+    # V_ij = x_i^j (for a_0, a_1*x, ..., a_n*x^n)
+    # V = np.vander(x_points, increasing=True) -> gives x^0, x^1, ..., x^n columns
+    V_matrix = np.zeros((n_plus_1, n_plus_1))
+    for i in range(n_plus_1):
+        for j in range(n_plus_1):
+            V_matrix[i, j] = x_points[i]**j
+            
+    html_log_parts.append('<p class="step-description">Matriz de Vandermonde V (donde V_ij = x_i^j):</p>')
+    html_log_parts.append(format_matrix_html(V_matrix))
+    visualization_steps.append({
+        "type": "show_matrix_V", "matrix_V": V_matrix.tolist(), "points": {"x": x_points.tolist(), "y": y_points.tolist()},
+        "description": "Matriz de Vandermonde V construida a partir de los puntos x."
+    })
+
+    y_vector = y_points.reshape(-1, 1)
+    html_log_parts.append('<p class="step-description">Vector y:</p>')
+    html_log_parts.append(format_matrix_html(y_vector, is_vector=True))
+    visualization_steps.append({
+        "type": "show_vector_y", "matrix_V": V_matrix.tolist(), "vector_y": y_vector.flatten().tolist(), "points": {"x": x_points.tolist(), "y": y_points.tolist()},
+        "description": "Vector y (valores observados)."
+    })
+    
+    try:
+        # Resolver Va = y para a
+        # a = [a_0, a_1, ..., a_n]
+        coeffs_a0_an = np.linalg.solve(V_matrix, y_points)
+    except np.linalg.LinAlgError:
+        error_msg = '<p style="color: red; text-align:center;">Error: La matriz de Vandermonde es singular. No se puede resolver el sistema. Verifica que los puntos x sean distintos.</p>'
+        html_log_parts.append(error_msg)
+        visualization_steps.append({
+            "type": "error", "description": "Error: Matriz de Vandermonde singular."
+        })
+        return None, "".join(html_log_parts), visualization_steps
+
+    html_log_parts.append('<p class="step-description">Vector de coeficientes a (de a_0 a a_n), solución de Va = y:</p>')
+    html_log_parts.append(format_matrix_html(coeffs_a0_an.reshape(-1,1), is_vector=True))
+    visualization_steps.append({
+        "type": "show_coeffs_a", "matrix_V": V_matrix.tolist(), "vector_y": y_vector.flatten().tolist(), "coeffs_a": coeffs_a0_an.tolist(), "points": {"x": x_points.tolist(), "y": y_points.tolist()},
+        "description": "Coeficientes del polinomio [a0, a1, ..., an] obtenidos."
+    })
+
+    poly_str = polynomial_to_string(coeffs_a0_an)
+    html_log_parts.append(f'<p class="step-description" style="font-weight:bold;">Polinomio Interpolador P(x):</p><p style="text-align:center; font-family:monospace; font-size:1.1em;">P(x) = {poly_str}</p>')
+
+    # Verificación
+    html_log_parts.append('<p class="step-description">Verificación en los puntos dados:</p>')
+    verification_html = '<table class="matrix-table"><tr><th>x</th><th>P(x) (calculado)</th><th>y (original)</th><th>Error |P(x)-y|</th></tr>'
+    poly_func = np.poly1d(coeffs_a0_an[::-1]) # np.poly1d expects [an, ..., a0]
+    for i in range(n_plus_1):
+        xp = x_points[i]
+        yp_calc = poly_func(xp)
+        yp_orig = y_points[i]
+        error = abs(yp_calc - yp_orig)
+        verification_html += f'<tr><td>{xp}</td><td>{yp_calc:.5f}</td><td>{yp_orig}</td><td>{error:.2e}</td></tr>'
+    verification_html += "</table>"
+    html_log_parts.append(verification_html)
+
+    visualization_steps.append({
+        "type": "final_polynomial", "points": {"x": x_points.tolist(), "y": y_points.tolist()},
+        "coeffs_a0_an": coeffs_a0_an.tolist(), "poly_str": poly_str,
+        "description": f"Polinomio final: P(x) = {poly_str}"
+    })
+
+    return coeffs_a0_an, "".join(html_log_parts), visualization_steps
+
+# --- Parámetros Ejemplo ---
+default_x_points_str_iax = "[1, 2, 3]"
+default_y_points_str_iax = "[2, 3, 6]"
+# default_x_points_str_iax = "[-1, 0, 2, 3]"
+# default_y_points_str_iax = "[6, 1, 3, 10]"
+
+# --- Bloque principal para ejecución en Pyodide ---
+if __name__ == "__main__":
+    py_html_buffer = []
+
+    x_str = globals().get("x_points_param_iax", default_x_points_str_iax)
+    y_str = globals().get("y_points_param_iax", default_y_points_str_iax)
+
+    py_html_buffer.append('<div style="text-align: center; font-weight: bold; margin-bottom:15px; font-size:1.1em; padding-top:10px;">INTERPOLACIÓN POLINÓMICA (Ax=b) (Salida de Texto)</div>')
+    try:
+        py_html_buffer.append(f'<div style="text-align: center; margin-bottom:5px; font-family:monospace;">Puntos X: {str(eval(x_str))}</div>')
+        py_html_buffer.append(f'<div style="text-align: center; margin-bottom:15px; font-family:monospace;">Puntos Y: {str(eval(y_str))}</div>')
+    except Exception as e:
+        py_html_buffer.append(f'<p style="color:red; text-align:center;">Error al mostrar X e Y: {e}</p>')
+
+    coeffs_iax, log_html_iax, d3_steps_iax = interpol_vandermonde_solve_pyodide(x_str, y_str)
+    py_html_buffer.append(log_html_iax)
+
+    if coeffs_iax is not None:
+        py_html_buffer.append('<div style="text-align: center; font-weight: bold; margin-top: 20px; margin-bottom: 10px;">RESULTADOS FINALES (Texto)</div>')
+        coeffs_str_iax = ", ".join([f"{c:.5f}" for c in coeffs_iax])
+        py_html_buffer.append(f'<div style="text-align:center; padding:5px;">Coeficientes (a0, ..., an): [{coeffs_str_iax}]</div>')
+        poly_final_str = polynomial_to_string(coeffs_iax)
+        py_html_buffer.append(f'<div style="text-align:center; padding:5px; font-family:monospace; font-size:1.1em;">Polinomio: P(x) = {poly_final_str}</div>')
+    elif not log_html_iax.strip().endswith("</p>"): # Check if error message was already appended
+        py_html_buffer.append('<div style="text-align: center; color: orange; margin-top:10px; padding:5px;">No se pudo calcular el polinomio con los parámetros dados.</div>')
+
+    chart_data_package_iax = {
+        "visualization_steps": d3_steps_iax,
+        "coefficients": coeffs_iax.tolist() if coeffs_iax is not None else None,
+    }
+
+    if "pyodide_js" in globals():
+        pyodide_globals = globals()['pyodide_js'].globals
+        pyodide_globals.set("pyodide_iax_html_output", "".join(py_html_buffer))
+        
+        chart_data_proxy_out = pyodide_globals.get("pyodide_iax_chart_data_package")
+        if chart_data_proxy_out is not None and hasattr(chart_data_proxy_out, 'clear'):
+            chart_data_proxy_out.clear()
+            for key, value in chart_data_package_iax.items():
+                chart_data_proxy_out.set(key, value)
+        else:
+            from pyodide.ffi import to_js
+            pyodide_globals.set("pyodide_iax_chart_data_package", to_js(chart_data_package_iax, dict_converter=js.Object.fromEntries))
+    else: # Fallback for local Python
+        global pyodide_iax_html_output, pyodide_iax_chart_data_package
+        pyodide_iax_html_output = "".join(py_html_buffer)
+        pyodide_iax_chart_data_package = chart_data_package_iax
+                            </textarea>
+                            <button id="run-iax-code-button" class="run-button mt-4 px-5 py-2.5 bg-custom-red text-white rounded-md hover:bg-red-700">Ejecutar Código</button>
+                            <div class="relative mt-5">
+                                <h4 class="mb-2 text-lg font-semibold text-gray-700">Salida de Texto:</h4>
+                                <div id="iax-output-controls-container" class="absolute top-0 right-0 z-10 flex items-center space-x-1 transition-all duration-500 ease-out">
+                                    <button id="iax-decrease-font-button" title="Disminuir fuente" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs font-semibold flex items-center justify-center" style="min-width: 30px;">aa</button>
+                                    <button id="iax-increase-font-button" title="Aumentar fuente" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs font-semibold flex items-center justify-center" style="min-width: 30px;">AA</button>
+                                    <button id="iax-fullscreen-output-button" title="Ver en pantalla completa" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15" /></svg>
+                                    </button>
+                                </div>
+                                <pre id="iax-code-output" class="code-output bg-gray-900 text-white p-4 pt-8 rounded-md min-h-[100px] whitespace-pre-wrap text-xs leading-relaxed max-h-96 overflow-y-auto font-mono transition-all duration-500 ease-out">Presiona "Ejecutar Código" para ver la salida de texto detallada.</pre>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="graficas-iax" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Visualización Interactiva del Proceso</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Observa los pasos para construir la matriz de Vandermonde \(V\), el vector \(y\), y obtener los coeficientes \(a\) para el polinomio interpolador.
+                            La visualización muestra los puntos y las matrices involucradas.
+                        </p>
+                        <div id="interpol-axb-d3-visualization" class="bg-gray-100 p-4 rounded-lg shadow-inner">
+                            <div id="iax-d3-controls" class="mb-4 flex flex-wrap items-center justify-center gap-2">
+                                <button id="iax-d3-prev" class="p-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Anterior"></button>
+                                <button id="iax-d3-next" class="p-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Siguiente"></button>
+                                <button id="iax-d3-play" class="p-2.5 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Play"></button>
+                                <input type="range" id="iax-d3-slider" min="0" value="0" class="mx-2 flex-grow max-w-xs align-middle accent-custom-red disabled:opacity-50 disabled:cursor-not-allowed">
+                                <div class="flex items-center text-sm">
+                                    <label for="iax-d3-speed" class="mr-1">Velocidad:</label>
+                                    <input type="range" id="iax-d3-speed" min="100" max="2000" value="1000" step="100" class="w-24 align-middle accent-custom-red">
+                                    <span id="iax-d3-speed-value" class="ml-1 w-10 text-right">1000ms</span>
+                                </div>
+                            </div>
+                            <div id="iax-d3-operation-description" class="mb-3 text-sm text-center font-mono h-auto min-h-[2em] p-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-md leading-tight">
+                                Ejecute el código para generar la visualización.
+                            </div>
+                            <div class="flex justify-center overflow-x-auto">
+                                <!-- SVG Container for points plot or matrix display -->
+                                <svg id="iax-d3-svg-container" class="border border-gray-300 bg-white rounded shadow-sm" width="600" height="400"></svg>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="videos-iax" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Videos Explicativos</h3>
+                        <div class="video-embed w-full h-96">
+                            <iframe class="w-full h-full rounded-lg shadow-lg" src="https://www.youtube.com/embed/Cov_kLatdlc" title="YouTube video player - Interpolación Polinomial (Vandermonde)" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+                        </div>
+                    </section>
+                    
+                    <section id="conclusion-iax" class="mb-10 scroll-mt-24 tex2jax_process">
+                         <h3 class="text-2xl font-semibold mb-4 text-gray-700">Conclusión y Aplicaciones</h3>
+                        <p>
+                            El método de la matriz de Vandermonde para la interpolación polinómica es un enfoque directo y conceptualmente simple. Garantiza un polinomio único que pasa por todos los puntos dados, siempre que los valores de \(x_i\) sean distintos.
+                        </p>
+                        <p class="font-medium text-gray-700">Ventajas:</p>
+                        <ul class="list-disc list-inside space-y-1 pl-4 text-gray-600 mb-3">
+                            <li>Es un método directo para encontrar los coeficientes del polinomio.</li>
+                            <li>Conceptualmente fácil de entender si se tiene conocimiento de sistemas de ecuaciones lineales.</li>
+                        </ul>
+                        <p class="font-medium text-gray-700">Desventajas:</p>
+                        <ul class="list-disc list-inside space-y-1 pl-4 text-gray-600 mb-3">
+                            <li>Las matrices de Vandermonde pueden estar mal condicionadas, especialmente para un gran número de puntos (alto grado del polinomio) o si los puntos \(x_i\) están muy juntos o muy separados. Esto puede llevar a grandes errores en los coeficientes calculados debido a la sensibilidad a errores de redondeo.</li>
+                            <li>Resolver un sistema de ecuaciones lineales puede ser computacionalmente costoso para un gran número de puntos (\(O(N^3)\) para métodos generales de solución, donde N es el número de puntos).</li>
+                            <li>No es tan eficiente para la evaluación repetida o para añadir nuevos puntos como los métodos de Newton o Lagrange.</li>
+                        </ul>
+                        <p>
+                            Debido al mal condicionamiento, otros métodos como los polinomios de Newton o Lagrange, o el uso de splines, suelen preferirse en la práctica para la interpolación polinómica, especialmente con muchos puntos. Sin embargo, entender el enfoque de la matriz de Vandermonde es fundamental para la teoría de la interpolación.
+                        </p>
+                        <p class="font-medium text-gray-700">Aplicaciones:</p>
+                        <ul class="list-disc list-inside space-y-1 pl-4 text-gray-600 mb-3">
+                            <li>Cualquier situación donde se necesite encontrar un polinomio que pase exactamente por un conjunto de puntos.</li>
+                            <li>Base para la derivación de otras fórmulas numéricas (ej. cuadratura).</li>
+                        </ul>
+                    </section>
+
+                    <section id="referencias-iax" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Referencias</h3>
+                        <ul class="list-disc list-inside space-y-2 text-gray-600 leading-relaxed pl-4">
+                            <li>Chapra, S. C., & Canale, R. P. (2015). <em>Numerical Methods for Engineers</em> (7th ed.). McGraw-Hill Education. (Capítulo 18, Sección 18.1).</li>
+                            <li>Burden, R. L., & Faires, J. D. (2011). <em>Numerical Analysis</em> (9th ed.). Brooks/Cole, Cengage Learning. (Capítulo 3, Sección 3.1).</li>
+                        </ul>
+                    </section>
+
+                    <section id="cuestionario-iax" class="scroll-mt-24 mb-10">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Cuestionario: Interpolación (Ax=b)</h3>
+                        <form id="quiz-interpol-axb" class="space-y-6 bg-gray-50 p-6 rounded-lg shadow-inner tex2jax_process">
+                            <!-- Pregunta 1 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">1. En el método de interpolación polinómica resolviendo \(Va=y\), ¿qué representa la matriz \(V\)?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 1</legend>
+                                    <div class="space-y-2">
+                                        <label for="q1-opt1-iax" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt1-iax" name="question-1-iax" type="radio" value="Una matriz diagonal con los valores de xi." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Una matriz diagonal con los valores de \(x_i\).</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt2-iax" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt2-iax" name="question-1-iax" type="radio" value="La matriz de Vandermonde." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">La matriz de Vandermonde.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt3-iax" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt3-iax" name="question-1-iax" type="radio" value="Una matriz tridiagonal." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Una matriz tridiagonal.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-1-iax-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <!-- Pregunta 2 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">2. Si tenemos \(N\) puntos de datos, ¿cuál es el grado máximo del polinomio interpolador único que se busca típicamente con este método?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 2</legend>
+                                    <div class="space-y-2">
+                                        <label for="q2-opt1-iax" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt1-iax" name="question-2-iax" type="radio" value="N" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">\(N\)</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt2-iax" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt2-iax" name="question-2-iax" type="radio" value="N-1" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">\(N-1\)</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt3-iax" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt3-iax" name="question-2-iax" type="radio" value="N+1" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">\(N+1\)</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-2-iax-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+                            
+                            <!-- Pregunta 3 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">3. ¿Cuál es una desventaja principal de usar la matriz de Vandermonde para la interpolación, especialmente con muchos puntos?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 3</legend>
+                                    <div class="space-y-2">
+                                         <label for="q3-opt1-iax" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt1-iax" name="question-3-iax" type="radio" value="El sistema es siempre singular." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">El sistema de ecuaciones resultante siempre es singular.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt2-iax" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt2-iax" name="question-3-iax" type="radio" value="Mal condicionada." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">La matriz puede estar mal condicionada, llevando a errores numéricos.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt3-iax" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt3-iax" name="question-3-iax" type="radio" value="Solo equiespaciados." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Solo funciona para puntos equiespaciados.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-3-iax-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <!-- Pregunta 4 -->
+                             <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">4. Para el polinomio \(P(x) = a_0 + a_1 x + a_2 x^2\) y los puntos \((0,1), (1,3), (2,7)\), ¿cuál sería la primera ecuación del sistema \(Va=y\), correspondiente al punto \((x_0, y_0) = (0,1)\)?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 4</legend>
+                                    <div class="space-y-2">
+                                        <label for="q4-opt1-iax" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt1-iax" name="question-4-iax" type="radio" value="a0 + a1(1) + a2(1)^2 = 0" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">\(a_0 + a_1(1) + a_2(1)^2 = 0\)</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q4-opt2-iax" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt2-iax" name="question-4-iax" type="radio" value="a0 = 1" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">\(a_0 = 1\) (forma simplificada de \(a_0 + a_1(0) + a_2(0)^2 = 1\))</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q4-opt3-iax" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt3-iax" name="question-4-iax" type="radio" value="a0 + a1 + a2 = 7" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">\(a_0 + a_1 + a_2 = 7\)</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-4-iax-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <button type="submit" class="mt-6 w-full px-6 py-3 bg-custom-red text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors duration-150">
+                                Enviar Respuestas
+                            </button>
+                        </form>
+                        <div id="quiz-feedback-interpol-axb" class="quiz-feedback-message mt-4 p-3 rounded-md text-sm" style="display: none;"></div>
+                    </section>
+                </article>
+            </main>
+
+            <aside class="w-full lg:w-1/4 bg-sidebar-bg shadow-xl rounded-lg p-6 self-start sticky top-8 order-3 space-y-6">
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-4">Perfil</h3>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex-shrink-0">
+                           <svg class="w-12 h-12 text-gray-400 bg-gray-100 rounded-full p-1 ring-1 ring-gray-200" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-800 text-md">Estudiante Analítico</p>
+                            <p class="text-sm text-gray-500">Modelador de Curvas</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pb-6 border-b border-gray-200 space-y-3">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide">Progreso en Interpolación (Ax=b)</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li class="flex items-center">
+                            <span id="task-read-theory-status-iax" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Leer la teoría completa</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-run-code-status-iax" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Ejecutar el código Python</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-attempted-status-iax" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Intentar el cuestionario</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-passed-status-iax" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Aprobar el cuestionario</span>
+                        </li>
+                    </ul>
+                    <div class="flex items-center justify-between mb-1 mt-3">
+                       <span class="text-xs font-medium text-custom-red">Progreso General</span>
+                       <span id="right-sidebar-progress-text-iax" class="text-xs font-medium text-custom-red right-sidebar-progress-text">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div id="right-sidebar-progress-bar-iax" class="bg-custom-red h-3 rounded-full right-sidebar-progress-bar transition-width duration-500 ease-in-out" style="width: 0%"></div>
+                    </div>
+                    <button id="completion-interpol-axb-sidebar" class="mt-4 w-full completion-button px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Marcar Todo Completado</button>
+                </div>
+                 <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Recursos y Notas</h3>
+                    <p class="text-sm text-gray-600"><a href="https://archive.org/details/numerical-methods-for-engineers-7th-edit" target="_blank" rel="noopener noreferrer" class="hover:text-custom-red hover:underline">Métodos Numéricos para Ingenieros 7ma Edición de Chapra (Cap. 18)</a></p>
+                     <img src="https://images.cdn3.buscalibre.com/fit-in/360x360/97/ff/97ffa61a8adb147e569e12c4f1f797b3.jpg" alt="Portada Chapra" class="mt-2 w-full rounded-md shadow-sm">
+                </div>
+                <div>
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Siguiente Paso</h3>
+                    <a href="../methods/interpolacion-newton.html" class="group flex items-center text-sm font-medium text-custom-red hover:text-red-700">
+                       <span>Explorar Interpolación de Newton</span>
+                       <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </a>
+                </div>
+            </aside>
+        </div>
+
+        <footer class="bg-custom-blue text-gray-300 text-center p-6 mt-12">
+            <p>&copy; 2024 Plataforma Educativa de Métodos Numéricos. <a href="../index.html" class="hover:text-white underline">Volver al inicio</a></p>
+        </footer>
+    </div>
+
+    <!-- IAXB SCRIPT (Logica JS General de la página, Pyodide, Quiz, D3) -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const PAGE_KEY_IAXB = 'interpolacion-axb'; // Changed from _GJ
+            const QUIZ_FORM_ID_IAXB = 'quiz-interpol-axb'; // Changed
+            const QUIZ_FEEDBACK_ID_IAXB = 'quiz-feedback-interpol-axb'; // Changed
+            const COMPLETION_BUTTON_ID_IAXB = 'completion-interpol-axb-sidebar'; // Changed
+            const CODE_INPUT_ID_IAXB = 'iax-code-input'; // Changed
+            const CODE_OUTPUT_ID_IAXB = 'iax-code-output'; // Changed
+            const RUN_CODE_BUTTON_ID_IAXB = 'run-iax-code-button'; // Changed
+            const outputControlsContainer_IAXB = document.getElementById('iax-output-controls-container'); // Changed
+            const fullscreenButton_IAXB = document.getElementById('iax-fullscreen-output-button'); // Changed
+            const increaseFontButton_IAXB = document.getElementById('iax-increase-font-button'); // Changed
+            const decreaseFontButton_IAXB = document.getElementById('iax-decrease-font-button'); // Changed
+            let originalOutputFontSize_IAXB = ''; // Changed
+            const MIN_FONT_SIZE_PX_IAXB = 8; // Changed
+            const MAX_FONT_SIZE_PX_IAXB = 28; // Changed
+            const FONT_SIZE_STEP_PX_IAXB = 1; // Changed
+            let iaxCodeOutputInitialRect = null; // Changed
+    
+            const TASKS_IAXB = { // Changed
+                READ_THEORY: 'read_theory_iax',
+                RUN_CODE: 'run_code_iax',
+                QUIZ_ATTEMPTED: 'quiz_attempted_iax',
+                QUIZ_PASSED: 'quiz_passed_iax'
+            };
+            const ALL_TASK_KEYS_IAXB = Object.values(TASKS_IAXB); // Changed
+            const TOTAL_TASKS_IAXB = ALL_TASK_KEYS_IAXB.length; // Changed
+    
+            const ICON_PENDING_IAXB = '<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0-4.418-4.03-8-9-8S3 7.582 3 12c0 1.454.402 2.813 1.098 3.977L3 21l5.023-1.098A8.902 8.902 0 0012 21c4.97 0 9-3.582 9-9z"></path></svg>';
+            const ICON_COMPLETED_IAXB = '<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>';
+            const ICON_IN_PROGRESS_IAXB = '<svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V9.05a.75.75 0 011.307-.588l5.603 3.112z" clip-rule="evenodd"></path></svg>';
+            const ICON_CORRECT_ANSWER_IAXB = '✔️';
+            const ICON_INCORRECT_ANSWER_IAXB = '❌';
+            const ICON_THUMB_UP_IAXB = '👍';
+            
+            const quizDataInterpolAxB = { // Changed, specific to this page
+                "question-1-iax": {
+                    correctAnswer: "La matriz de Vandermonde.",
+                    feedback: {
+                        "Una matriz diagonal con los valores de xi.": "Incorrecto. La matriz V contiene potencias de los valores de x.",
+                        "Una matriz tridiagonal.": "Incorrecto. La matriz de Vandermonde no es típicamente tridiagonal."
+                    }
+                },
+                "question-2-iax": {
+                    correctAnswer: "N-1", // N points means N-1 degree
+                    feedback: {
+                        "N": "Incorrecto. Con N puntos, el polinomio es de grado N-1.",
+                        "N+1": "Incorrecto. Eso sería un grado mayor que el número de puntos."
+                    }
+                },
+                "question-3-iax": {
+                    correctAnswer: "Mal condicionada.",
+                    feedback: {
+                        "El sistema es siempre singular.": "Incorrecto. Es singular solo si los puntos x no son distintos.",
+                        "Solo equiespaciados.": "Incorrecto. Funciona para puntos no equiespaciados también."
+                    }
+                },
+                "question-4-iax": {
+                    correctAnswer: "a0 = 1", // Simplified: a0 + a1(0) + a2(0)^2 = 1
+                    feedback: {
+                        "a0 + a1(1) + a2(1)^2 = 0": "Incorrecto. Esta ecuación no corresponde al punto (0,1).",
+                        "a0 + a1 + a2 = 7": "Incorrecto. Esta ecuación correspondería al punto (1,7) o similar, no (0,1)."
+                    }
+                }
+            };
+    
+            let pyodide_IAXB = null; // Changed
+            const mainCompletionButton_IAXB = document.getElementById(COMPLETION_BUTTON_ID_IAXB); // Changed
+            const quizForm_IAXB = document.getElementById(QUIZ_FORM_ID_IAXB); // Changed
+            const generalQuizFeedbackDiv_IAXB = document.getElementById(QUIZ_FEEDBACK_ID_IAXB); // Changed
+            const codeInput_IAXB = document.getElementById(CODE_INPUT_ID_IAXB); // Changed
+            const codeOutput_IAXB = document.getElementById(CODE_OUTPUT_ID_IAXB); // Changed
+            const runCodeButton_IAXB = document.getElementById(RUN_CODE_BUTTON_ID_IAXB); // Changed
+    
+            const taskStatusIcons_IAXB = {}; // Changed
+            taskStatusIcons_IAXB[TASKS_IAXB.READ_THEORY] = document.getElementById('task-read-theory-status-iax');
+            taskStatusIcons_IAXB[TASKS_IAXB.RUN_CODE] = document.getElementById('task-run-code-status-iax');
+            taskStatusIcons_IAXB[TASKS_IAXB.QUIZ_ATTEMPTED] = document.getElementById('task-quiz-attempted-status-iax');
+            taskStatusIcons_IAXB[TASKS_IAXB.QUIZ_PASSED] = document.getElementById('task-quiz-passed-status-iax');
+            const overallProgressText_IAXB = document.getElementById('right-sidebar-progress-text-iax'); // Changed
+            const overallProgressBar_IAXB = document.getElementById('right-sidebar-progress-bar-iax'); // Changed
+    
+            // --- Progress, Quiz, and Pyodide functions (adapted with _IAXB suffix) ---
+            function getPageProgressFromStorage_IAXB(pKey) {
+                const defaults = ALL_TASK_KEYS_IAXB.reduce((obj, task) => ({ ...obj, [task]: false }), {});
+                defaults.overall_progress = 0;
+                defaults.user_quiz_answers = {};
+                defaults.quiz_current_score = 0;
+                defaults.quiz_feedback_active = false;
+                try {
+                    const stored = localStorage.getItem(pKey);
+                    if (stored) return { ...defaults, ...JSON.parse(stored) };
+                } catch (e) { console.error(`Error al leer localStorage para ${pKey}:`, e); }
+                return defaults;
+            }
+    
+            function savePageProgressToStorage_IAXB(pKey, progress) {
+                try {
+                    localStorage.setItem(pKey, JSON.stringify(progress));
+                    window.dispatchEvent(new CustomEvent('iaxPageProgressSaved', { detail: { pageKey: pKey, progress } }));
+                } catch (e) { console.error(`Error al guardar en localStorage para ${pKey}:`, e); }
+            }
+    
+            function updateTaskStatusInStorage_IAXB(taskName, isCompleted) {
+                let currentProgress = getPageProgressFromStorage_IAXB(PAGE_KEY_IAXB);
+                if (currentProgress[taskName] !== isCompleted) {
+                    currentProgress[taskName] = isCompleted;
+                    if (taskName === TASKS_IAXB.QUIZ_ATTEMPTED && !isCompleted) {
+                        currentProgress[TASKS_IAXB.QUIZ_PASSED] = false;
+                        currentProgress.user_quiz_answers = {};
+                        currentProgress.quiz_current_score = 0;
+                        currentProgress.quiz_feedback_active = false;
+                    }
+                    if (taskName === TASKS_IAXB.QUIZ_PASSED && isCompleted) {
+                         currentProgress[TASKS_IAXB.QUIZ_ATTEMPTED] = true;
+                    }
+                    savePageProgressToStorage_IAXB(PAGE_KEY_IAXB, currentProgress);
+                    calculateAndUpdateOverallProgress_IAXB();
+                }
+            }
+            
+            function renderTaskStatus_IAXB() {
+                const progress = getPageProgressFromStorage_IAXB(PAGE_KEY_IAXB);
+                ALL_TASK_KEYS_IAXB.forEach(taskKey => {
+                    const iconElement = taskStatusIcons_IAXB[taskKey];
+                    if (iconElement) {
+                        let newIconHTML = ICON_PENDING_IAXB;
+                        if (progress[taskKey]) newIconHTML = ICON_COMPLETED_IAXB;
+                        else if (taskKey === TASKS_IAXB.QUIZ_PASSED && progress[TASKS_IAXB.QUIZ_ATTEMPTED]) newIconHTML = ICON_IN_PROGRESS_IAXB;
+                        iconElement.innerHTML = newIconHTML;
+                    }
+                });
+            }
+    
+            function calculateAndUpdateOverallProgress_IAXB() {
+                let progress = getPageProgressFromStorage_IAXB(PAGE_KEY_IAXB);
+                let completedTasks = ALL_TASK_KEYS_IAXB.filter(taskKey => progress[taskKey]).length;
+                const percentage = TOTAL_TASKS_IAXB > 0 ? (completedTasks / TOTAL_TASKS_IAXB) * 100 : 0;
+                progress.overall_progress = percentage;
+                savePageProgressToStorage_IAXB(PAGE_KEY_IAXB, progress);
+    
+                const isHundredPercent = percentage.toFixed(0) === '100';
+                if (overallProgressBar_IAXB) {
+                    overallProgressBar_IAXB.style.width = `${percentage.toFixed(0)}%`;
+                    overallProgressBar_IAXB.classList.toggle('animate-rainbow-border-iax', isHundredPercent); // Use iax specific class
+                }
+                if (overallProgressText_IAXB) overallProgressText_IAXB.textContent = `${percentage.toFixed(0)}%`;
+    
+                renderTaskStatus_IAXB();
+                updateMainCompletionButtonState_IAXB();
+            }
+            
+            function handleMarkAllMouseEnter_IAXB() {
+                if (mainCompletionButton_IAXB && mainCompletionButton_IAXB.dataset.isUndo === "true") {
+                    mainCompletionButton_IAXB.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+                    mainCompletionButton_IAXB.classList.add('bg-red-600', 'hover:bg-red-700');
+                }
+            }
+    
+            function handleMarkAllMouseLeave_IAXB() {
+                if (mainCompletionButton_IAXB && mainCompletionButton_IAXB.dataset.isUndo === "true") {
+                    mainCompletionButton_IAXB.classList.remove('bg-red-600', 'hover:bg-red-700');
+                    mainCompletionButton_IAXB.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+                }
+            }
+            
+            function updateMainCompletionButtonState_IAXB() {
+                if (!mainCompletionButton_IAXB) return;
+                const progress = getPageProgressFromStorage_IAXB(PAGE_KEY_IAXB);
+                let allTasksCompleted = ALL_TASK_KEYS_IAXB.every(task => progress[task]);
+    
+                mainCompletionButton_IAXB.removeEventListener('mouseenter', handleMarkAllMouseEnter_IAXB);
+                mainCompletionButton_IAXB.removeEventListener('mouseleave', handleMarkAllMouseLeave_IAXB);
+                mainCompletionButton_IAXB.classList.remove('bg-green-600', 'hover:bg-green-700', 'bg-yellow-500', 'hover:bg-yellow-600', 'bg-red-600', 'hover:bg-red-700');
+    
+                if (allTasksCompleted) {
+                    mainCompletionButton_IAXB.textContent = 'Deshacer Completado';
+                    mainCompletionButton_IAXB.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+                    mainCompletionButton_IAXB.dataset.isUndo = "true";
+                    mainCompletionButton_IAXB.addEventListener('mouseenter', handleMarkAllMouseEnter_IAXB);
+                    mainCompletionButton_IAXB.addEventListener('mouseleave', handleMarkAllMouseLeave_IAXB);
+                } else {
+                    mainCompletionButton_IAXB.textContent = 'Marcar Todo Completado';
+                    mainCompletionButton_IAXB.classList.add('bg-green-600', 'hover:bg-green-700');
+                    mainCompletionButton_IAXB.dataset.isUndo = "false";
+                }
+            }
+            
+            function clearAllVisualFeedback_IAXB(clearGeneralMessage = false) {
+                if (!quizForm_IAXB) return;
+                quizForm_IAXB.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                    wrapper.classList.remove('correct-answer-iax', 'incorrect-answer-iax', 'border-green-500', 'border-red-500', 'ring-1', 'ring-green-500', 'ring-red-500', 'bg-green-50', 'bg-red-50');
+                    wrapper.classList.add('border-gray-300', 'hover:border-gray-400', 'has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                    const iconPlaceholder = wrapper.querySelector('.feedback-icon-placeholder span');
+                    if (iconPlaceholder) iconPlaceholder.innerHTML = '';
+                });
+                quizForm_IAXB.querySelectorAll('.specific-question-feedback').forEach(el => {
+                    el.textContent = '';
+                    el.style.display = 'none';
+                });
+                if (clearGeneralMessage && generalQuizFeedbackDiv_IAXB) {
+                    generalQuizFeedbackDiv_IAXB.textContent = '';
+                    generalQuizFeedbackDiv_IAXB.style.display = 'none';
+                    generalQuizFeedbackDiv_IAXB.className = 'quiz-feedback-message mt-4 p-3 rounded-md text-sm';
+                }
+            }
+            
+            function displayQuizFeedback_IAXB() {
+                if (!quizForm_IAXB || !generalQuizFeedbackDiv_IAXB) return false;
+                const progress = getPageProgressFromStorage_IAXB(PAGE_KEY_IAXB);
+                const userAnswers = progress.user_quiz_answers || {};
+                const submitButton = quizForm_IAXB.querySelector('button[type="submit"]');
+    
+                clearAllVisualFeedback_IAXB(false);
+    
+                if (!progress.quiz_feedback_active && Object.keys(userAnswers).length === 0) {
+                    quizForm_IAXB.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                    if (submitButton) {
+                        submitButton.textContent = 'Enviar Respuestas';
+                        submitButton.disabled = false;
+                    }
+                    return false;
+                }
+    
+                let allCorrect = true;
+                let score = 0;
+    
+                for (const questionName in quizDataInterpolAxB) {
+                    const userAnswer = userAnswers[questionName];
+                    const questionData = quizDataInterpolAxB[questionName];
+                    const correctAnswer = questionData.correctAnswer;
+                    const specificFeedbackDiv = document.getElementById(`${questionName}-specific-feedback`);
+    
+                    const radioInputs = quizForm_IAXB.querySelectorAll(`input[name="${questionName}"]`);
+                    radioInputs.forEach(input => {
+                        const wrapper = input.closest('.quiz-option-wrapper');
+                        const iconPlaceholder = wrapper.querySelector('.feedback-icon-placeholder span');
+                        input.disabled = true; // Disable after submission
+                        wrapper.classList.remove('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+    
+                        if (input.value === userAnswer) {
+                            input.checked = true;
+                            if (userAnswer === correctAnswer) {
+                                wrapper.classList.add('correct-answer-iax', 'border-green-500', 'ring-1', 'ring-green-500', 'bg-green-50');
+                                if (iconPlaceholder) iconPlaceholder.textContent = ICON_CORRECT_ANSWER_IAXB;
+                                score++;
+                            } else {
+                                wrapper.classList.add('incorrect-answer-iax', 'border-red-500', 'ring-1', 'ring-red-500', 'bg-red-50');
+                                if (iconPlaceholder) iconPlaceholder.textContent = ICON_INCORRECT_ANSWER_IAXB;
+                                allCorrect = false;
+                                if (specificFeedbackDiv && questionData.feedback && questionData.feedback[userAnswer]) {
+                                    specificFeedbackDiv.textContent = "Incorrecto. " + questionData.feedback[userAnswer];
+                                    specificFeedbackDiv.style.display = 'block';
+                                } else if (specificFeedbackDiv) {
+                                    specificFeedbackDiv.textContent = "Incorrecto. Respuesta incorrecta.";
+                                    specificFeedbackDiv.style.display = 'block';
+                                }
+                            }
+                        } else if (input.value === correctAnswer) { // Highlight correct answer if user was wrong
+                             wrapper.classList.add('correct-answer-iax', 'border-green-500', 'bg-green-50');
+                             if (userAnswer !== correctAnswer && iconPlaceholder) iconPlaceholder.textContent = ICON_THUMB_UP_IAXB; // Suggest correct one
+                        } else {
+                             wrapper.classList.add('border-gray-300'); // Default for unselected, non-correct options
+                        }
+                    });
+                }
+    
+                progress.quiz_current_score = score;
+                progress.quiz_passed = allCorrect;
+                savePageProgressToStorage_IAXB(PAGE_KEY_IAXB, progress);
+                
+                generalQuizFeedbackDiv_IAXB.style.display = 'block';
+                if (allCorrect) {
+                    generalQuizFeedbackDiv_IAXB.className = 'mt-4 p-3 rounded-md text-sm bg-green-100 text-green-700 border border-green-200';
+                    generalQuizFeedbackDiv_IAXB.innerHTML = `<strong>¡Felicidades!</strong> Todas tus respuestas son correctas. (${score}/${Object.keys(quizDataInterpolAxB).length})`;
+                    if (submitButton) {
+                        submitButton.textContent = 'Cuestionario Aprobado';
+                        submitButton.disabled = true;
+                    }
+                } else {
+                    generalQuizFeedbackDiv_IAXB.className = 'mt-4 p-3 rounded-md text-sm bg-red-100 text-red-700 border border-red-200';
+                    generalQuizFeedbackDiv_IAXB.innerHTML = `Has respondido correctamente ${score} de ${Object.keys(quizDataInterpolAxB).length} preguntas. Revisa los comentarios e intenta de nuevo.`;
+                    if (submitButton) {
+                        submitButton.textContent = 'Intentar de Nuevo';
+                        submitButton.disabled = false; // Allow retry
+                    }
+                }
+                if (window.MathJax && window.MathJax.typesetPromise && quizForm_IAXB) {
+                    window.MathJax.typesetPromise([quizForm_IAXB]);
+                }
+                return allCorrect;
+            }
+    
+            async function initializePyodide_IAXB() {
+                if (!window.pyodideInstance_IAXB_Global) { // Use a unique global instance name
+                    if (codeOutput_IAXB) codeOutput_IAXB.innerHTML = "<p>Cargando Pyodide y entorno...</p>";
+                    try {
+                        window.pyodideInstance_IAXB_Global = await window.loadPyodide();
+                        await window.pyodideInstance_IAXB_Global.loadPackage("numpy");
+                        
+                        window.pyodide_iax_globals = window.pyodideInstance_IAXB_Global.globals; // Set unique global
+                        
+                        window.pyodide_iax_globals.set("pyodide_iax_html_output", "");
+                        window.pyodide_iax_globals.set("pyodide_iax_chart_data_package", window.pyodideInstance_IAXB_Global.toPy({}));
+    
+                        if (codeOutput_IAXB) codeOutput_IAXB.innerHTML = "<p>Pyodide listo. Presiona 'Ejecutar Código'.</p>";
+                    } catch (error) {
+                        console.error("Error al cargar Pyodide para Interpolación Ax=b:", error);
+                        if (codeOutput_IAXB) codeOutput_IAXB.innerHTML = "<p>Error al cargar Pyodide. Revisa la consola.</p>";
+                        return null;
+                    }
+                }
+                if (!window.pyodide_iax_globals && window.pyodideInstance_IAXB_Global) {
+                     window.pyodide_iax_globals = window.pyodideInstance_IAXB_Global.globals;
+                }
+                return window.pyodideInstance_IAXB_Global;
+            }
+    
+            async function runCodeNow_IAXB() {
+                pyodide_IAXB = await initializePyodide_IAXB();
+                if (!pyodide_IAXB || !window.pyodide_iax_globals) {
+                    if (codeOutput_IAXB) codeOutput_IAXB.innerHTML = "<p>Pyodide no está listo. Intenta recargar.</p>";
+                    return;
+                }
+                if (!codeInput_IAXB || !codeOutput_IAXB) return;
+    
+                const pythonCode = codeInput_IAXB.value;
+                if (codeOutput_IAXB) codeOutput_IAXB.innerHTML = "<p>Ejecutando código...</p>";
+                iax_d3_opDesc.html("Generando datos para la visualización...");
+                iax_d3_svg.selectAll("*").remove();
+    
+                try {
+                    window.pyodide_iax_globals.set("pyodide_iax_html_output", "");
+                    let chartPkgProxy = window.pyodide_iax_globals.get("pyodide_iax_chart_data_package");
+                    if (chartPkgProxy && typeof chartPkgProxy.clear === 'function') chartPkgProxy.clear();
+                    else window.pyodide_iax_globals.set("pyodide_iax_chart_data_package", pyodide_IAXB.toPy({}));
+                    
+                    await pyodide_IAXB.loadPackagesFromImports(pythonCode);
+                    await pyodide_IAXB.runPythonAsync(pythonCode);
+    
+                    const htmlResult = window.pyodide_iax_globals.get("pyodide_iax_html_output");
+                    if (codeOutput_IAXB) {
+                        codeOutput_IAXB.innerHTML = htmlResult || "<p>Ejecución completada. No se generó salida HTML de texto.</p>";
+                    }
+                    updateTaskStatusInStorage_IAXB(TASKS_IAXB.RUN_CODE, true);
+    
+                    const d3DataPackage = window.pyodide_iax_globals.get("pyodide_iax_chart_data_package").toJs({ dict_converter: Object.fromEntries });
+                    initializeIAXBVisualization(d3DataPackage);
+    
+                } catch (error) {
+                    console.error("Error al ejecutar el código Python (Interpolación Ax=b):", error);
+                    if (codeOutput_IAXB) {
+                         codeOutput_IAXB.innerHTML = `<p style="color:red;">Error en la ejecución: ${error.toString().replace(/</g, "<").replace(/>/g, ">")}</p><pre>${error.stack ? error.stack.replace(/</g, "<").replace(/>/g, ">") : ''}</pre>`;
+                    }
+                    iax_d3_opDesc.html("Error al generar datos para la visualización.");
+                }
+            }
+            
+            // --- D3.js Interpolation Ax=b Visualization Logic ---
+            let iax_d3_currentStepIndex = 0;
+            let iax_d3_visualizationData = [];
+            let iax_d3_isPlaying = false;
+            let iax_d3_animationSpeed = 1000;
+            let iax_d3_playInterval = null;
+    
+            const iax_d3_svg = d3.select("#iax-d3-svg-container");
+            const iax_d3_opDesc = d3.select("#iax-d3-operation-description");
+            const iax_d3_prevButton = d3.select("#iax-d3-prev");
+            const iax_d3_nextButton = d3.select("#iax-d3-next");
+            const iax_d3_playButton = d3.select("#iax-d3-play");
+            const iax_d3_slider = d3.select("#iax-d3-slider");
+            const iax_d3_speedSlider = d3.select("#iax-d3-speed");
+            const iax_d3_speedValueText = d3.select("#iax-d3-speed-value");
+            
+            const iax_d3_cellSize = { width: 60, height: 30 }; // For matrix display
+            const iax_d3_padding = 4;
+            const iax_d3_numberFormat = d3.format(".3~f");
+    
+            const ICON_IAXB_PREVIOUS = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M15.225 15.077a.75.75 0 01-1.06 0L8.94 9.852a.75.75 0 010-1.06l5.224-5.224a.75.75 0 011.06 1.06L10.532 9.322l4.693 4.695a.75.75 0 010 1.06z"/></svg>';
+            const ICON_IAXB_NEXT = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M4.775 4.923a.75.75 0 011.06 0l5.224 5.224a.75.75 0 010 1.06l-5.224 5.224a.75.75 0 01-1.06-1.06L9.468 10.678 4.775 5.983a.75.75 0 010-1.06z"/></svg>';
+            const ICON_IAXB_PLAY = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"/></svg>';
+            const ICON_IAXB_PAUSE = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M5.75 4.5a.75.75 0 00-.75.75v10.5a.75.75 0 001.5 0V5.25a.75.75 0 00-.75-.75zm8.5 0a.75.75 0 00-.75.75v10.5a.75.75 0 001.5 0V5.25a.75.75 0 00-.75-.75z"/></svg>';
+    
+            function initializeIAXBVisualization(data) {
+                iax_d3_svg.selectAll("*").remove();
+                if (!data || !data.visualization_steps || data.visualization_steps.length === 0) {
+                    iax_d3_opDesc.html("No hay datos de visualización. Ejecute el código.");
+                    iax_d3_prevButton.property("disabled", true).html(ICON_IAXB_PREVIOUS).attr("aria-label", "Anterior");
+                    iax_d3_nextButton.property("disabled", true).html(ICON_IAXB_NEXT).attr("aria-label", "Siguiente");
+                    iax_d3_slider.property("disabled", true).attr("max",0).property("value",0);
+                    iax_d3_playButton.property("disabled", true).html(ICON_IAXB_PLAY).attr("aria-label", "Play");
+                    return;
+                }
+                iax_d3_visualizationData = data.visualization_steps;
+                iax_d3_currentStepIndex = 0;
+                iax_d3_isPlaying = false;
+                if (iax_d3_playInterval) clearInterval(iax_d3_playInterval);
+                
+                iax_d3_prevButton.html(ICON_IAXB_PREVIOUS).attr("aria-label", "Anterior").property("disabled", false);
+                iax_d3_nextButton.html(ICON_IAXB_NEXT).attr("aria-label", "Siguiente").property("disabled", false);
+                iax_d3_playButton.html(ICON_IAXB_PLAY).attr("aria-label", "Play").property("disabled", false);
+                iax_d3_slider.attr("max", iax_d3_visualizationData.length - 1).property("value", 0).property("disabled", false);
+    
+                renderIAXBStep(iax_d3_currentStepIndex);
+                updateIAXBControls();
+            }
+    
+            function formatNumberForD3Display(num) {
+                if (Math.abs(num) < 1e-9) return "0";
+                const rounded = parseFloat(num.toFixed(3)); // Use 3 for D3 display
+                if (Math.abs(rounded - Math.round(rounded)) < 1e-9) return String(Math.round(rounded));
+                let formatted = iax_d3_numberFormat(rounded);
+                if (formatted === "-0" || formatted === "-0.0" || formatted === "-0.00" || formatted === "-0.000") return "0";
+                return formatted;
+            }
+    
+            function renderIAXBStep(stepIndex) {
+                if (stepIndex < 0 || stepIndex >= iax_d3_visualizationData.length) return;
+                const stepData = iax_d3_visualizationData[stepIndex];
+                iax_d3_opDesc.html(stepData.description || `Paso ${stepIndex + 1}`);
+                iax_d3_slider.property("value", stepIndex);
+                iax_d3_svg.selectAll("*").remove();
+    
+                const svgNode = iax_d3_svg.node();
+                const parentDiv = svgNode.closest('.flex.justify-center.overflow-x-auto'); // Get parent for width
+                const availableWidth = parentDiv ? parentDiv.clientWidth : 600; // Fallback width
+    
+                const margin = {top: 40, right: 30, bottom: 50, left: 60}; // Increased left margin for y-axis labels
+                const svgWidth = Math.max(300, availableWidth); // Use available width
+                const svgHeight = 400; // Keep height fixed or make it responsive too
+                
+                iax_d3_svg.attr("width", svgWidth).attr("height", svgHeight); // Set SVG dimensions
+    
+                if (stepData.type === "initial_points" || stepData.type === "final_polynomial") {
+                    const points = stepData.points;
+                    if (!points || !points.x || !points.y || points.x.length === 0) {
+                        iax_d3_svg.append("text").attr("x", svgWidth/2).attr("y", svgHeight/2).attr("text-anchor", "middle").text("No hay puntos para mostrar.");
+                        return;
+                    }
+                    const xValues = points.x;
+                    const yValues = points.y;
+    
+                    const plotWidth = svgWidth - margin.left - margin.right;
+                    const plotHeight = svgHeight - margin.top - margin.bottom;
+                    
+                    if (plotWidth <=0 || plotHeight <=0) { // Check for valid plot dimensions
+                        iax_d3_svg.append("text").attr("x", svgWidth/2).attr("y", svgHeight/2).attr("text-anchor", "middle").text("Espacio insuficiente para graficar.");
+                        return;
+                    }
+    
+                    const g = iax_d3_svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+    
+                    let xDomain = d3.extent(xValues, d => d);
+                    let yDomain = d3.extent(yValues, d => d);
+    
+                    // Add padding to domain if min and max are the same (single point)
+                    if (xDomain[0] === xDomain[1]) xDomain = [xDomain[0] - 1, xDomain[0] + 1];
+                    if (yDomain[0] === yDomain[1]) yDomain = [yDomain[0] - 1, yDomain[0] + 1];
+                    
+                    // If plotting polynomial, expand domain to show curve smoothly
+                    if (stepData.type === "final_polynomial" && stepData.coeffs_a0_an) {
+                        const xRange = xDomain[1] - xDomain[0];
+                        xDomain[0] -= xRange * 0.1; // Add 10% padding
+                        xDomain[1] += xRange * 0.1;
+                    }
+    
+    
+                    const xScale = d3.scaleLinear()
+                        .domain(xDomain)
+                        .range([0, plotWidth])
+                        .nice(5); // Suggest 5 ticks
+                    
+                    // For y-scale, if plotting polynomial, calculate y-range of polynomial too
+                    if (stepData.type === "final_polynomial" && stepData.coeffs_a0_an) {
+                        const coeffs_a0_an = stepData.coeffs_a0_an;
+                        const polyFunc = (x_val) => {
+                            let sum = 0;
+                            for (let i = 0; i < coeffs_a0_an.length; i++) {
+                                sum += coeffs_a0_an[i] * Math.pow(x_val, i);
+                            }
+                            return sum;
+                        };
+                        const polyYValues = d3.range(xScale.domain()[0], xScale.domain()[1] + 0.01, (xScale.domain()[1] - xScale.domain()[0])/100.0)
+                                              .map(x_val => polyFunc(x_val));
+                        const combinedYDomain = d3.extent(yValues.concat(polyYValues));
+                        if (combinedYDomain[0] === combinedYDomain[1]) yDomain = [combinedYDomain[0] -1, combinedYDomain[0] + 1];
+                        else yDomain = combinedYDomain;
+    
+                        const yRange = yDomain[1] - yDomain[0];
+                         if (yRange > 0) { // Only add padding if there's a range
+                            yDomain[0] -= yRange * 0.1;
+                            yDomain[1] += yRange * 0.1;
+                        } else { // If still a single y-value (e.g. P(x) = constant)
+                            yDomain = [yDomain[0] - 1, yDomain[0] + 1];
+                        }
+                    }
+    
+    
+                    const yScale = d3.scaleLinear()
+                        .domain(yDomain)
+                        .range([plotHeight, 0])
+                        .nice(5); // Suggest 5 ticks
+    
+                    g.append("g").attr("class", "axis axis--x")
+                        .attr("transform", `translate(0,${plotHeight})`)
+                        .call(d3.axisBottom(xScale).ticks(Math.max(2, Math.round(plotWidth / 80)))); // Adjust tick count
+                    g.append("g").attr("class", "axis axis--y")
+                        .call(d3.axisLeft(yScale).ticks(Math.max(2, Math.round(plotHeight / 50)))); // Adjust tick count
+                    
+                    g.append("text") // X-axis label
+                        .attr("x", plotWidth / 2)
+                        .attr("y", plotHeight + margin.bottom * 0.8) // Adjusted position
+                        .style("text-anchor", "middle").text("x");
+                    g.append("text") // Y-axis label
+                        .attr("transform", "rotate(-90)")
+                        .attr("y", 0 - margin.left * 0.8) // Adjusted position
+                        .attr("x", 0 - (plotHeight / 2))
+                        .style("text-anchor", "middle").text("y");
+    
+                    const dataPoints = xValues.map((xv, i) => ({x: xv, y: yValues[i]}));
+                    g.selectAll(".point-marker")
+                        .data(dataPoints)
+                        .enter().append("circle")
+                        .attr("class", "point-marker")
+                        .attr("cx", d => xScale(d.x))
+                        .attr("cy", d => yScale(d.y))
+                        .attr("r", 5);
+    
+                    if (stepData.type === "final_polynomial" && stepData.coeffs_a0_an) {
+                        const coeffs_a0_an = stepData.coeffs_a0_an;
+                        const polyFunc = (x_val) => {
+                            let sum = 0;
+                            for (let i = 0; i < coeffs_a0_an.length; i++) {
+                                sum += coeffs_a0_an[i] * Math.pow(x_val, i);
+                            }
+                            return sum;
+                        };
+                        const lineData = d3.range(xScale.domain()[0], xScale.domain()[1] + 0.01, (xScale.domain()[1]-xScale.domain()[0])/200.0).map(x_val => ({ // More points for smoother line
+                            x: x_val,
+                            y: polyFunc(x_val)
+                        }));
+                        
+                        const line = d3.line()
+                            .x(d => xScale(d.x))
+                            .y(d => yScale(d.y))
+                            .defined(d => yScale(d.y) >= 0 && yScale(d.y) <= plotHeight); // Clip line to plot area
+                        
+                        g.append("path")
+                            .datum(lineData)
+                            .attr("class", "polynomial-line")
+                            .attr("d", line);
+                    }
+    
+    
+                } else if (stepData.type === "show_matrix_V" || stepData.type === "show_vector_y" || stepData.type === "show_coeffs_a") {
+                    let matrixData, matrixTitle;
+                    if (stepData.type === "show_matrix_V") { matrixData = stepData.matrix_V; matrixTitle = "Matriz V"; }
+                    if (stepData.type === "show_vector_y") { matrixData = stepData.vector_y.map(v => [v]); matrixTitle = "Vector y"; }
+                    if (stepData.type === "show_coeffs_a") { matrixData = stepData.coeffs_a.map(v => [v]); matrixTitle = "Coeficientes a"; }
+                    
+                    if (!matrixData || matrixData.length === 0 || matrixData[0].length === 0) {
+                         iax_d3_svg.append("text").attr("x", svgWidth/2).attr("y", svgHeight/2).attr("text-anchor", "middle").text("Matriz vacía.");
+                         return;
+                    }
+                    const numRows = matrixData.length;
+                    const numCols = matrixData[0] ? matrixData[0].length : 0;
+    
+                    const currentCellSize = {
+                        width: Math.min(iax_d3_cellSize.width, (svgWidth - 20 - (numCols -1)*iax_d3_padding) / numCols),
+                        height: Math.min(iax_d3_cellSize.height, (svgHeight - 55 - (numRows-1)*iax_d3_padding) / numRows) // 55 for top/bottom margins and title
+                    };
+                     currentCellSize.width = Math.max(20, currentCellSize.width); // Minimum cell width
+                     currentCellSize.height = Math.max(15, currentCellSize.height); // Minimum cell height
+    
+    
+                    const matrixDisplayWidth = numCols * (currentCellSize.width + iax_d3_padding) - iax_d3_padding;
+                    const matrixDisplayHeight = numRows * (currentCellSize.height + iax_d3_padding) - iax_d3_padding;
+                    
+                    const offsetX = (svgWidth - matrixDisplayWidth) / 2; // Center matrix
+                    const offsetY = (svgHeight - matrixDisplayHeight - 30) / 2 + 30; // Center vertically, account for title
+    
+                    const gMatrix = iax_d3_svg.append("g")
+                        .attr("class", "matrix-display-area")
+                        .attr("transform", `translate(${offsetX}, ${offsetY})`);
+    
+                    gMatrix.append("text")
+                        .attr("class", "matrix-title")
+                        .attr("x", matrixDisplayWidth / 2)
+                        .attr("y", -15) 
+                        .text(matrixTitle);
+    
+                    matrixData.forEach((row, rIndex) => {
+                        row.forEach((cell, cIndex) => {
+                            const cellGroup = gMatrix.append("g")
+                                .attr("transform", `translate(${cIndex * (currentCellSize.width + iax_d3_padding)}, ${rIndex * (currentCellSize.height + iax_d3_padding)})`);
+                            
+                            cellGroup.append("rect")
+                                .attr("width", currentCellSize.width)
+                                .attr("height", currentCellSize.height);
+                            cellGroup.append("text")
+                                .attr("x", currentCellSize.width / 2)
+                                .attr("y", currentCellSize.height / 2)
+                                .text(formatNumberForD3Display(cell));
+                        });
+                    });
+                } else if (stepData.type === "error") {
+                     iax_d3_svg.attr("width", Math.min(svgWidth, 400)).attr("height", 50); // Smaller for error message
+                     iax_d3_svg.append("text")
+                        .attr("x", iax_d3_svg.attr("width") / 2).attr("y", 25)
+                        .attr("text-anchor", "middle").attr("fill", "red")
+                        .text(stepData.description || "Error en el proceso.");
+                }
+                updateIAXBControls();
+            }
+            
+            function updateIAXBControls() {
+                iax_d3_prevButton.property("disabled", iax_d3_currentStepIndex <= 0);
+                iax_d3_nextButton.property("disabled", iax_d3_currentStepIndex >= iax_d3_visualizationData.length - 1);
+                iax_d3_slider.property("value", iax_d3_currentStepIndex);
+                iax_d3_playButton.property("disabled", iax_d3_visualizationData.length === 0);
+            }
+    
+            function stopIAXBPlayback() {
+                iax_d3_isPlaying = false;
+                clearInterval(iax_d3_playInterval);
+                iax_d3_playButton.html(ICON_IAXB_PLAY).attr("aria-label", "Play");
+            }
+    
+            iax_d3_prevButton.on("click", () => {
+                if (iax_d3_isPlaying) stopIAXBPlayback();
+                if (iax_d3_currentStepIndex > 0) {
+                    iax_d3_currentStepIndex--;
+                    renderIAXBStep(iax_d3_currentStepIndex);
+                }
+            });
+            iax_d3_nextButton.on("click", () => {
+                if (iax_d3_isPlaying) stopIAXBPlayback();
+                if (iax_d3_currentStepIndex < iax_d3_visualizationData.length - 1) {
+                    iax_d3_currentStepIndex++;
+                    renderIAXBStep(iax_d3_currentStepIndex);
+                }
+            });
+            iax_d3_playButton.on("click", () => {
+                if (iax_d3_visualizationData.length === 0) return;
+                iax_d3_isPlaying = !iax_d3_isPlaying;
+                if (iax_d3_isPlaying) {
+                    iax_d3_playButton.html(ICON_IAXB_PAUSE).attr("aria-label", "Pause");
+                    if (iax_d3_currentStepIndex >= iax_d3_visualizationData.length - 1) {
+                        iax_d3_currentStepIndex = -1; 
+                    }
+                    iax_d3_playInterval = setInterval(() => {
+                        if (iax_d3_currentStepIndex < iax_d3_visualizationData.length - 1) {
+                            iax_d3_currentStepIndex++;
+                            renderIAXBStep(iax_d3_currentStepIndex);
+                        } else {
+                            stopIAXBPlayback();
+                        }
+                    }, iax_d3_animationSpeed + 150);
+                } else {
+                    stopIAXBPlayback();
+                }
+            });
+            iax_d3_slider.on("input", function() {
+                if (iax_d3_isPlaying) stopIAXBPlayback();
+                iax_d3_currentStepIndex = +this.value;
+                renderIAXBStep(iax_d3_currentStepIndex);
+            });
+            iax_d3_speedSlider.on("input", function() {
+                iax_d3_animationSpeed = +this.value;
+                iax_d3_speedValueText.text(`${iax_d3_animationSpeed}ms`);
+                if (iax_d3_isPlaying) { // Restart playback with new speed
+                    stopIAXBPlayback();
+                    iax_d3_playButton.dispatch("click");
+                }
+            });
+            iax_d3_speedValueText.text(`${iax_d3_speedSlider.property("value")}ms`);
+    
+            // --- Event Listeners and Initialization ---
+            if (runCodeButton_IAXB) runCodeButton_IAXB.addEventListener('click', runCodeNow_IAXB);
+            
+            if (quizForm_IAXB) {
+                quizForm_IAXB.addEventListener('submit', function(event) {
+                    event.preventDefault();
+                    const currentLocalProgress = getPageProgressFromStorage_IAXB(PAGE_KEY_IAXB);
+                    const submitButton = quizForm_IAXB.querySelector('button[type="submit"]');
+    
+                    if (currentLocalProgress[TASKS_IAXB.QUIZ_PASSED] && submitButton.textContent !== 'Intentar de Nuevo') return;
+    
+                    if (submitButton && submitButton.textContent === 'Intentar de Nuevo') {
+                        quizForm_IAXB.reset();
+                        clearAllVisualFeedback_IAXB(true);
+                        if(generalQuizFeedbackDiv_IAXB) generalQuizFeedbackDiv_IAXB.style.display = 'none';
+    
+                        let progressToSave = getPageProgressFromStorage_IAXB(PAGE_KEY_IAXB);
+                        progressToSave.user_quiz_answers = {};
+                        progressToSave.quiz_current_score = 0;
+                        progressToSave.quiz_feedback_active = false;
+                        savePageProgressToStorage_IAXB(PAGE_KEY_IAXB, progressToSave);
+                        updateTaskStatusInStorage_IAXB(TASKS_IAXB.QUIZ_PASSED, false); // Crucial: reset passed status
+    
+                        quizForm_IAXB.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                         quizForm_IAXB.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => { // Re-add has-[:checked] styles
+                             wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                        });
+                        submitButton.textContent = 'Enviar Respuestas';
+                        return;
+                    }
+                    
+                    const formData = new FormData(quizForm_IAXB);
+                    let allAnswered = true;
+                    for (const qName of Object.keys(quizDataInterpolAxB)) { if (!formData.has(qName)) { allAnswered = false; break; } }
+    
+                    if (!allAnswered) {
+                        if (generalQuizFeedbackDiv_IAXB) {
+                            generalQuizFeedbackDiv_IAXB.textContent = "Por favor, responde todas las preguntas.";
+                            generalQuizFeedbackDiv_IAXB.className = 'mt-4 p-3 rounded-md text-sm bg-yellow-100 text-yellow-700 border border-yellow-200';
+                            generalQuizFeedbackDiv_IAXB.style.display = 'block';
+                        } return;
+                    }
+    
+                    updateTaskStatusInStorage_IAXB(TASKS_IAXB.QUIZ_ATTEMPTED, true);
+                    
+                    let progress = getPageProgressFromStorage_IAXB(PAGE_KEY_IAXB);
+                    progress.user_quiz_answers = {};
+                    for (const qName of Object.keys(quizDataInterpolAxB)) { progress.user_quiz_answers[qName] = formData.get(qName); }
+                    progress.quiz_feedback_active = true;
+                    savePageProgressToStorage_IAXB(PAGE_KEY_IAXB, progress);
+    
+                    const quizWasPassed = displayQuizFeedback_IAXB(); // This updates UI and score
+                    updateTaskStatusInStorage_IAXB(TASKS_IAXB.QUIZ_PASSED, quizWasPassed); // Update based on score
+                    calculateAndUpdateOverallProgress_IAXB(); // Recalculate overall
+                });
+            }
+    
+            if (mainCompletionButton_IAXB) {
+                 mainCompletionButton_IAXB.addEventListener('click', () => {
+                    const progress = getPageProgressFromStorage_IAXB(PAGE_KEY_IAXB);
+                    let allCurrentlyCompleted = ALL_TASK_KEYS_IAXB.every(taskKey => progress[taskKey]);
+                    let markAllAs = !allCurrentlyCompleted;
+    
+                    ALL_TASK_KEYS_IAXB.forEach(taskName => updateTaskStatusInStorage_IAXB(taskName, markAllAs));
+                    
+                    let updatedProgress = getPageProgressFromStorage_IAXB(PAGE_KEY_IAXB); // Get fresh after updates
+                    if (!markAllAs) { // If un-completing all
+                        updatedProgress.user_quiz_answers = {};
+                        updatedProgress.quiz_current_score = 0;
+                        updatedProgress.quiz_feedback_active = false;
+                        if (quizForm_IAXB) {
+                            quizForm_IAXB.reset();
+                            quizForm_IAXB.querySelectorAll('input[type="radio"]').forEach(r => r.disabled = false);
+                            const sb = quizForm_IAXB.querySelector('button[type="submit"]');
+                            if(sb) sb.textContent = 'Enviar Respuestas';
+                             quizForm_IAXB.querySelectorAll('.quiz-option-wrapper').forEach(w => w.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red'));
+                        }
+                        clearAllVisualFeedback_IAXB(true); // Clear all quiz visuals
+                    } else { // If completing all
+                         updatedProgress[TASKS_IAXB.QUIZ_ATTEMPTED] = true; // Ensure attempted is true
+                         updatedProgress[TASKS_IAXB.QUIZ_PASSED] = true;    // Ensure passed is true
+                        // If no answers, auto-fill with correct ones for "Mark all complete"
+                        if (Object.keys(updatedProgress.user_quiz_answers).length === 0) {
+                            for (const qName in quizDataInterpolAxB) updatedProgress.user_quiz_answers[qName] = quizDataInterpolAxB[qName].correctAnswer;
+                            updatedProgress.quiz_current_score = Object.keys(quizDataInterpolAxB).length;
+                        }
+                        updatedProgress.quiz_feedback_active = true; // Show feedback if completing
+                    }
+                    savePageProgressToStorage_IAXB(PAGE_KEY_IAXB, updatedProgress);
+    
+                    if (quizForm_IAXB) displayQuizFeedback_IAXB(); // Refresh quiz display
+                    calculateAndUpdateOverallProgress_IAXB(); // Refresh progress bar
+                    
+                    if (generalQuizFeedbackDiv_IAXB && !markAllAs) generalQuizFeedbackDiv_IAXB.style.display = 'none';
+                    alert(markAllAs ? 'Todas las tareas marcadas como completadas.' : 'Se ha deshecho el completado.');
+                });
+            }
+            
+            const theorySectionObserverTargetNodeIAXB = document.getElementById('conclusion-iax') || document.getElementById('teoria-iax'); // Changed
+            if (theorySectionObserverTargetNodeIAXB) {
+                const observerOptionsIAXB = { root: null, rootMargin: '0px', threshold: 0.1 };
+                const observerCallbackIAXB = (entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) updateTaskStatusInStorage_IAXB(TASKS_IAXB.READ_THEORY, true);
+                    });
+                };
+                const theoryObserver_IAXB = new IntersectionObserver(observerCallbackIAXB, observerOptionsIAXB);
+                theoryObserver_IAXB.observe(theorySectionObserverTargetNodeIAXB);
+            }
+    
+            // Clear hash from URL
+            if (window.location.hash) history.replaceState(null, '', window.location.pathname + window.location.search);
+    
+            (async () => {
+                pyodide_IAXB = await initializePyodide_IAXB();
+                initializeIAXBVisualization(null); // Initialize D3 with no data
+            })();
+            
+            // Load quiz state on page load
+            const initialProgress_IAXB = getPageProgressFromStorage_IAXB(PAGE_KEY_IAXB);
+            if (initialProgress_IAXB.quiz_feedback_active || (initialProgress_IAXB[TASKS_IAXB.QUIZ_ATTEMPTED] && Object.keys(initialProgress_IAXB.user_quiz_answers).length > 0) ) {
+                if (quizForm_IAXB && initialProgress_IAXB.user_quiz_answers) {
+                     for (const qName in initialProgress_IAXB.user_quiz_answers) {
+                        const userAnswer = initialProgress_IAXB.user_quiz_answers[qName];
+                        // Escape special characters for querySelector. Basic escaping for " and '
+                        const escapedUserAnswer = userAnswer.replace(/([\\()\[\]"'])/g, '\\$1');
+                        try {
+                            const radioToSelect = quizForm_IAXB.querySelector(`input[name="${qName}"][value="${escapedUserAnswer}"]`);
+                            if (radioToSelect) radioToSelect.checked = true;
+                        } catch (e) { console.warn(`Error seleccionando radio IAXB para ${qName}`, e); }
+                    }
+                }
+                displayQuizFeedback_IAXB(); // Display feedback based on stored answers
+            } else if (quizForm_IAXB) { // If no feedback active, ensure form is usable
+                const submitButton = quizForm_IAXB.querySelector('button[type="submit"]');
+                if (submitButton) { submitButton.textContent = 'Enviar Respuestas'; submitButton.disabled = false; }
+                quizForm_IAXB.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                 quizForm_IAXB.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red'));
+                if (window.MathJax && window.MathJax.typesetPromise) window.MathJax.typesetPromise([quizForm_IAXB]);
+            }
+            calculateAndUpdateOverallProgress_IAXB(); // Initial progress update
+    
+            // Fullscreen and font size controls for text output
+            if (fullscreenButton_IAXB && codeOutput_IAXB && outputControlsContainer_IAXB) {
+                 fullscreenButton_IAXB.addEventListener('click', () => {
+                    const isFullscreen = codeOutput_IAXB.classList.contains('iax-output-fullscreen');
+                    if (isFullscreen) { // Exit fullscreen
+                        outputControlsContainer_IAXB.style.opacity = '0'; // Hide controls first
+                        if(increaseFontButton_IAXB) increaseFontButton_IAXB.style.display = 'none';
+                        if(decreaseFontButton_IAXB) decreaseFontButton_IAXB.style.display = 'none';
+                        
+                        // Animate back to original position (FLIP technique)
+                        if (iaxCodeOutputInitialRect) { // Stored original position
+                            const finalRect = codeOutput_IAXB.getBoundingClientRect(); // Current fullscreen position
+                            // Calculate deltas to move from final to initial
+                            const scaleX = iaxCodeOutputInitialRect.width / finalRect.width;
+                            const scaleY = iaxCodeOutputInitialRect.height / finalRect.height;
+                            const deltaX = (iaxCodeOutputInitialRect.left + iaxCodeOutputInitialRect.width / 2) - (finalRect.left + finalRect.width / 2);
+                            const deltaY = (iaxCodeOutputInitialRect.top + iaxCodeOutputInitialRect.height / 2) - (finalRect.top + finalRect.height / 2);
+                            codeOutput_IAXB.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+                         }
+                        // After animation:
+                        setTimeout(() => {
+                            codeOutput_IAXB.style.transition = 'none'; // Disable transition for snap back
+                            codeOutput_IAXB.classList.remove('iax-output-fullscreen');
+                            document.body.classList.remove('iax-body-fullscreen-active');
+                            outputControlsContainer_IAXB.classList.remove('iax-output-controls-container-fixed');
+                            
+                            // Restore controls visibility and position
+                            outputControlsContainer_IAXB.style.transition = 'none'; outputControlsContainer_IAXB.style.opacity = '1';
+                            outputControlsContainer_IAXB.offsetHeight; outputControlsContainer_IAXB.style.transition = '';
+                            
+                            codeOutput_IAXB.style.transform = ''; // Clear transform
+                            if (originalOutputFontSize_IAXB) codeOutput_IAXB.style.fontSize = originalOutputFontSize_IAXB;
+                            codeOutput_IAXB.offsetHeight; codeOutput_IAXB.style.transition = ''; // Re-enable original transitions
+    
+                            fullscreenButton_IAXB.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15" /></svg>`;
+                            fullscreenButton_IAXB.title = "Ver en pantalla completa"; iaxCodeOutputInitialRect = null;
+                        }, 500); // Duration of animation
+                    } else { // Enter fullscreen
+                        originalOutputFontSize_IAXB = window.getComputedStyle(codeOutput_IAXB).fontSize;
+                        iaxCodeOutputInitialRect = codeOutput_IAXB.getBoundingClientRect(); // Store original state
+                        
+                        // Hide controls temporarily for smooth transition of the output box
+                        outputControlsContainer_IAXB.style.transition = 'none'; outputControlsContainer_IAXB.style.opacity = '0';
+                        outputControlsContainer_IAXB.offsetHeight; outputControlsContainer_IAXB.style.transition = '';
+    
+    
+                        codeOutput_IAXB.style.transition = 'none'; // Disable transition for immediate class change
+                        codeOutput_IAXB.classList.add('iax-output-fullscreen');
+                        document.body.classList.add('iax-body-fullscreen-active');
+                        outputControlsContainer_IAXB.classList.add('iax-output-controls-container-fixed'); // Fix controls to viewport
+                        
+                        // FLIP: First (calculate initial state for transform)
+                        const finalRect = codeOutput_IAXB.getBoundingClientRect(); // Get new fullscreen position
+                        const scaleX = iaxCodeOutputInitialRect.width / finalRect.width;
+                        const scaleY = iaxCodeOutputInitialRect.height / finalRect.height;
+                        const deltaX = (iaxCodeOutputInitialRect.left + iaxCodeOutputInitialRect.width / 2) - (finalRect.left + finalRect.width / 2);
+                        const deltaY = (iaxCodeOutputInitialRect.top + iaxCodeOutputInitialRect.height / 2) - (finalRect.top + finalRect.height / 2);
+                        
+                        // Apply inverse transform to make it "appear" at original spot
+                        codeOutput_IAXB.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+                        
+                        // Force reflow
+                        codeOutput_IAXB.offsetHeight;
+                        
+                        // Last (animate to fullscreen state - i.e., no transform)
+                        codeOutput_IAXB.style.transition = ''; // Re-enable original transitions
+                        codeOutput_IAXB.style.transform = 'translate(0px, 0px) scale(1)';
+    
+                        fullscreenButton_IAXB.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9V4.5M15 9h4.5M15 9l5.25-5.25M15 15v4.5M15 15h4.5M15 15l5.25 5.25" /></svg>`;
+                        fullscreenButton_IAXB.title = "Salir de pantalla completa";
+                        
+                        // After animation, show controls
+                        setTimeout(() => {
+                            outputControlsContainer_IAXB.style.opacity = '1';
+                            if(increaseFontButton_IAXB) increaseFontButton_IAXB.style.display = 'inline-flex';
+                            if(decreaseFontButton_IAXB) decreaseFontButton_IAXB.style.display = 'inline-flex';
+                        }, 500);
+                    }
+                });
+            }
+            if (increaseFontButton_IAXB && codeOutput_IAXB) {
+                increaseFontButton_IAXB.addEventListener('click', () => {
+                    if (codeOutput_IAXB.classList.contains('iax-output-fullscreen')) { // Only in fullscreen
+                        let currentSize = parseFloat(window.getComputedStyle(codeOutput_IAXB).fontSize);
+                        if (currentSize < MAX_FONT_SIZE_PX_IAXB) {
+                            codeOutput_IAXB.style.fontSize = (currentSize + FONT_SIZE_STEP_PX_IAXB) + 'px';
+                            increaseFontButton_IAXB.classList.add('iax-font-button-flash-blue');
+                            setTimeout(() => { increaseFontButton_IAXB.classList.remove('iax-font-button-flash-blue'); }, 400);
+                        }
+                    }
+                });
+            }
+            if (decreaseFontButton_IAXB && codeOutput_IAXB) {
+                 decreaseFontButton_IAXB.addEventListener('click', () => {
+                    if (codeOutput_IAXB.classList.contains('iax-output-fullscreen')) { // Only in fullscreen
+                        let currentSize = parseFloat(window.getComputedStyle(codeOutput_IAXB).fontSize);
+                        if (currentSize > MIN_FONT_SIZE_PX_IAXB) {
+                            codeOutput_IAXB.style.fontSize = (currentSize - FONT_SIZE_STEP_PX_IAXB) + 'px';
+                            decreaseFontButton_IAXB.classList.add('iax-font-button-flash-red');
+                            setTimeout(() => { decreaseFontButton_IAXB.classList.remove('iax-font-button-flash-red'); }, 400);
+                        }
+                    }
+                });
+            }
+            // Hide font buttons initially if not in fullscreen
+            if(increaseFontButton_IAXB) increaseFontButton_IAXB.style.display = 'none';
+            if(decreaseFontButton_IAXB) decreaseFontButton_IAXB.style.display = 'none';
+    
+            // Trigger MathJax typeset for initial content if needed after DOM is fully parsed and Vue might have updated
+            if (window.MathJax && typeof MathJax.typesetPromise === 'function') {
+                MathJax.typesetPromise().catch(err => console.error("MathJax typesetPromise failed on initial load:", err));
+            }
+        });
+        </script>
+        <!-- Vue App Initialization Script (IAXB specific) is already in the HTML provided in the previous turn -->
+        <!-- No need to repeat the Vue setup script here -->
+
+    <!-- Vue App Initialization Script (IAXB specific) -->
+    <script type="module">
+        const { createApp, ref, onMounted, onUnmounted, watch, nextTick } = Vue;
+        const LeftSidebarIAXB = { // Changed name
+            template: `{% raw %}
+                <aside :class="[
+                    'bg-gradient-to-b from-red-500 to-red-700', 'shadow-xl', 'rounded-lg', 'p-4',
+                    'flex', 'flex-col',
+                    'transition-all', 'duration-300', 'ease-in-out',
+                    'order-1',
+                    isCollapsed ? 'w-full lg:w-20' : 'w-full lg:w-64',
+                    'self-start',
+                    'lg:sticky', 'lg:top-8',
+                    'lg:max-h-[calc(100vh-4rem)]',
+                    'overflow-y-auto'
+                ]">
+                    <div class="flex justify-between items-center mb-4 border-b border-red-400 pb-3">
+                        <h3 v-show="!isCollapsed" class="text-lg font-semibold text-white select-none">Contenido</h3>
+                        <button @click="toggleCollapse" class="p-1.5 ml-2 text-white hover:bg-red-700 rounded focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-75" :aria-label="isCollapsed ? 'Expandir menú' : 'Colapsar menú'">
+                            <svg v-if="!isCollapsed" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5" /></svg>
+                            <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5m-6-15l7.5 7.5-7.5 7.5" /></svg>
+                        </button>
+                    </div>
+                    <nav v-show="!isCollapsed">
+                        <ul class="space-y-1">
+                            <li v-for="item in navItems" :key="item.id">
+                                <a :href="item.href" @click.prevent="smoothScroll(item.href)"
+                                   :class="['nav-link block px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 flex items-center', isActive(item.id) ? 'bg-white text-custom-blue font-semibold shadow-sm' : 'text-red-100 hover:bg-red-700 hover:text-white']">
+                                    <span v-html="item.iconSVG" class="mr-3 translate-y-px"></span>
+                                    <span>{{ item.text }}</span>
+                                </a></li></ul></nav>
+                    <nav v-show="isCollapsed" class="mt-4">
+                         <ul class="space-y-1">
+                            <li v-for="item in navItems" :key="item.id + '-collapsed'">
+                                <a :href="item.href" @click.prevent="smoothScroll(item.href)" :title="item.text" :aria-label="item.text"
+                                   :class="['nav-link-collapsed block py-2 pl-2.5 pr-1.5 rounded-md transition-colors duration-150 flex justify-center items-center', isActive(item.id) ? 'bg-white text-custom-blue shadow-sm' : 'text-red-100 hover:bg-red-700 hover:text-white']">
+                                    <span v-html="item.iconSVG" class="w-6 h-6 translate-y-px"></span>
+                                </a></li></ul></nav></aside>{% endraw %}`,
+            setup() {
+                const isCollapsed = ref(false);
+                const activeSectionId = ref('teoria-iax'); // Changed
+                const navItems = ref([ // Changed for Interpolation Ax=b
+                    { id: 'teoria-iax', text: 'Fundamento Teórico', href: '#teoria-iax', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>' },
+                    { id: 'algoritmo-iax', text: 'Pasos del Algoritmo', href: '#algoritmo-iax', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" /></svg>' },
+                    { id: 'ejemplo-iax', text: 'Ejemplo Detallado', href: '#ejemplo-iax', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>' },
+                    { id: 'codigo-iax', text: 'Implementación (Python)', href: '#codigo-iax', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" /></svg>' },
+                    { id: 'graficas-iax', text: 'Visualización Interactiva', href: '#graficas-iax', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-6.75 3h9M3.75 6A2.25 2.25 0 016 3.75h12A2.25 2.25 0 0120.25 6v12A2.25 2.25 0 0118 20.25H6A2.25 2.25 0 013.75 18V6z" /></svg>' }, // Changed icon
+                    { id: 'videos-iax', text: 'Videos Explicativos', href: '#videos-iax', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.75.75 0 010 1.656l-5.603 3.113A.75.75 0 019 15.95V9.05a.75.75 0 011.307-.588l5.603 3.112z" /></svg>' },
+                    { id: 'conclusion-iax', text: 'Conclusión', href: '#conclusion-iax', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' },
+                    { id: 'referencias-iax', text: 'Referencias', href: '#referencias-iax', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 3.75V16.5L12 14.25L7.5 16.5V3.75m9 0H18A2.25 2.25 0 0120.25 6v12A2.25 2.25 0 0118 20.25H6A2.25 2.25 0 013.75 18V6A2.25 2.25 0 016 3.75h1.5m9 0h-9" /></svg>' },
+                    { id: 'cuestionario-iax', text: 'Cuestionario', href: '#cuestionario-iax', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' }
+                ]);
+                let sections = [];
+                const toggleCollapse = () => isCollapsed.value = !isCollapsed.value;
+                const isActive = (id) => activeSectionId.value === id;
+                const smoothScroll = (targetHref) => {
+                    const targetId = targetHref.substring(1);
+                    const targetElement = document.getElementById(targetId);
+                    if (targetElement) {
+                        targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+                        history.pushState(null, null, targetHref); // Update URL without page reload
+                    }
+                };
+                const handleScroll = () => {
+                    if (!sections.length) return;
+                    const scrollMarginTopValue = parseInt(getComputedStyle(sections[0]).scrollMarginTop) || 96; // Standard offset for sticky header
+                    let newActiveSectionId = null;
+                    // Find current section based on scroll position
+                    for (let i = 0; i < sections.length; i++) {
+                        const section = sections[i];
+                        const sectionTopBoundary = section.offsetTop - scrollMarginTopValue;
+                        const sectionBottomBoundary = sectionTopBoundary + section.offsetHeight;
+                        if (window.scrollY >= sectionTopBoundary && window.scrollY < sectionBottomBoundary) {
+                            newActiveSectionId = section.id; break;
+                        }
+                    }
+                    // Fallback if between sections or at the very end/top
+                    if (newActiveSectionId === null) {
+                        for (let i = sections.length - 1; i >= 0; i--) { // Check from bottom up
+                            if ((sections[i].offsetTop - scrollMarginTopValue) <= window.scrollY + 5) { // Add small tolerance
+                                newActiveSectionId = sections[i].id; break;
+                            }
+                        }
+                    }
+                     if (newActiveSectionId === null && sections.length > 0 && window.scrollY < (sections[0].offsetTop - scrollMarginTopValue)) {
+                       newActiveSectionId = sections[0].id; // Default to first if scrolled above all
+                    }
+                    if (activeSectionId.value !== newActiveSectionId) activeSectionId.value = newActiveSectionId;
+                };
+                onMounted(() => {
+                    nextTick(() => { // Ensure DOM is ready
+                        sections = Array.from(document.querySelectorAll('main article section[id]'));
+                        handleScroll(); // Initial check
+                        window.addEventListener('scroll', handleScroll, { passive: true });
+                    });
+                });
+                onUnmounted(() => window.removeEventListener('scroll', handleScroll));
+                return { isCollapsed, toggleCollapse, navItems, isActive, smoothScroll, activeSectionId };
+            }
+        };
+        const appIAXB = createApp({ // Changed app name
+            setup() {
+                const METHOD_KEY_IAXB_VUE = "interpolacion-axb"; // Changed
+                const METHOD_NAME_TITLE_CASE_IAXB_VUE = "Interpolación (Ax=b)"; // Changed
+                return { METHOD_KEY_IAXB_VUE, METHOD_NAME_TITLE_CASE_IAXB_VUE };
+            }
+        });
+        appIAXB.component('left-sidebar-iax', LeftSidebarIAXB); // Changed component name
+        appIAXB.config.compilerOptions.isCustomElement = tag => tag.startsWith('mjx-'); // For MathJax
+        appIAXB.mount('#app-iax'); // Changed mount point
+    </script>
+</body>
+</html>

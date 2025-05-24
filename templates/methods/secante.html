@@ -1,0 +1,1840 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secante - Métodos Numéricos</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'custom-blue': '#242A38',
+                        'custom-red': '#E94560', // Main color for Secant page (can be adjusted)
+                        'custom-gray-bg': '#F3F4F6',
+                        'sidebar-bg': '#FFFFFF',
+                        'sidebar-text': '#4B5563',
+                        'sidebar-hover-bg': '#FEF2F2', // Adjust if Secant uses a different theme color
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Configuración de MathJax -->
+    <script>
+        window.MathJax = {
+            tex: {
+                packages: {'[+]': ['input/mml', 'output/chtml']}
+            },
+            chtml: { 
+                matchFontHeight: false
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <!-- Pyodide y Chart.js -->
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        @keyframes animatedRainbowBorder {
+            0% { background-position: 0% center; }
+            100% { background-position: 200% center; }
+        }
+        .animate-rainbow-border::before {
+            content: ''; position: absolute; z-index: -1; top: -2px; left: -2px; right: -2px; bottom: -2px;
+            border-radius: 9999px;
+            background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #007bff, #8a2be2, #ff00ff, #ff0000);
+            background-size: 200% 100%;
+            animation: animatedRainbowBorder 3s linear infinite;
+        }
+        .animate-rainbow-border { position: relative; z-index: 0; }
+
+        /* Styles for fullscreen code output - Secante */
+        .sec-output-fullscreen {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 9990 !important; 
+            background-color: #111827 !important; /* bg-gray-900 */
+            padding: 20px !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+            overflow-y: auto !important;
+            max-height: 100vh !important;
+        }
+        .sec-body-fullscreen-active {
+            overflow: hidden !important;
+        }
+        .sec-output-controls-container-fixed {
+            position: fixed !important;
+            top: 15px !important;
+            right: 15px !important;
+            z-index: 9999 !important; 
+            display: flex !important; 
+            align-items: center !important;
+            gap: 0.25rem !important; /* space-x-1 */
+        }
+
+        /* Flash animations for font buttons - Secante */
+        .sec-font-button-flash-red {
+            animation: sec-flash-red 0.4s ease-out;
+        }
+        @keyframes sec-flash-red {
+            0% { background-color: #EF4444; } /* red-500 */
+            100% { background-color: #374151; } /* gray-700, original button color */
+        }
+        .sec-font-button-flash-blue {
+            animation: sec-flash-blue 0.4s ease-out;
+        }
+        @keyframes sec-flash-blue {
+            0% { background-color: #3B82F6; } /* blue-500 */
+            100% { background-color: #374151; } /* gray-700, original button color */
+        }
+    </style>
+</head>
+<body class="bg-custom-gray-bg text-gray-700 font-sans antialiased">
+    <div id="app">
+        <header class="bg-custom-blue text-white shadow-md">
+            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                <h1 class="text-xl font-semibold"><a href="/" class="hover:text-gray-300">Métodos Numéricos</a></h1>
+                <nav><a href="../index.html#method-cards-container" class="text-sm px-4 py-2 rounded-md hover:bg-gray-700 transition-colors duration-150">Volver a Métodos</a></nav>
+            </div>
+        </header>
+
+        <div class="container mx-auto mt-8 mb-8 flex flex-col lg:flex-row lg:space-x-8 px-4">
+            <left-sidebar></left-sidebar>
+            
+            <main class="w-full flex-1 min-w-0 bg-white shadow-xl rounded-lg p-6 md:p-8 order-2 mb-6 lg:mb-0">
+                <article class="method-content">
+                    <h2 class="text-3xl font-bold mb-6 text-gray-800 border-b border-gray-200 pb-4">Método de la Secante</h2>
+                    
+                    <section id="teoria" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Fundamento Teórico (Según Chapra)</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Un problema potencial en la implementación del método de Newton-Raphson es la evaluación de la derivada. Aunque esto no es un inconveniente para polinomios y muchas otras funciones, existen ciertas funciones cuyas derivadas pueden ser muy difíciles o inconvenientes de calcular. Para estos casos, la derivada puede aproximarse mediante una diferencia finita dividida hacia atrás:
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4" style="text-align:center;">
+                            \[ f'(x_i) \approx \frac{f(x_{i-1}) - f(x_i)}{x_{i-1} - x_i} \]
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Al sustituir esta aproximación de la derivada en la fórmula de Newton-Raphson (\(x_{i+1} = x_i - \frac{f(x_i)}{f'(x_i)}\)), se obtiene la siguiente ecuación iterativa para el método de la secante:
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4" style="text-align:center;">
+                            \[ x_{i+1} = x_i - \frac{f(x_i)(x_{i-1} - x_i)}{f(x_{i-1}) - f(x_i)} \]
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Este método requiere dos estimaciones iniciales de \(x\), por ejemplo, \(x_0\) y \(x_1\). Sin embargo, debido a que \(f(x)\) no se requiere que cambie de signo entre las estimaciones, no es un método cerrado y no garantiza que la raíz permanezca entre los dos valores iniciales. Su convergencia es superlineal, más rápida que la lineal pero no tan rápida como la cuadrática de Newton-Raphson.
+                        </p>
+                    </section>
+
+                    <section id="algoritmo" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Pasos del Algoritmo (Según Chapra)</h3>
+                        <ol class="list-decimal list-inside space-y-3 pl-4 text-gray-600 leading-relaxed">
+                            <li>Proporcionar una función \(f(x)\).</li>
+                            <li>Elegir dos estimaciones iniciales, \(x_{i-1}\) y \(x_i\).</li>
+                            <li>Establecer un criterio de terminación (error tolerable \(\epsilon_s\)) y un número máximo de iteraciones.</li>
+                            <li>Calcular \(f(x_{i-1})\) y \(f(x_i)\).</li>
+                            <li>Si \(f(x_{i-1}) = f(x_i)\), el método no puede continuar (división por cero). Detener.</li>
+                            <li>Calcular la siguiente estimación de la raíz usando la fórmula:
+                                <p style="text-align:center;" class="mt-2 mb-2">\( x_{i+1} = x_i - \frac{f(x_i)(x_{i-1} - x_i)}{f(x_{i-1}) - f(x_i)} \)</p>
+                            </li>
+                            <li>Calcular el error aproximado porcentual relativo: \( \epsilon_a = \left| \frac{x_{i+1} - x_i}{x_{i+1}} \right| \times 100\% \).</li>
+                            <li>
+                                Comparar \(|\epsilon_a|\) con el error tolerable \(\epsilon_s\):
+                                <ul class="list-disc list-inside space-y-1 pl-6 mt-2">
+                                    <li>Si \(|\epsilon_a| < \epsilon_s\), entonces \(x_{i+1}\) es la raíz buscada. Terminar.</li>
+                                    <li>Si no, actualizar las estimaciones: \(x_{i-1} = x_i\) y \(x_i = x_{i+1}\). Volver al paso 5 (recalculando los valores de la función para las nuevas estimaciones).</li>
+                                </ul>
+                            </li>
+                            <li>Si se alcanza el número máximo de iteraciones sin converger, indicar que el método no convergió.</li>
+                        </ol>
+                         <p class="text-gray-600 leading-relaxed mb-4"><strong>Nota sobre la diferencia con la Regla Falsa:</strong> Aunque la fórmula de la secante es similar a la de la Regla Falsa, la diferencia fundamental es que en la Regla Falsa los puntos deben encerrar la raíz, mientras que en el método de la Secante se reemplazan secuencialmente los valores anteriores por los nuevos, sin importar si encierran la raíz.</p>
+                    </section>
+
+                    <section id="ejemplo" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Ejemplo Paso a Paso (Adaptado de Chapra)</h3>
+                        <p class="text-gray-600 leading-relaxed mb-3">Use el método de la secante para estimar la raíz de \(f(x) = e^{-x} - x\). Comience con las estimaciones iniciales \(x_{-1} = 0\) y \(x_0 = 1.0\). Termine cuando \(\epsilon_a < 0.01\%\).</p>
+                        <ol class="list-decimal list-inside space-y-3 pl-4 text-gray-600 leading-relaxed">
+                            <li><strong>Estimaciones iniciales:</strong>
+                                <ul class="list-disc list-inside space-y-1 pl-6 mt-1">
+                                    <li>\(x_{-1} = 0 \Rightarrow f(x_{-1}) = e^{-0} - 0 = 1\)</li>
+                                    <li>\(x_0 = 1.0 \Rightarrow f(x_0) = e^{-1} - 1 \approx 0.36788 - 1 = -0.63212\)</li>
+                                </ul>
+                            </li>
+                            <li style="overflow-x: auto;"><strong>Iteración 1 (i=0):</strong>
+                                <ul class="list-disc list-inside space-y-1 pl-6 mt-1">
+                                    <li>\(x_1 = x_0 - \frac{f(x_0)(x_{-1} - x_0)}{f(x_{-1}) - f(x_0)} = 1.0 - \frac{(-0.63212)(0 - 1.0)}{1 - (-0.63212)} = 1.0 - \frac{0.63212}{1.63212} \approx 1.0 - 0.3873 = 0.61270\)</li>
+                                    <li>\(f(x_1) = f(0.61270) = e^{-0.61270} - 0.61270 \approx 0.54194 - 0.61270 = -0.07076\)</li>
+                                    <li>Error aproximado: \(\epsilon_a = \left| \frac{0.61270 - 1.0}{0.61270} \right| \times 100\% \approx 63.21\%\)</li>
+                                </ul>
+                            </li>
+                            <li style="overflow-x: auto;"><strong>Iteración 2 (i=1):</strong> (Ahora \(x_0 = 1.0, f(x_0) = -0.63212\) y \(x_1 = 0.61270, f(x_1) = -0.07076\))
+                                <ul class="list-disc list-inside space-y-1 pl-6 mt-1">
+                                    <li>\(x_2 = x_1 - \frac{f(x_1)(x_0 - x_1)}{f(x_0) - f(x_1)} = 0.61270 - \frac{(-0.07076)(1.0 - 0.61270)}{(-0.63212) - (-0.07076)}\)</li>
+                                    <li>\(x_2 = 0.61270 - \frac{(-0.07076)(0.3873)}{-0.56136} = 0.61270 - \frac{-0.027396}{-0.56136} \approx 0.61270 - 0.04880 = 0.56390\)</li>
+                                    <li>\(f(x_2) = f(0.56390) = e^{-0.56390} - 0.56390 \approx 0.56897 - 0.56390 = 0.00507\)</li>
+                                    <li>Error aproximado: \(\epsilon_a = \left| \frac{0.56390 - 0.61270}{0.56390} \right| \times 100\% \approx 8.65\%\)</li>
+                                </ul>
+                            </li>
+                             <li style="overflow-x: auto;"><strong>Iteración 3 (i=2):</strong> (Ahora \(x_1 = 0.61270, f(x_1) = -0.07076\) y \(x_2 = 0.56390, f(x_2) = 0.00507\))
+                                <ul class="list-disc list-inside space-y-1 pl-6 mt-1">
+                                     <li>\(x_3 = x_2 - \frac{f(x_2)(x_1 - x_2)}{f(x_1) - f(x_2)} = 0.56390 - \frac{(0.00507)(0.61270 - 0.56390)}{(-0.07076) - (0.00507)}\)</li>
+                                     <li>\(x_3 = 0.56390 - \frac{(0.00507)(0.04880)}{-0.07583} = 0.56390 - \frac{0.0002474}{-0.07583} \approx 0.56390 - (-0.00326) = 0.56716\)</li>
+                                     <li>\(f(x_3) = f(0.56716) = e^{-0.56716} - 0.56716 \approx 0.56713 - 0.56716 = -0.00003\) (muy cercano a cero)</li>
+                                     <li>Error aproximado: \(\epsilon_a = \left| \frac{0.56716 - 0.56390}{0.56716} \right| \times 100\% \approx 0.57\%\)</li>
+                                </ul>
+                            </li>
+                             <li style="overflow-x: auto;"><strong>Iteración 4 (i=3):</strong> (Ahora \(x_2 = 0.56390, f(x_2) = 0.00507\) y \(x_3 = 0.56716, f(x_3) = -0.00003\))
+                                <ul class="list-disc list-inside space-y-1 pl-6 mt-1">
+                                     <li>\(x_4 = x_3 - \frac{f(x_3)(x_2 - x_3)}{f(x_2) - f(x_3)} = 0.56716 - \frac{(-0.00003)(0.56390 - 0.56716)}{(0.00507) - (-0.00003)}\)</li>
+                                     <li>\(x_4 = 0.56716 - \frac{(-0.00003)(-0.00326)}{0.00510} = 0.56716 - \frac{0.0000000978}{0.00510} \approx 0.56716 - 0.000019 = 0.56714\)</li>
+                                     <li>Error aproximado: \(\epsilon_a = \left| \frac{0.56714 - 0.56716}{0.56714} \right| \times 100\% \approx 0.0035\%\)</li>
+                                </ul>
+                            </li>
+                            <li>Como \(\epsilon_a \approx 0.0035\% < 0.01\%\), se detiene el algoritmo.</li>
+                            <li>La raíz aproximada es \(x \approx 0.56714\).</li>
+                        </ol>
+                    </section>
+
+                    <section id="codigo" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Código de Implementación (Python) - Ejecutable</h3>
+                        <div class="code-editor-container bg-gray-50 p-4 rounded-lg shadow-inner">
+                            <textarea id="secante-code-input" class="code-input w-full h-[600px] p-3 border border-gray-300 rounded-md font-mono text-sm" style="resize: none;">import math
+
+def funcion_f(x):
+    # Ejemplo: f(x) = x^2 - cos(x)
+    return x**2 - math.cos(x)
+    # Ejemplo anterior: f(x) = e^-x - x
+    # return math.exp(-x) - x
+    # Ejemplo aún anterior: f(x) = x^3 - x - 1
+    # return x**3 - x - 1
+
+def secant_method(f, x0, x1, tol=1e-7, max_iter=100):
+    '''Implementa el método de la secante con una salida visualmente mejorada en formato HTML.'''
+    fx0 = f(x0)
+    fx1 = f(x1)
+    iter_count = 0
+    iter_data_list = []  # Para la gráfica
+    
+    html_output = ''
+
+    iter_data_list.append({'iter': 0, 'x_prev': None, 'x_curr': x0, 'fx_prev': None, 'fx_curr': fx0, 'x_next': None, 'error': None})
+    iter_data_list.append({'iter': 1, 'x_prev': x0, 'x_curr': x1, 'fx_prev': fx0, 'fx_curr': fx1, 'x_next': None, 
+                          'error': abs(x1-x0)/abs(x1)*100 if x1!=0 else float('inf')})
+    
+    # Formato HTML para la tabla
+    html_output += '<div style="text-align: center; font-weight: bold; margin-bottom: 10px;">MÉTODO DE LA SECANTE</div>'
+    html_output += '<table border="1" style="width:100%; border-collapse: collapse; margin-bottom:15px; font-size: 0.85em;">'
+    html_output += '<thead><tr>'
+    headers = ["Iter", "xi-1", "f(xi-1)", "xi", "f(xi)", "xi+1", "f(xi+1)", "Error (%)"]
+    for h in headers:
+        html_output += f'<th style="padding: 4px; text-align:center;">{h}</th>'
+    html_output += '</tr></thead><tbody>'
+    
+    # Primera fila (iteración inicial)
+    html_output += '<tr>'
+    html_output += '<td style="padding: 4px; text-align:center;">0</td>'
+    html_output += '<td style="padding: 4px; text-align:center;">-</td>'
+    html_output += '<td style="padding: 4px; text-align:center;">-</td>'
+    html_output += f'<td style="padding: 4px; text-align:right; padding-right:5px;">{x0:.6f}</td>'
+    html_output += f'<td style="padding: 4px; text-align:right; padding-right:5px;">{fx0:.6f}</td>'
+    html_output += '<td style="padding: 4px; text-align:center;">-</td>'
+    html_output += '<td style="padding: 4px; text-align:center;">-</td>'
+    html_output += '<td style="padding: 4px; text-align:center;">-</td>'
+    html_output += '</tr>'
+    
+    # Segunda fila
+    error_rel = abs(x1-x0)/abs(x1)*100 if x1!=0 else float('inf')
+    html_output += '<tr>'
+    html_output += '<td style="padding: 4px; text-align:center;">1</td>'
+    html_output += f'<td style="padding: 4px; text-align:right; padding-right:5px;">{x0:.6f}</td>'
+    html_output += f'<td style="padding: 4px; text-align:right; padding-right:5px;">{fx0:.6f}</td>'
+    html_output += f'<td style="padding: 4px; text-align:right; padding-right:5px;">{x1:.6f}</td>'
+    html_output += f'<td style="padding: 4px; text-align:right; padding-right:5px;">{fx1:.6f}</td>'
+    html_output += '<td style="padding: 4px; text-align:center;">-</td>'
+    html_output += '<td style="padding: 4px; text-align:center;">-</td>'
+    html_output += f'<td style="padding: 4px; text-align:right; padding-right:5px;">{error_rel:.4f}</td>'
+    html_output += '</tr>'
+    
+    current_iter_for_loop = 1
+    
+    while current_iter_for_loop < max_iter:
+        if abs(fx1 - fx0) < 1e-12: 
+            html_output += '</tbody></table>'
+            html_output += '<div style="text-align: center; color: orange; margin-top:10px;">AVISO: Diferencia f(xi)-f(xi-1) muy pequeña.</div>'
+            break 
+        
+        x_next = x1 - fx1 * (x1 - x0) / (fx1 - fx0)
+        fx_next = f(x_next)
+        
+        error_rel_aprox = abs((x_next - x1) / x_next) * 100 if x_next != 0 else float('inf')
+        
+        html_output += '<tr>'
+        html_output += f'<td style="padding: 4px; text-align:center;">{current_iter_for_loop+1}</td>'
+        html_output += f'<td style="padding: 4px; text-align:right; padding-right:5px;">{x0:.6f}</td>'
+        html_output += f'<td style="padding: 4px; text-align:right; padding-right:5px;">{fx0:.6f}</td>'
+        html_output += f'<td style="padding: 4px; text-align:right; padding-right:5px;">{x1:.6f}</td>'
+        html_output += f'<td style="padding: 4px; text-align:right; padding-right:5px;">{fx1:.6f}</td>'
+        html_output += f'<td style="padding: 4px; text-align:right; padding-right:5px;">{x_next:.6f}</td>'
+        html_output += f'<td style="padding: 4px; text-align:right; padding-right:5px;">{fx_next:.6f}</td>'
+        html_output += f'<td style="padding: 4px; text-align:right; padding-right:5px;">{error_rel_aprox:.4f}</td>'
+        html_output += '</tr>'
+        
+        if current_iter_for_loop < len(iter_data_list):
+            iter_data_list[current_iter_for_loop]['x_next'] = x_next
+        
+        iter_data_list.append({
+            'iter': current_iter_for_loop + 1, 
+            'x_prev': x0, 
+            'x_curr': x1, 
+            'x_next': x_next, 
+            'fx_prev': fx0, 
+            'fx_curr': fx1, 
+            'fx_next': fx_next, 
+            'error': error_rel_aprox
+        })
+        
+        if error_rel_aprox < tol:
+            html_output += '</tbody></table>'
+            html_output += f'<div style="text-align: center; color: green; margin-top:10px;">CONVERGENCIA alcanzada después de {current_iter_for_loop+1} iteraciones.</div>'
+            break
+            
+        x0 = x1
+        fx0 = fx1
+        x1 = x_next
+        fx1 = fx_next
+        current_iter_for_loop += 1
+    else: 
+        html_output += '</tbody></table>'
+        html_output += f'<div style="text-align: center; color: red; margin-top:10px;">AVISO: Máximo número de iteraciones ({max_iter}) alcanzado. Aproximación final: {x1:.6f}</div>'
+    
+    try:
+        global js_iteration_data_sec
+        js_data_container = js_iteration_data_sec
+        js_data_container.clear() 
+        for item in iter_data_list:
+            js_data_container.append(item)
+    except (NameError, AttributeError): 
+        pass
+        
+    return x1, iter_data_list, html_output
+
+def mostrar_resultados(raiz, funcion):
+    '''Muestra los resultados finales con formato HTML mejorado'''
+    html_res = ''
+    html_res += '<div style="text-align: center; font-weight: bold; margin-top: 20px; margin-bottom: 10px;">RESULTADOS FINALES</div>'
+    html_res += '<table border="1" style="width:auto; margin-left:auto; margin-right:auto; border-collapse: collapse; font-size: 0.9em;">'
+    html_res += '<tbody>'
+    html_res += f'<tr><td style="padding: 5px; text-align:left;">Raíz aproximada:</td><td style="padding: 5px; text-align:right;">{raiz:.8f}</td></tr>'
+    html_res += f'<tr><td style="padding: 5px; text-align:left;">Evaluación f(raíz):</td><td style="padding: 5px; text-align:right;">{funcion(raiz):.8e}</td></tr>'
+    html_res += '</tbody></table>'
+    return html_res
+
+# Ejemplo de uso con f(x) = x^2 - cos(x)
+if __name__ == "__main__":
+    output_buffer = []
+    
+    x_val_minus_1 = 0.5
+    x_val_0 = 1.0
+    tolerancia_error = 0.0001
+    
+    initial_info_html = '<div style="text-align: center; font-weight: bold; margin-bottom:15px; font-size:1.1em;">MÉTODO DE LA SECANTE - SOLUCIÓN DE ECUACIONES NO LINEALES</div>'
+    initial_info_html += f'<div style="text-align: center; margin-bottom:5px;">Función: f(x) = x² - cos(x)</div>'
+    initial_info_html += f'<div style="text-align: center; margin-bottom:5px;">Valores iniciales: x₀ = {x_val_minus_1}, x₁ = {x_val_0}</div>'
+    initial_info_html += f'<div style="text-align: center; margin-bottom:15px;">Tolerancia: {tolerancia_error}%</div>'
+    
+    output_buffer.append(initial_info_html)
+    
+    raiz_aproximada, iteraciones_py, tabla_html = secant_method(funcion_f, x_val_minus_1, x_val_0, tol=tolerancia_error)
+    output_buffer.append(tabla_html)
+    
+    if raiz_aproximada is not None:
+        resultados_html = mostrar_resultados(raiz_aproximada, funcion_f)
+        output_buffer.append(resultados_html)
+
+    # En un entorno Pyodide, en lugar de print, se retornaría el HTML completo.
+    # Para ejecución local/terminal, podemos imprimirlo:
+    # print("\\n".join(output_buffer)) 
+    
+    # Para Pyodide, la variable global 'pyodide_html_output' contendrá el resultado
+    # que el JavaScript podrá recoger.
+    try:
+        global pyodide_html_output
+        pyodide_html_output = "\\n".join(output_buffer)
+    except NameError:
+        # Si no estamos en Pyodide o la variable no está pre-declarada, imprimirlo
+        # (esto es más para pruebas locales del script Python)
+        print("Ejecutando localmente, imprimiendo HTML generado:")
+        print("\\n".join(output_buffer))
+
+
+    # Descomentar para ver el detalle de las iteraciones en consola (si se ejecuta localmente)
+    # print("\\nDatos de iteraciones (variable Python \'iteraciones_py\'):")
+    # for i, data_point in enumerate(iteraciones_py):
+    #     print(f"Iteración {i}: {data_point}")
+                            </textarea>
+                            <button id="run-secante-code-button" class="run-button mt-4 px-5 py-2.5 bg-custom-red text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 font-medium text-sm transition-colors duration-150">Ejecutar Código</button>
+                            
+                            <div class="relative">
+                                <div id="sec-output-controls-container" class="absolute top-0 right-0 z-10 flex items-center space-x-1 transition-all duration-500 ease-out" style="">
+                                    <button id="sec-decrease-font-button" title="Disminuir fuente" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs font-semibold flex items-center justify-center" style="min-width: 30px; display: none;">
+                                        aa
+                                    </button>
+                                    <button id="sec-increase-font-button" title="Aumentar fuente" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs font-semibold flex items-center justify-center" style="min-width: 30px; display: none;">
+                                        AA
+                                    </button>
+                                    <button id="sec-fullscreen-output-button" title="Ver en pantalla completa" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs">
+                                        <!-- SVG will be injected by JS -->
+                                    </button>
+                                </div>
+                                <h4 class="mt-5 mb-2 text-lg font-semibold text-gray-700">Salida:</h4>
+                                <pre id="secante-code-output" class="code-output bg-gray-900 text-white p-4 pt-10 rounded-md min-h-[100px] whitespace-pre-wrap transition-all duration-500 ease-out text-xs leading-relaxed max-h-96 overflow-y-auto font-mono">Presiona "Ejecutar Código" para ver la salida.</pre>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="graficas" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Gráficas Interactivas</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">La gráfica interactiva mostrará la función \(f(x)\), los puntos iniciales \(x_{i-1}\) y \(x_i\), la línea secante que los une, y cómo esta línea intersecta el eje X para encontrar la siguiente aproximación \(x_{i+1}\). Se visualizará el proceso iterativo de convergencia hacia la raíz.</p>
+                        <div class="interactive-graphics w-full h-96 bg-white p-4 rounded-lg shadow-md">
+                            <canvas id="secante-method-chart"></canvas>
+                            <p id="chart-loading-message-sec" class="text-center text-gray-600 italic mt-2">Ejecute el código para generar la gráfica.</p>
+                        </div>
+                    </section>
+
+                    <section id="videos" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Videos Explicativos</h3>
+                        <div class="video-embed w-full h-96">
+                            <iframe class="w-full h-full rounded-lg shadow-lg" src="https://www.youtube.com/embed/YOHtIzPmfzE" title="YouTube video player - Método de la Secante" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+                        </div>
+                    </section>
+                    
+                    <section id="conclusion" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Conclusión y Aplicaciones (Según Chapra)</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            El método de la secante es a menudo preferido sobre el método de Newton-Raphson cuando la derivada de la función es difícil o costosa de evaluar. Aunque su tasa de convergencia es ligeramente menor que la de Newton-Raphson (superlineal versus cuadrática), generalmente converge más rápido que los métodos cerrados como la bisección o la regla falsa.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Al igual que Newton-Raphson, el método de la secante es un método abierto y puede divergir si las estimaciones iniciales no están lo suficientemente cerca de la raíz. No requiere que los puntos iniciales encierren la raíz, lo que puede ser una ventaja, pero también significa que no hay garantía de convergencia.
+                        </p>
+                         <p class="text-gray-600 leading-relaxed mb-4">
+                            <strong>Aplicaciones:</strong> Se utiliza en situaciones donde la evaluación de la derivada es problemática y se requiere una convergencia relativamente rápida. Es común en problemas de ingeniería y ciencia.
+                        </p>
+                    </section>
+
+                    <section id="referencias" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Referencias</h3>
+                        <ul class="list-disc list-inside space-y-2 text-gray-600 leading-relaxed pl-4">
+                            <li>Chapra, S. C., & Canale, R. P. (2015). <em>Métodos numéricos para ingenieros</em> (7ª ed.). McGraw-Hill. (Sección 6.2 para el método de la Secante).</li>
+                        </ul>
+                    </section>
+
+                    <section id="cuestionario" class="scroll-mt-24 mb-10">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Cuestionario: Método de la Secante</h3>
+                        <form id="quiz-secante" class="space-y-6 bg-gray-50 p-6 rounded-lg shadow-inner">
+                            <!-- Pregunta 1 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">1. ¿Qué aproxima el método de la Secante para evitar calcular la derivada \(f'(x_i)\)?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 1</legend>
+                                    <div class="space-y-2">
+                                        <label for="q1-opt1-sec" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt1-sec" name="question-1-secante" type="radio" value="q1_opt1_taylor" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">El valor de \(f(x_i)\) usando un polinomio de Taylor.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt2-sec" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt2-sec" name="question-1-secante" type="radio" value="q1_opt2_finite_diff" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">La pendiente de la línea tangente usando diferencias finitas.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt3-sec" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt3-sec" name="question-1-secante" type="radio" value="q1_opt3_secant_line" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">La pendiente de la línea que une \((x_{i-1}, f(x_{i-1}))\) y \((x_i, f(x_i))\).</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-1-secante-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <!-- Pregunta 2 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">2. Comparado con Newton-Raphson (cuando ambos convergen), la convergencia del método de la Secante es típicamente:</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 2</legend>
+                                    <div class="space-y-2">
+                                        <label for="q2-opt1-sec" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt1-sec" name="question-2-secante" type="radio" value="Más rápida (cúbica)." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Más rápida (cúbica).</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt2-sec" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt2-sec" name="question-2-secante" type="radio" value="Ligeramente más lenta (superlineal, orden ~1.618)." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Ligeramente más lenta (superlineal, orden ~1.618).</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt3-sec" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt3-sec" name="question-2-secante" type="radio" value="Igual de rápida (cuadrática)." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Igual de rápida (cuadrática).</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-2-secante-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <!-- Pregunta 3 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">3. ¿Cuántos puntos iniciales requiere el método de la Secante?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 3</legend>
+                                    <div class="space-y-2">
+                                        <label for="q3-opt1-sec" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt1-sec" name="question-3-secante" type="radio" value="q3_opt1_one_point" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Uno (\(x_0\)).</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt2-sec" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt2-sec" name="question-3-secante" type="radio" value="q3_opt2_two_points" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Dos (\(x_0, x_1\)).</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt3-sec" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt3-sec" name="question-3-secante" type="radio" value="q3_opt3_three_points" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Tres (\(x_0, x_1, x_2\)).</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-3-secante-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <button type="submit" class="mt-6 w-full px-6 py-3 bg-custom-red text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors duration-150">
+                                Enviar Respuestas
+                            </button>
+                        </form>
+                        <div id="quiz-feedback-secante" class="quiz-feedback-message mt-4 p-3 rounded-md text-sm" style="display: none;"></div>
+                    </section>
+                </article>
+            </main>
+
+            <!-- Right Sidebar for Progress, Evaluation, Resources -->
+            <aside class="w-full lg:w-1/4 bg-sidebar-bg shadow-xl rounded-lg p-6 self-start sticky top-8 order-3 space-y-6">
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-4">Perfil</h3>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex-shrink-0">
+                           <svg class="w-12 h-12 text-gray-400 bg-gray-100 rounded-full p-1 ring-1 ring-gray-200" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-800 text-md">Estudiante Modelo</p>
+                            <p class="text-sm text-gray-500">Aprendiz Activo</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pb-6 border-b border-gray-200 space-y-3">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide">Progreso en Método de Secante</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li class="flex items-center">
+                            <span id="task-read-theory-status-sec" class="task-status-icon mr-2 text-gray-400">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </span>
+                            <span class="text-gray-600">Leer la teoría completa</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-run-code-status-sec" class="task-status-icon mr-2 text-gray-400">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </span>
+                            <span class="text-gray-600">Ejecutar el código Python</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-attempted-status-sec" class="task-status-icon mr-2 text-gray-400">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </span>
+                            <span class="text-gray-600">Intentar el cuestionario</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-passed-status-sec" class="task-status-icon mr-2 text-gray-400">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </span>
+                            <span class="text-gray-600">Aprobar el cuestionario</span>
+                        </li>
+                    </ul>
+                    <div class="flex items-center justify-between mb-1 mt-3">
+                       <span class="text-xs font-medium text-custom-red">Progreso General</span>
+                       <span id="right-sidebar-progress-text-sec" class="text-xs font-medium text-custom-red right-sidebar-progress-text">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div id="right-sidebar-progress-bar-sec" class="bg-custom-red h-3 rounded-full right-sidebar-progress-bar transition-width duration-500 ease-in-out" style="width: 0%"></div>
+                    </div>
+                    <button id="completion-secante-sidebar" class="mt-4 w-full completion-button px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 font-medium text-sm transition-colors duration-150">Marcar Todo Completado</button>
+                </div>
+
+                <div class="pb-6 border-b border-gray-200">
+                     <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Recursos y Notas</h3>
+                     <p class="text-sm text-gray-600">
+                        <a href="https://archive.org/details/numerical-methods-for-engineers-7th-edit" target="_blank" rel="noopener noreferrer" class="hover:text-custom-red hover:underline">
+                            Métodos Numéricos para Ingenieros 7ma Edición de Chapra
+                        </a>
+                    </p>
+                     <img src="https://images.cdn3.buscalibre.com/fit-in/360x360/97/ff/97ffa61a8adb147e569e12c4f1f797b3.jpg" alt="Portada del libro Métodos Numéricos para Ingenieros de Chapra" class="mt-2 w-full rounded-md shadow-sm">
+                </div>
+
+                <div>
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Siguiente Paso</h3>
+                    <a href="../methods/newton-raphson.html" class="group flex items-center text-sm font-medium text-custom-red hover:text-red-700 transition-colors duration-150">
+                       <span>Explorar Método de Newton-Raphson</span> 
+                       <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform duration-150" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </a>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        // --- Constants and State ---
+        const PAGE_KEY_SEC = "secante"; // Unique key for this page's progress in DB/localStorage
+        // Método más confiable para detectar si el usuario está autenticado utilizando cookies o verificando el endpoint de la API
+        let USER_IS_AUTHENTICATED = false;
+        
+        // Función para verificar la autenticación
+        async function checkAuthentication() {
+            try {
+                // Establecer un timeout para la solicitud de 3 segundos
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000);
+                
+                const response = await fetch('/api/check_auth', {
+                    signal: controller.signal
+                }).finally(() => clearTimeout(timeoutId));
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    USER_IS_AUTHENTICATED = data.authenticated || false;
+                    console.log('[AUTH DEBUG] Usuario autenticado:', USER_IS_AUTHENTICATED);
+                    
+                    // Si el usuario está autenticado, agregar un atributo al body para facilitar la depuración
+                    if (USER_IS_AUTHENTICATED) {
+                        document.body.setAttribute('data-user-authenticated', 'true');
+                    } else {
+                        document.body.removeAttribute('data-user-authenticated');
+                    }
+                } else {
+                    console.warn('[AUTH DEBUG] Error al verificar autenticación:', response.status);
+                    USER_IS_AUTHENTICATED = false;
+                    document.body.removeAttribute('data-user-authenticated');
+                }
+            } catch (e) {
+                console.error('[AUTH DEBUG] Error de red al verificar autenticación:', e);
+                USER_IS_AUTHENTICATED = false;
+                document.body.removeAttribute('data-user-authenticated');
+            }
+            return USER_IS_AUTHENTICATED;
+        }
+        
+        // Function to clean progress data
+        function getCleanedProgress(progressObj) {
+            if (!progressObj || typeof progressObj !== 'object') return {};
+            const allKnownKeys = [...ALL_TASK_KEYS_SEC, 'overall_progress', 'user_quiz_answers', 'quiz_current_score', 'quiz_feedback_active'];
+            
+            // Handle case where progressObj might be nested inside a data property (from server)
+            const dataToClean = progressObj.data ? progressObj.data : progressObj;
+            
+            return Object.fromEntries(
+                Object.entries(dataToClean).filter(([key]) => allKnownKeys.includes(key))
+            );
+        }
+        const METHOD_NAME_TITLE_CASE_SEC = "Secante"; // Used in messages if needed
+
+        // Task Keys for Secante
+        const TASKS_SEC = {
+            READ_THEORY: 'read_theory_sec',
+            RUN_CODE: 'run_code_sec',
+            QUIZ_ATTEMPTED: 'quiz_attempted_sec',
+            QUIZ_PASSED: 'quiz_passed_sec'
+        };
+        const ALL_TASK_KEYS_SEC = Object.values(TASKS_SEC);
+        const TOTAL_TASKS_SEC = ALL_TASK_KEYS_SEC.length;
+
+        // Icons for task status
+        const ICON_PENDING_SEC = '<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0-4.418-4.03-8-9-8S3 7.582 3 12c0 1.454.402 2.813 1.098 3.977L3 21l5.023-1.098A8.902 8.902 0 0112 21c4.97 0 9-3.582 9-9z"></path></svg>';
+        const ICON_COMPLETED_SEC = '<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>';
+        const ICON_IN_PROGRESS_SEC = '<svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V9.05a.75.75 0 011.307-.588l5.603 3.112z" clip-rule="evenodd"></path></svg>';
+        
+        // Quiz Feedback Icons (already defined, listed for completeness)
+        const ICON_CORRECT_ANSWER_SEC = '✔️';
+        const ICON_INCORRECT_ANSWER_SEC = '❌';
+        const ICON_THUMB_UP_SEC = '👍';
+
+        // DOM Element Selectors (Combining existing and new pattern)
+        const codeInput_SEC = document.getElementById('secante-code-input');
+        const runCodeButton_SEC = document.getElementById('run-secante-code-button');
+        const codeOutput_SEC = document.getElementById('secante-code-output');
+        const chartLoadingMessage_SEC = document.getElementById('chart-loading-message-sec');
+        const secanteMethodChartCanvas_SEC = document.getElementById('secante-method-chart');
+
+        const fullscreenButton_SEC = document.getElementById('sec-fullscreen-output-button');
+        const outputControlsContainer_SEC = document.getElementById('sec-output-controls-container');
+        const decreaseFontButton_SEC = document.getElementById('sec-decrease-font-button');
+        const increaseFontButton_SEC = document.getElementById('sec-increase-font-button');
+        
+        const quizForm_SEC = document.getElementById('quiz-secante');
+        const generalQuizFeedbackDiv_SEC = document.getElementById('quiz-feedback-secante'); // Renamed from quizFeedbackDiv_SEC for clarity
+        const mainCompletionButton_SEC = document.getElementById('completion-secante-sidebar'); // Renamed from completionButton_SEC
+
+        const taskStatusIcons_SEC = {
+            [TASKS_SEC.READ_THEORY]: document.getElementById('task-read-theory-status-sec'),
+            [TASKS_SEC.RUN_CODE]: document.getElementById('task-run-code-status-sec'),
+            [TASKS_SEC.QUIZ_ATTEMPTED]: document.getElementById('task-quiz-attempted-status-sec'),
+            [TASKS_SEC.QUIZ_PASSED]: document.getElementById('task-quiz-passed-status-sec'),
+        };
+        const overallProgressText_SEC = document.getElementById('right-sidebar-progress-text-sec');
+        const overallProgressBar_SEC = document.getElementById('right-sidebar-progress-bar-sec');
+
+        // Pyodide and Chart instances (from existing script)
+        let pyodide_SEC = null;
+        let secanteChart_SEC = null;
+        let secCodeOutputInitialRect_SEC = null;
+        let secCurrentFontSize_SEC = 12; 
+        let originalOutputFontSize_SEC = '';
+
+        // SVG Icons for Fullscreen (from existing script)
+        const svgIconFullscreen_SEC = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9M20.25 20.25v-4.5m0 4.5h-4.5m4.5 0L15 15" /></svg>';
+        const svgIconExitFullscreen_SEC = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9V4.5M15 9h4.5M15 9l5.25-5.25M15 15v4.5M15 15h4.5M15 15l5.25 5.25" /></svg>';
+        if (fullscreenButton_SEC) fullscreenButton_SEC.innerHTML = svgIconFullscreen_SEC;
+
+        // --- Progress Storage Functions ---
+        async function getPageProgressFromStorage_SEC(pKey) {
+            const defaults = ALL_TASK_KEYS_SEC.reduce((obj, task) => ({ ...obj, [task]: false }), {});
+            defaults.overall_progress = 0;
+            defaults.user_quiz_answers = {}; // Stores { "question-name": "selected-value", ... }
+            defaults.quiz_current_score = 0;
+            defaults.quiz_feedback_active = false; // Indicates if feedback has been shown for current answers
+
+            // Verificar nuevamente la autenticación antes de cargar el progreso
+            await checkAuthentication();
+            
+            if (USER_IS_AUTHENTICATED) {
+                try {
+                    const response = await fetch(`/api/load_progress/${pKey}`);
+                    if (response.ok) {
+                        const serverResponse = await response.json();
+                        console.log("[GET PROGRESS DEBUG] Raw serverResponse from API:", JSON.stringify(serverResponse));
+                        
+                        // Extraer el objeto progress del objeto response
+                        const progressData = serverResponse.progress || {};
+                        console.log("[GET PROGRESS DEBUG] Extracted progress data:", JSON.stringify(progressData));
+                        
+                        const cleanedProgress = getCleanedProgress(progressData);
+
+                        if (cleanedProgress && typeof cleanedProgress === 'object' && Object.keys(cleanedProgress).length > 0) {
+                            console.log(`[GET PROGRESS DEBUG] Cleaned server progress being merged for ${pKey}:`, JSON.stringify(cleanedProgress));
+                            return { ...defaults, ...cleanedProgress }; 
+                        } else {
+                            // Si la API devuelve ok pero el progreso está vacío (ej. nuevo usuario), 
+                            // devolvemos los defaults y NO recurrimos a localStorage.
+                            console.log(`[GET PROGRESS DEBUG] Server progress for ${pKey} is empty/invalid. Returning defaults. Not falling back to localStorage.`);
+                            return defaults; 
+                        }
+                    } else if (response.status === 404) {
+                        // Si es 404 (no hay progreso para este usuario/página), también es un caso de "sin progreso en servidor".
+                        // Devolvemos defaults y NO recurrimos a localStorage.
+                        console.log(`[GET PROGRESS DEBUG] Server returned 404 for ${pKey}. Returning defaults. Not falling back to localStorage.`);
+                        return defaults;
+                    } else { 
+                        // Otro error de servidor, aquí sí podríamos considerar localStorage como fallback si quisiéramos,
+                        // pero por ahora, para consistencia si hay error de API, no cargamos nada (o defaults).
+                        console.warn(`Error al cargar progreso desde servidor para ${pKey}: ${response.status}. Not falling back to localStorage.`);
+                    }
+                } catch (e) {
+                    console.error(`Error en fetch al cargar progreso para ${pKey}:`, e);
+                }
+            }
+
+            // Fallback a localStorage SOLO si !USER_IS_AUTHENTICATED o si el fetch de arriba falló de una manera que no retornó.
+            console.log("[GET PROGRESS DEBUG] Attempting localStorage fallback for " + pKey + " (User Authenticated: " + USER_IS_AUTHENTICATED + ")");
+            try {
+                const stored = localStorage.getItem(pKey);
+                if (stored) {
+                    const localProgress = JSON.parse(stored);
+                    const cleanedLocalProgress = getCleanedProgress(localProgress); // Also clean localStorage just in case
+                    console.log("[GET PROGRESS DEBUG] Cleaned localStorage progress:", JSON.stringify(cleanedLocalProgress));
+                    return { ...defaults, ...cleanedLocalProgress };
+                }
+            } catch (e) { console.error("Error al leer localStorage para Secante:", e); }
+            
+            console.log("[GET PROGRESS DEBUG] Returning pure defaults as no server or valid local progress found.");
+            return defaults;
+        }
+
+        async function savePageProgressToStorage_SEC(pKey, progress) {
+            // Verificar autenticación antes de guardar el progreso
+            await checkAuthentication();
+            
+            if (USER_IS_AUTHENTICATED) {
+                try {
+                    const response = await fetch('/api/save_progress', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ page_key: pKey, progress_data: progress }),
+                    });
+                    if (response.ok) {
+                        console.log(`Progreso guardado en servidor para ${pKey}`);
+                    } else {
+                        console.warn(`Error al guardar progreso en servidor para ${pKey}: ${response.status}`);
+                    }
+                } catch (e) {
+                    console.error(`Error en fetch al guardar progreso para ${pKey}:`, e);
+                }
+            }
+
+            // Guardar siempre en localStorage como respaldo o para modo offline
+            try {
+                localStorage.setItem(pKey, JSON.stringify(progress));
+                window.dispatchEvent(new CustomEvent('secPageProgressSaved', { detail: { pageKey: pKey, progress } }));
+            } catch (e) { console.error("Error al guardar en localStorage para Secante:", e); }
+        }
+
+        // --- Task Status Update Functions ---
+        async function updateTaskStatusInStorage_SEC(taskName, isCompleted) {
+            let currentProgress = await getPageProgressFromStorage_SEC(PAGE_KEY_SEC);
+            if (currentProgress[taskName] !== isCompleted) {
+                currentProgress[taskName] = isCompleted;
+
+                // If quiz attempt is being reset, also reset passed status and quiz data
+                if (taskName === TASKS_SEC.QUIZ_ATTEMPTED && !isCompleted) {
+                    currentProgress[TASKS_SEC.QUIZ_PASSED] = false;
+                    currentProgress.user_quiz_answers = {};
+                    currentProgress.quiz_current_score = 0;
+                    currentProgress.quiz_feedback_active = false;
+                }
+                // If quiz is marked as passed, attempted must also be true
+                if (taskName === TASKS_SEC.QUIZ_PASSED && isCompleted) {
+                     currentProgress[TASKS_SEC.QUIZ_ATTEMPTED] = true;
+                }
+                await savePageProgressToStorage_SEC(PAGE_KEY_SEC, currentProgress);
+                await calculateAndUpdateOverallProgress_SEC(); // This will also call renderTaskStatus_SEC
+            }
+        }
+
+        async function renderTaskStatus_SEC() {
+            const progress = await getPageProgressFromStorage_SEC(PAGE_KEY_SEC);
+            ALL_TASK_KEYS_SEC.forEach(taskKey => {
+                const iconElement = taskStatusIcons_SEC[taskKey];
+                if (iconElement) {
+                    let newIconHTML = ICON_PENDING_SEC;
+                    if (progress[taskKey]) {
+                        newIconHTML = ICON_COMPLETED_SEC;
+                    } else if (taskKey === TASKS_SEC.QUIZ_PASSED && progress[TASKS_SEC.QUIZ_ATTEMPTED]) {
+                        // Quiz was attempted but not passed
+                        newIconHTML = ICON_IN_PROGRESS_SEC;
+                    }
+                    iconElement.innerHTML = newIconHTML;
+                }
+            });
+        }
+
+        // --- Overall Progress Calculation and UI Update ---
+        async function calculateAndUpdateOverallProgress_SEC() {
+            let progress = await getPageProgressFromStorage_SEC(PAGE_KEY_SEC);
+            let completedTasks = ALL_TASK_KEYS_SEC.filter(taskKey => progress[taskKey]).length;
+            const percentage = TOTAL_TASKS_SEC > 0 ? (completedTasks / TOTAL_TASKS_SEC) * 100 : 0;
+            progress.overall_progress = percentage;
+            await savePageProgressToStorage_SEC(PAGE_KEY_SEC, progress); // Save calculated percentage
+
+            const roundedPercentage = percentage.toFixed(0);
+            const isHundredPercent = roundedPercentage === '100';
+
+            if (overallProgressBar_SEC) {
+                overallProgressBar_SEC.style.width = `${roundedPercentage}%`;
+                overallProgressBar_SEC.classList.toggle('animate-rainbow-border', isHundredPercent);
+                // Ensure transition class is present for smooth animation
+                if (!overallProgressBar_SEC.classList.contains('transition-width')) {
+                    overallProgressBar_SEC.classList.add('transition-width', 'duration-500', 'ease-in-out');
+                }
+            }
+            if (overallProgressText_SEC) {
+                overallProgressText_SEC.textContent = `${roundedPercentage}%`;
+            }
+            
+            await renderTaskStatus_SEC(); // Update individual task icons
+            await updateMainCompletionButtonState_SEC(); // Update the main "Mark All/Undo" button
+        }
+        
+        // --- Main Completion Button Logic ---
+        function handleMarkAllMouseEnter_SEC() {
+            if (mainCompletionButton_SEC && mainCompletionButton_SEC.dataset.isUndo === "true") {
+                mainCompletionButton_SEC.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+                mainCompletionButton_SEC.classList.add('bg-red-600', 'hover:bg-red-700');
+            }
+        }
+
+        function handleMarkAllMouseLeave_SEC() {
+            if (mainCompletionButton_SEC && mainCompletionButton_SEC.dataset.isUndo === "true") {
+                mainCompletionButton_SEC.classList.remove('bg-red-600', 'hover:bg-red-700');
+                mainCompletionButton_SEC.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+            }
+        }
+
+        async function updateMainCompletionButtonState_SEC() {
+            if (!mainCompletionButton_SEC) return;
+            const progress = await getPageProgressFromStorage_SEC(PAGE_KEY_SEC);
+            let allTasksEffectivelyCompleted = ALL_TASK_KEYS_SEC.every(task => progress[task]);
+            
+            // Clean up previous event listeners and classes
+            mainCompletionButton_SEC.removeEventListener('mouseenter', handleMarkAllMouseEnter_SEC);
+            mainCompletionButton_SEC.removeEventListener('mouseleave', handleMarkAllMouseLeave_SEC);
+            mainCompletionButton_SEC.classList.remove('bg-green-600', 'hover:bg-green-700', 'bg-yellow-500', 'hover:bg-yellow-600', 'bg-red-600', 'hover:bg-red-700');
+
+            if (allTasksEffectivelyCompleted) {
+                mainCompletionButton_SEC.textContent = 'Deshacer Completado';
+                mainCompletionButton_SEC.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+                mainCompletionButton_SEC.dataset.isUndo = "true";
+                mainCompletionButton_SEC.addEventListener('mouseenter', handleMarkAllMouseEnter_SEC);
+                mainCompletionButton_SEC.addEventListener('mouseleave', handleMarkAllMouseLeave_SEC);
+            } else {
+                mainCompletionButton_SEC.textContent = 'Marcar Todo Completado';
+                mainCompletionButton_SEC.classList.add('bg-green-600', 'hover:bg-green-700');
+                mainCompletionButton_SEC.dataset.isUndo = "false";
+            }
+        }
+        
+        async function handleCompletionToggle_SEC() {
+            if (!mainCompletionButton_SEC) return;
+            
+            // Desactivar el botón mientras se procesa para evitar múltiples clics
+            mainCompletionButton_SEC.disabled = true;
+            
+            try {
+                const progress = await getPageProgressFromStorage_SEC(PAGE_KEY_SEC);
+                let allCurrentlyCompleted = ALL_TASK_KEYS_SEC.every(taskKey => progress[taskKey]);
+                let markAllAs = !allCurrentlyCompleted; // If currently all done, we are undoing, so markAllAs = false. Else, markAllAs = true.
+
+                console.log('[TOGGLE DEBUG] Estado inicial - allCurrentlyCompleted:', allCurrentlyCompleted, 'markAllAs:', markAllAs);
+                console.log('[TOGGLE DEBUG] Progreso inicial:', JSON.stringify(progress));
+                
+                // Actualizar el progreso directamente en lugar de hacer múltiples llamadas
+                // que podrían interferir entre sí
+                const updatedProgress = { ...progress };
+                
+                // Actualizar todas las tareas a la vez
+                ALL_TASK_KEYS_SEC.forEach(taskName => {
+                    updatedProgress[taskName] = markAllAs;
+                });
+                
+                console.log('[TOGGLE DEBUG] Progreso después de actualizar tareas:', JSON.stringify(updatedProgress));
+
+                if (markAllAs) { // Marking everything as complete
+                    updatedProgress[TASKS_SEC.QUIZ_ATTEMPTED] = true; // Ensure attempted is true
+                    updatedProgress[TASKS_SEC.QUIZ_PASSED] = true;    // Ensure passed is true
+                    
+                    // Auto-fill quiz with correct answers if not already done or if user_quiz_answers is empty
+                    if (Object.keys(updatedProgress.user_quiz_answers).length === 0 || !updatedProgress.quiz_feedback_active) {
+                        updatedProgress.user_quiz_answers = {};
+                        quizDataSecante.forEach((qData, index) => {
+                            const questionName = `question-${index + 1}-secante`;
+                            for (const optValueInMap in qData.options) { // qData.options is a map like {"value": true/false}
+                                if (qData.options[optValueInMap] === true) {
+                                    updatedProgress.user_quiz_answers[questionName] = optValueInMap;
+                                    break;
+                                }
+                            }
+                        });
+                        updatedProgress.quiz_current_score = 100; // Siempre es 100% si todas las respuestas son correctas
+                    }
+                    updatedProgress.quiz_feedback_active = true; 
+                    updatedProgress.overall_progress = 100; // Asegurar que el progreso total sea 100%
+                    
+                    // Guardar todo el progreso actualizado de una sola vez
+                    await savePageProgressToStorage_SEC(PAGE_KEY_SEC, updatedProgress);
+                    console.log('[TOGGLE DEBUG] Progreso guardado (completado):', JSON.stringify(updatedProgress));
+                    
+                    // Actualizar la interfaz de usuario
+                    if(quizForm_SEC) await displayQuizFeedback_SEC(); // Show the auto-passed quiz
+                    await renderTaskStatus_SEC(); // Actualizar los iconos de estado
+                    
+                } else { // Undoing completion
+                    updatedProgress.user_quiz_answers = {};
+                    updatedProgress.quiz_current_score = 0;
+                    updatedProgress.quiz_feedback_active = false;
+                    updatedProgress.overall_progress = 0; // Resetear el progreso total
+                    
+                    // Guardar todo el progreso actualizado de una sola vez
+                    await savePageProgressToStorage_SEC(PAGE_KEY_SEC, updatedProgress);
+                    console.log('[TOGGLE DEBUG] Progreso guardado (reseteado):', JSON.stringify(updatedProgress));
+                    
+                    // Actualizar la interfaz de usuario
+                    if (quizForm_SEC) {
+                        quizForm_SEC.reset(); // Deselect radio buttons
+                        clearAllVisualFeedback_SEC(true); // Clear all borders, icons, messages
+                        quizForm_SEC.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                        const submitButton = quizForm_SEC.querySelector('button[type="submit"]');
+                        if (submitButton) {
+                            submitButton.textContent = 'Enviar Respuestas';
+                            submitButton.disabled = false;
+                        }
+                        // Re-apply default Tailwind styles for checked state
+                        quizForm_SEC.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                            wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                        });
+                    }
+                    if (generalQuizFeedbackDiv_SEC) generalQuizFeedbackDiv_SEC.style.display = 'none';
+                    await renderTaskStatus_SEC(); // Actualizar los iconos de estado
+                }
+                
+                // Actualizar la barra de progreso y el estado general
+                await calculateAndUpdateOverallProgress_SEC();
+                await updateMainCompletionButtonState_SEC();
+                
+                // Eliminada la notificación alert para mejorar la experiencia de usuario
+                console.log(markAllAs ? 'Todas las tareas marcadas como completadas.' : 'Se ha deshecho el completado de tareas.');
+            } catch (error) {
+                console.error('[TOGGLE ERROR]', error);
+                alert('Ocurrió un error al procesar la acción. Por favor, intenta nuevamente.');
+            } finally {
+                // Reactivar el botón en cualquier caso
+                if (mainCompletionButton_SEC) {
+                    mainCompletionButton_SEC.disabled = false;
+                }
+            }
+        }
+
+
+        // --- Quiz Functionality (Adapted from Regla Falsa, using quizDataSecante) ---
+        const quizDataSecante = [ /* This is already defined in the original secante.html, ensure it's in scope */
+            {
+                questionId: "question-1-secante", // Used for specific feedback div
+                options: { "q1_opt3_secant_line": true },
+                specificFeedback: {
+                    "q1_opt1_taylor": "Incorrecto. El valor de \\(f(x_i)\\) usando un polinomio de Taylor se usa para aproximar la función en sí, no directamente para reemplazar la derivada en la fórmula de Newton-Raphson de la manera que lo hace Secante.",
+                    "q1_opt2_finite_diff": "Parcialmente correcto en espíritu, pero más precisamente, Secante usa la definición de la pendiente de la línea secante que pasa por \\(x_{i-1}\\) y \\(x_i\\). Esta pendiente es una aproximación de la derivada \\(f'(x_i)\\).",
+                    "q1_opt3_secant_line": "¡Correcto! Esta es la aproximación de la derivada \\(f'(x_i) \\approx \\frac{f(x_i) - f(x_{i-1})}{x_i - x_{i-1}}\\) que se sustituye en la fórmula de Newton-Raphson."
+                }
+            },
+            {
+                questionId: "question-2-secante",
+                options: { "Ligeramente más lenta (superlineal, orden ~1.618).": true },
+                specificFeedback: {
+                    "Más rápida (cúbica).": "Incorrecto. La convergencia cúbica es muy rara y no es característica del método de la Secante.",
+                    "Ligeramente más lenta (superlineal, orden ~1.618).": "¡Correcto! Newton-Raphson tiene convergencia cuadrática (orden 2), mientras que Secante tiene convergencia superlineal (aproximadamente 1.618), que es más rápida que lineal pero no tan rápida como cuadrática.",
+                    "Igual de rápida (cuadrática).": "Incorrecto. Secante es generalmente un poco más lenta que Newton-Raphson porque aproxima la derivada en lugar de calcularla exactamente."
+                }
+            },
+            {
+                questionId: "question-3-secante",
+                options: { "q3_opt2_two_points": true },
+                specificFeedback: {
+                    "q3_opt1_one_point": "Incorrecto. Un solo punto no es suficiente para definir la línea secante necesaria para la primera iteración.",
+                    "q3_opt2_two_points": "¡Correcto! El método de la Secante necesita dos estimaciones iniciales, \\(x_{i-1}\\) (o \\(x_0\\)) y \\(x_i\\) (o \\(x_1\\)), para calcular la primera aproximación de la raíz.",
+                    "q3_opt3_three_points": "Incorrecto. Aunque se generan múltiples puntos durante la iteración, solo se requieren dos puntos iniciales para comenzar el proceso."
+                }
+            }
+        ];
+
+        async function displayQuizFeedback_SEC() {
+            if (!quizForm_SEC || !generalQuizFeedbackDiv_SEC) return;
+
+            const currentLocalProgress = await getPageProgressFromStorage_SEC(PAGE_KEY_SEC);
+            const submitButton = quizForm_SEC.querySelector('button[type="submit"]');
+
+            // Handle "Intentar de Nuevo" click
+            if (submitButton && submitButton.textContent === 'Intentar de Nuevo') {
+                quizForm_SEC.reset();
+                clearAllVisualFeedback_SEC(true); // Clear all borders, icons, and general message
+                if(generalQuizFeedbackDiv_SEC) generalQuizFeedbackDiv_SEC.style.display = 'none';
+                
+                let progressToSave = await getPageProgressFromStorage_SEC(PAGE_KEY_SEC);
+                progressToSave.user_quiz_answers = {};
+                progressToSave.quiz_current_score = 0;
+                progressToSave.quiz_feedback_active = false; 
+                await savePageProgressToStorage_SEC(PAGE_KEY_SEC, progressToSave);
+                
+                // Important: Update task status to reflect quiz is no longer passed (attempted might still be true or become true on next submit)
+                await updateTaskStatusInStorage_SEC(TASKS_SEC.QUIZ_PASSED, false); 
+                // QUIZ_ATTEMPTED remains true or will become true on next submit.
+                
+                quizForm_SEC.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                submitButton.textContent = 'Enviar Respuestas';
+                return;
+            }
+
+            // Regular submission
+            const formData = new FormData(quizForm_SEC);
+            let allQuestionsAnswered = true;
+            quizDataSecante.forEach((qData, qIndex) => {
+                const questionName = `question-${qIndex + 1}-secante`;
+                if (!formData.has(questionName)) {
+                    allQuestionsAnswered = false;
+                }
+            });
+
+            if (!allQuestionsAnswered) {
+                generalQuizFeedbackDiv_SEC.textContent = "Por favor, responde todas las preguntas.";
+                generalQuizFeedbackDiv_SEC.className = 'quiz-feedback-message mt-4 p-3 rounded-md text-sm bg-yellow-100 text-yellow-700 border border-yellow-300';
+                generalQuizFeedbackDiv_SEC.style.display = 'block';
+                return;
+            }
+            
+            await updateTaskStatusInStorage_SEC(TASKS_SEC.QUIZ_ATTEMPTED, true); // Mark as attempted
+            
+            let progress = await getPageProgressFromStorage_SEC(PAGE_KEY_SEC);
+            progress.user_quiz_answers = {}; // Reset before populating
+            quizDataSecante.forEach((qData, qIndex) => {
+                 const questionName = `question-${qIndex + 1}-secante`;
+                 progress.user_quiz_answers[questionName] = formData.get(questionName);
+            });
+            progress.quiz_feedback_active = true; 
+            
+            // Determine if quiz passed for the call to updateTaskStatusInStorage_SEC
+            let score = 0;
+            quizDataSecante.forEach((qData, qIndex) => {
+                const questionName = `question-${qIndex + 1}-secante`;
+                const userAnswer = progress.user_quiz_answers[questionName];
+                if (userAnswer && qData.options[userAnswer] === true) {
+                    score++;
+                }
+            });
+            const passed = score === quizDataSecante.length;
+            // progress[TASKS_SEC.QUIZ_PASSED] = passed; // THIS LINE IS REMOVED
+            
+            // Only save the answers and feedback status. The TASKS_SEC.QUIZ_PASSED flag will be set by updateTaskStatusInStorage_SEC.
+            await savePageProgressToStorage_SEC(PAGE_KEY_SEC, progress); 
+            
+            await displayQuizFeedback_SEC(); // This will show feedback based on the answers.
+                                     // It does NOT update the QUIZ_PASSED task status itself.
+            
+            // Now, explicitly update the QUIZ_PASSED task status.
+            // This will correctly trigger the UI update if the status changes.
+            await updateTaskStatusInStorage_SEC(TASKS_SEC.QUIZ_PASSED, passed); 
+        }
+
+
+        // --- Scroll and Theory Reading Detection (Adapted from existing) ---
+        setTimeout(() => { // Keep the timeout for initial non-interaction
+            const currentProgress = getPageProgressFromStorage_SEC(PAGE_KEY_SEC);
+            if (!currentProgress[TASKS_SEC.READ_THEORY]) {
+                const theorySection = document.getElementById('ejemplo'); // Changed from 'teoria' to 'ejemplo'
+                if (theorySection) {
+                    const observer = new IntersectionObserver((entries) => {
+                        if (entries[0].isIntersecting) {
+                            updateTaskStatusInStorage_SEC(TASKS_SEC.READ_THEORY, true);
+                            observer.disconnect(); // Stop observing once read
+                        }
+                    }, { threshold: 0.1 }); // 10% visibility
+                    observer.observe(theorySection);
+                }
+            }
+        }, 2000);
+
+
+        // --- Pyodide Initialization and Code Execution (Adapted from existing) ---
+        async function setupPyodide_SEC() {
+            if (!pyodide_SEC) {
+                if (codeOutput_SEC) codeOutput_SEC.innerHTML = "<p>Cargando Pyodide y entorno...</p>"; // Use innerHTML for initial messages too
+                try {
+                    pyodide_SEC = await loadPyodide();
+                    await pyodide_SEC.loadPackage("micropip");
+                    const micropip = pyodide_SEC.pyimport("micropip");
+                    pyodide_SEC.globals.set("js_iteration_data_sec", pyodide_SEC.toPy([]));
+                    pyodide_SEC.globals.set("pyodide_html_output", ""); // Initialize global for HTML output
+
+                    if (codeOutput_SEC) codeOutput_SEC.innerHTML = "<p>Pyodide listo. Presiona 'Ejecutar Código'.</p>";
+                    if (runCodeButton_SEC) runCodeButton_SEC.disabled = false;
+                } catch (error) {
+                    console.error("Error al inicializar Pyodide (Secante):", error);
+                    if (codeOutput_SEC) codeOutput_SEC.innerHTML = "<p>Error al cargar Pyodide. Revisa la consola.</p>";
+                    if (runCodeButton_SEC) runCodeButton_SEC.disabled = true;
+                }
+            }
+        }
+
+        async function runCodeNow_SEC() {
+            if (!pyodide_SEC) {
+                if (codeOutput_SEC) codeOutput_SEC.innerHTML = "<p>Pyodide no está listo. Espera...</p>";
+                await setupPyodide_SEC();
+                if (!pyodide_SEC) return;
+            }
+
+            if (codeOutput_SEC) codeOutput_SEC.innerHTML = "<p>Ejecutando código...</p>";
+            if (chartLoadingMessage_SEC) chartLoadingMessage_SEC.textContent = "Generando datos para la gráfica...";
+            if (secanteMethodChartCanvas_SEC) secanteMethodChartCanvas_SEC.style.display = 'none';
+
+            // Clear previous stdout/stderr handlers if any were set for console logging
+            pyodide_SEC.setStdout({}); 
+            pyodide_SEC.setStderr({});
+            // Reset the global HTML output variable in Pyodide
+            pyodide_SEC.globals.set("pyodide_html_output", "");
+            pyodide_SEC.runPython("if 'js_iteration_data_sec' in globals(): js_iteration_data_sec.clear()");
+
+            try {
+                const pythonCode = codeInput_SEC ? codeInput_SEC.value : '';
+                await pyodide_SEC.runPythonAsync(pythonCode);
+                
+                // Retrieve the HTML output from the global variable
+                const htmlResult = pyodide_SEC.globals.get("pyodide_html_output");
+                if (codeOutput_SEC) {
+                    codeOutput_SEC.innerHTML = htmlResult || "<p>Ejecución completada. No se generó salida HTML.</p>";
+                }
+                
+                const iterationDataJS = pyodide_SEC.globals.get("js_iteration_data_sec").toJs({ dict_converter: Object.fromEntries });
+                
+                if (iterationDataJS && iterationDataJS.length > 0) {
+                    updateChart_SEC(iterationDataJS); // Existing chart function
+                    if (chartLoadingMessage_SEC) chartLoadingMessage_SEC.style.display = 'none';
+                    if (secanteMethodChartCanvas_SEC) secanteMethodChartCanvas_SEC.style.display = 'block';
+                } else {
+                    if (chartLoadingMessage_SEC) {
+                        chartLoadingMessage_SEC.textContent = "No se generaron datos para la gráfica o la variable 'js_iteration_data_sec' no se pobló.";
+                        chartLoadingMessage_SEC.style.display = 'block';
+                    }
+                    if (secanteChart_SEC) secanteChart_SEC.destroy();
+                }
+                await updateTaskStatusInStorage_SEC(TASKS_SEC.RUN_CODE, true); // Update progress
+            } catch (error) {
+                console.error("Error al ejecutar el código Python (Secante):", error);
+                if (codeOutput_SEC) {
+                    codeOutput_SEC.innerHTML = `<p>Error en la ejecución: ${error.toString()}</p>`;
+                }
+                if (chartLoadingMessage_SEC) chartLoadingMessage_SEC.textContent = "Error al generar datos para la gráfica.";
+            } finally {
+                 // stdout/stderr are already reset, no need to do it again here
+            }
+        }
+
+        // --- Chart.js Integration (Existing function, assumed to be fine) ---
+        function updateChart_SEC(iterationData) {
+            if (!secanteMethodChartCanvas_SEC) return;
+            const ctx = secanteMethodChartCanvas_SEC.getContext('2d');
+            if (secanteChart_SEC) secanteChart_SEC.destroy();
+            if (!iterationData || iterationData.length < 2) {
+                if (chartLoadingMessage_SEC) {
+                    chartLoadingMessage_SEC.textContent = "No hay suficientes datos para graficar.";
+                    chartLoadingMessage_SEC.style.display = 'block';
+                } return;
+            }
+            const f = (x) => { 
+                const pyCode = codeInput_SEC.value;
+                if (pyCode.includes("math.exp(-x) - x")) return Math.exp(-x) - x;
+                if (pyCode.includes("x**3 - x - 1")) return x**3 - x - 1;
+                return x**3 - x - 1; // Default
+            };
+            const datasets = [];
+            datasets.push({
+                label: 'Raíz Aproximada (xi+1 o xi final)',
+                data: iterationData.map(d => ({ x: d.x_next !== undefined && d.x_next !== null ? d.x_next : d.x_curr, y: 0 })),
+                borderColor: 'rgba(233, 69, 96, 1)', backgroundColor: 'rgba(233, 69, 96, 0.7)',
+                pointRadius: 5, pointHoverRadius: 7, type: 'scatter', showLine: false, order: 1
+            });
+            datasets.push({
+                label: 'f(xi)', data: iterationData.map(d => ({ x: d.x_curr, y: d.fx_curr })),
+                borderColor: 'rgba(36, 42, 56, 0.8)', backgroundColor: 'rgba(36, 42, 56, 0.5)',
+                pointRadius: 4, type: 'scatter', showLine: false, order: 2
+            });
+            for (let i = 0; i < iterationData.length; i++) {
+                const currentPoint = iterationData[i];
+                if (currentPoint.x_prev !== null && currentPoint.x_prev !== undefined && currentPoint.x_next !== null && currentPoint.x_next !== undefined) {
+                     datasets.push({
+                        label: `Secante Iter ${currentPoint.iter}`,
+                        data: [{ x: currentPoint.x_prev, y: currentPoint.fx_prev }, { x: currentPoint.x_curr, y: currentPoint.fx_curr }],
+                        borderColor: `hsla(${i * 40}, 70%, 50%, 0.6)`, borderDash: [5, 5], type: 'line', fill: false, tension: 0.1, pointRadius: 0, order: 3 
+                    });
+                    datasets.push({
+                        label: `Proyección Iter ${currentPoint.iter}`,
+                        data: [{ x: currentPoint.x_curr, y: currentPoint.fx_curr }, { x: currentPoint.x_next, y: 0 }],
+                        borderColor: `hsla(${i * 40}, 70%, 60%, 0.7)`, borderWidth: 1, type: 'line', fill: false, pointRadius: 0, order: 3
+                    });
+                }
+            }
+            const allXValues = iterationData.flatMap(d => [d.x_prev, d.x_curr, d.x_next].filter(x => x !== null && x !== undefined));
+            if (allXValues.length > 0) {
+                const minX = Math.min(...allXValues) - 1; const maxX = Math.max(...allXValues) + 1; const step = (maxX - minX) / 100;
+                const xValuesForCurve = []; const yValuesForCurve = [];
+                for (let x = minX; x <= maxX; x += step) { xValuesForCurve.push(x); yValuesForCurve.push(f(x)); }
+                datasets.push({
+                    label: 'f(x) (Estimada)', data: xValuesForCurve.map((val, index) => ({x: val, y: yValuesForCurve[index]})),
+                    borderColor: 'rgba(75, 192, 192, 0.8)', borderWidth: 2, fill: false, type: 'line', pointRadius: 0, tension: 0.1, order: 4
+                });
+            }
+            secanteChart_SEC = new Chart(ctx, {
+                type: 'scatter', data: { datasets: datasets },
+                options: { responsive: true, maintainAspectRatio: false,
+                    plugins: { title: { display: true, text: 'Convergencia del Método de la Secante', font: { size: 16 } },
+                        legend: { position: 'top', labels: { filter: (item) => !(item.text.startsWith('Secante Iter') || item.text.startsWith('Proyección Iter')) || iterationData.length <= 5 }},
+                        tooltip: { callbacks: { label: (ctx) => {
+                            let lbl = ctx.dataset.label || ''; if (lbl) lbl += ': ';
+                            lbl += `(x: ${ctx.parsed.x.toFixed(6)}, y: ${ctx.parsed.y.toFixed(6)})`;
+                            const iData = iterationData[ctx.dataIndex];
+                            if (iData && iData.error !== undefined && iData.error !== null && ctx.dataset.label.includes('Raíz Aproximada')) {
+                                lbl += ` (Error: ${iData.error.toFixed(4)}%)`;
+                            } return lbl;
+                        }}}
+                    },
+                    scales: { x: { type: 'linear', position: 'bottom', title: { display: true, text: 'x' }},
+                              y: { type: 'linear', position: 'left', title: { display: true, text: 'f(x)'}, afterBuildTicks: chart => chart.ticks.push({value: 0, major: true, label:"0"}), grid: { drawOnChartArea: true, zeroLineColor: 'rgba(0, 0, 0, 1)', zeroLineWidth: 1.5 }}
+                    }
+                }
+            });
+            if (chartLoadingMessage_SEC) chartLoadingMessage_SEC.style.display = 'none';
+        }
+
+        // --- Fullscreen and Font Controls for Code Output (Existing functions, assumed fine) ---
+        function toggleFullscreen_SEC() {
+            if (!codeOutput_SEC || !fullscreenButton_SEC || !outputControlsContainer_SEC) return;
+            const isFullscreen = codeOutput_SEC.classList.contains('sec-output-fullscreen');
+            if (isFullscreen) { 
+                outputControlsContainer_SEC.style.opacity = '0'; 
+                if(decreaseFontButton_SEC) decreaseFontButton_SEC.style.display = 'none';
+                if(increaseFontButton_SEC) increaseFontButton_SEC.style.display = 'none';
+                if (secCodeOutputInitialRect_SEC) {
+                    const finalRect = codeOutput_SEC.getBoundingClientRect();
+                    const scaleX = secCodeOutputInitialRect_SEC.width / finalRect.width;
+                    const scaleY = secCodeOutputInitialRect_SEC.height / finalRect.height;
+                    const deltaX = (secCodeOutputInitialRect_SEC.left + secCodeOutputInitialRect_SEC.width / 2) - (finalRect.left + finalRect.width / 2);
+                    const deltaY = (secCodeOutputInitialRect_SEC.top + secCodeOutputInitialRect_SEC.height / 2) - (finalRect.top + finalRect.height / 2);
+                    codeOutput_SEC.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+                }
+                setTimeout(() => {
+                    codeOutput_SEC.style.transition = 'none';
+                    codeOutput_SEC.classList.remove('sec-output-fullscreen');
+                    document.body.classList.remove('sec-body-fullscreen-active');
+                    outputControlsContainer_SEC.classList.remove('sec-output-controls-container-fixed');
+                    outputControlsContainer_SEC.style.transition = 'none'; outputControlsContainer_SEC.style.opacity = '1';
+                    outputControlsContainer_SEC.offsetHeight; outputControlsContainer_SEC.style.transition = '';
+                    codeOutput_SEC.style.transform = ''; if (originalOutputFontSize_SEC) codeOutput_SEC.style.fontSize = originalOutputFontSize_SEC;
+                    codeOutput_SEC.offsetHeight; codeOutput_SEC.style.transition = '';
+                    fullscreenButton_SEC.innerHTML = svgIconFullscreen_SEC; fullscreenButton_SEC.title = "Ver en pantalla completa";
+                    secCodeOutputInitialRect_SEC = null;
+                }, 500);
+            } else { 
+                originalOutputFontSize_SEC = window.getComputedStyle(codeOutput_SEC).fontSize;
+                secCodeOutputInitialRect_SEC = codeOutput_SEC.getBoundingClientRect();
+                outputControlsContainer_SEC.style.transition = 'none'; outputControlsContainer_SEC.style.opacity = '0';
+                outputControlsContainer_SEC.offsetHeight; outputControlsContainer_SEC.style.transition = '';
+                if(decreaseFontButton_SEC) decreaseFontButton_SEC.style.display = 'none'; if(increaseFontButton_SEC) increaseFontButton_SEC.style.display = 'none';
+                codeOutput_SEC.style.transition = 'none'; codeOutput_SEC.classList.add('sec-output-fullscreen');
+                document.body.classList.add('sec-body-fullscreen-active'); outputControlsContainer_SEC.classList.add('sec-output-controls-container-fixed');
+                const finalRect = codeOutput_SEC.getBoundingClientRect();
+                const scaleX = secCodeOutputInitialRect_SEC.width / finalRect.width; const scaleY = secCodeOutputInitialRect_SEC.height / finalRect.height;
+                const deltaX = (secCodeOutputInitialRect_SEC.left + secCodeOutputInitialRect_SEC.width / 2) - (finalRect.left + finalRect.width / 2);
+                const deltaY = (secCodeOutputInitialRect_SEC.top + secCodeOutputInitialRect_SEC.height / 2) - (finalRect.top + finalRect.height / 2);
+                codeOutput_SEC.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+                codeOutput_SEC.offsetHeight; codeOutput_SEC.style.transition = ''; codeOutput_SEC.style.transform = 'translate(0px, 0px) scale(1)';
+                fullscreenButton_SEC.innerHTML = svgIconExitFullscreen_SEC; fullscreenButton_SEC.title = "Salir de pantalla completa";
+                setTimeout(() => {
+                    outputControlsContainer_SEC.style.opacity = '1';
+                    if(decreaseFontButton_SEC) decreaseFontButton_SEC.style.display = 'flex'; if(increaseFontButton_SEC) increaseFontButton_SEC.style.display = 'flex';
+                }, 500);
+            }
+        }
+        function changeFontSize_SEC(increase) {
+            if (!codeOutput_SEC) return; const minSize = 8; const maxSize = 24; const step = 1;
+            secCurrentFontSize_SEC += (increase ? step : -step);
+            secCurrentFontSize_SEC = Math.max(minSize, Math.min(maxSize, secCurrentFontSize_SEC));
+            codeOutput_SEC.style.fontSize = secCurrentFontSize_SEC + 'px';
+            const buttonToAnimate = increase ? increaseFontButton_SEC : decreaseFontButton_SEC;
+            const animationClass = increase ? 'sec-font-button-flash-blue' : 'sec-font-button-flash-red';
+            if (buttonToAnimate) {
+                buttonToAnimate.classList.remove('sec-font-button-flash-blue', 'sec-font-button-flash-red');
+                void buttonToAnimate.offsetWidth; buttonToAnimate.classList.add(animationClass);
+                setTimeout(() => buttonToAnimate.classList.remove(animationClass), 400);
+            }
+        }
+        
+        // --- Event Listeners (Consolidated and Updated) ---
+        if (runCodeButton_SEC) {
+            runCodeButton_SEC.addEventListener('click', async () => {
+                await runCodeNow_SEC();
+            });
+            runCodeButton_SEC.disabled = true; // Initial state
+        }
+        if (quizForm_SEC) {
+            quizForm_SEC.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                await handleQuizSubmit_SEC(event);
+            });
+        }
+        if (fullscreenButton_SEC) {
+            fullscreenButton_SEC.addEventListener('click', toggleFullscreen_SEC);
+        }
+        if (decreaseFontButton_SEC) {
+            decreaseFontButton_SEC.addEventListener('click', () => changeFontSize_SEC(false));
+        }
+        if (increaseFontButton_SEC) {
+            increaseFontButton_SEC.addEventListener('click', () => changeFontSize_SEC(true));
+        }
+        if (mainCompletionButton_SEC) { // Renamed from completionButton_SEC
+            mainCompletionButton_SEC.addEventListener('click', async () => {
+                await handleCompletionToggle_SEC();
+            });
+        }
+
+        // --- Initial Setup Calls ---
+        setupPyodide_SEC(); // Initialize Pyodide, enables run button on success
+
+        // Agregar un indicador visual de estado de autenticación (solo para depuración)
+        const authDebugIndicator = document.createElement('div');
+        authDebugIndicator.style.position = 'fixed';
+        authDebugIndicator.style.bottom = '10px';
+        authDebugIndicator.style.right = '10px';
+        authDebugIndicator.style.padding = '5px 10px';
+        authDebugIndicator.style.borderRadius = '5px';
+        authDebugIndicator.style.fontSize = '12px';
+        authDebugIndicator.style.zIndex = '9999';
+        authDebugIndicator.style.opacity = '0.8';
+        document.body.appendChild(authDebugIndicator);
+        
+        function updateAuthIndicator(isAuth) {
+            authDebugIndicator.textContent = isAuth ? 'Autenticado ✓' : 'No Autenticado ✗';
+            authDebugIndicator.style.backgroundColor = isAuth ? '#4ade80' : '#f87171';
+            authDebugIndicator.style.color = isAuth ? '#064e3b' : '#7f1d1d';
+        }
+        
+        // Primero verificamos la autenticación y luego cargamos el progreso
+        checkAuthentication().then(isAuthenticated => {
+            console.log('[INIT DEBUG] Estado de autenticación inicial:', isAuthenticated);
+            updateAuthIndicator(isAuthenticated);
+            
+            // Verificar la autenticación periódicamente (cada 30 segundos)
+            setInterval(async () => {
+                const newAuthStatus = await checkAuthentication();
+                updateAuthIndicator(newAuthStatus);
+            }, 30000);
+            
+            // Load initial progress from database/localStorage after authentication check
+            return getPageProgressFromStorage_SEC(PAGE_KEY_SEC);
+        }).then(progress => {
+            // Initialize quiz if answers are available
+            if (progress.quiz_feedback_active || (progress[TASKS_SEC.QUIZ_ATTEMPTED] && Object.keys(progress.user_quiz_answers || {}).length > 0)) {
+                if (quizForm_SEC && progress.user_quiz_answers) {
+                    for (const qName in progress.user_quiz_answers) { // qName is like "question-1-secante"
+                        const answerId = progress.user_quiz_answers[qName];
+                        const radio = quizForm_SEC.querySelector(`input[name="${qName}"][value="${answerId}"]`);
+                        if (radio) radio.checked = true;
+                    }
+                    // Show quiz feedback after checking the answers
+                    displayQuizFeedback_SEC();
+                }
+            }
+            
+            // Update UI elements based on progress
+            renderTaskStatus_SEC().then(() => {
+                calculateAndUpdateOverallProgress_SEC().then(() => {
+                    updateMainCompletionButtonState_SEC();
+                });
+            });
+            // If no previous attempt or feedback was active, ensure form is reset and enabled
+            if (!progress.quiz_feedback_active && quizForm_SEC) {
+                quizForm_SEC.reset();
+                clearAllVisualFeedback_SEC(true);
+                const submitButton = quizForm_SEC.querySelector('button[type="submit"]');
+                if (submitButton) { submitButton.textContent = 'Enviar Respuestas'; submitButton.disabled = false; }
+                quizForm_SEC.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                quizForm_SEC.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                    wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                });
+            }
+        });
+        
+        // Function to clear all visual feedback for quiz
+        function clearAllVisualFeedback_SEC(clearGeneralMessage = false) {
+            if (!quizForm_SEC) return;
+            quizForm_SEC.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                wrapper.classList.remove('bg-green-100', 'bg-red-100', 'border-green-500', 'border-red-500', 'ring-1', 'ring-green-500', 'ring-red-500');
+                wrapper.classList.add('border-gray-300', 'hover:border-gray-400');
+                // Re-apply Tailwind's default styles for theme color
+                wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+            });
+            
+            quizForm_SEC.querySelectorAll('.quiz-answer-feedback-SEC').forEach(div => {
+                div.classList.add('hidden');
+            });
+            
+            if (clearGeneralMessage && generalQuizFeedbackDiv_SEC) {
+                generalQuizFeedbackDiv_SEC.classList.add('hidden');
+            }
+        }
+        
+        // Quiz submission handler
+        // Function to display quiz feedback after submission
+        async function displayQuizFeedback_SEC() {
+            if (!quizForm_SEC || !generalQuizFeedbackDiv_SEC) return;
+            
+            const progress = await getPageProgressFromStorage_SEC(PAGE_KEY_SEC);
+            const userAnswers = progress.user_quiz_answers || {};
+            const submitButton = quizForm_SEC.querySelector('button[type="submit"]');
+            
+            clearAllVisualFeedback_SEC(false);
+            
+            if (!progress.quiz_feedback_active && Object.keys(userAnswers).length === 0) {
+                quizForm_SEC.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                if (submitButton) {
+                    submitButton.textContent = 'Enviar Respuestas';
+                    submitButton.disabled = false;
+                }
+                return;
+            }
+            
+            // Calculate score based on saved answers
+            let score = 0;
+            let allCorrect = true;
+            let totalQuestions = quizDataSecante.length;
+            
+            quizDataSecante.forEach((qData, qIndex) => {
+                const questionName = `question-${qIndex + 1}-secante`;
+                const userAnswer = userAnswers[questionName];
+                
+                // Mark answers as correct/incorrect visually
+                const radioInputs = quizForm_SEC.querySelectorAll(`input[name="${questionName}"]`);
+                radioInputs.forEach(radio => {
+                    radio.disabled = true;
+                    const wrapper = radio.closest('.quiz-option-wrapper');
+                    const isThisOptionCorrect = qData.options[radio.value] === true;
+                    const isThisSelectedByUser = radio.value === userAnswer;
+                    
+                    if (isThisSelectedByUser) {
+                        radio.checked = true;
+                        if (isThisOptionCorrect) {
+                            wrapper.classList.add('bg-green-100', 'border-green-500');
+                        } else {
+                            wrapper.classList.add('bg-red-100', 'border-red-500');
+                        }
+                    } else if (isThisOptionCorrect) {
+                        // Highlight correct answer if user got it wrong
+                        wrapper.classList.add('bg-green-50', 'border-green-300');
+                    }
+                });
+                
+                // Count score
+                if (userAnswer && qData.options[userAnswer] === true) {
+                    score++;
+                } else {
+                    allCorrect = false;
+                }
+            });
+            
+            // Display feedback message
+            generalQuizFeedbackDiv_SEC.style.display = 'block';
+            if (allCorrect) {
+                generalQuizFeedbackDiv_SEC.className = 'p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-lg';
+                generalQuizFeedbackDiv_SEC.innerHTML = `<strong>¡Felicidades!</strong> Has respondido correctamente todas las preguntas. (${score}/${totalQuestions})`;
+                if (submitButton) {
+                    submitButton.textContent = 'Cuestionario Aprobado';
+                    submitButton.disabled = true;
+                }
+            } else {
+                generalQuizFeedbackDiv_SEC.className = 'p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg';
+                generalQuizFeedbackDiv_SEC.innerHTML = `Has respondido correctamente ${score} de ${totalQuestions} preguntas. Revisa las respuestas incorrectas e intenta de nuevo.`;
+                if (submitButton) {
+                    submitButton.textContent = 'Intentar de Nuevo';
+                    submitButton.disabled = false;
+                }
+            }
+            
+            // Update MathJax rendering if necessary
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                window.MathJax.typesetPromise([generalQuizFeedbackDiv_SEC])
+                    .catch(err => console.error("MathJax typesetting error in displayQuizFeedback_SEC:", err));
+            }
+            
+            return allCorrect;
+        }
+
+        async function handleQuizSubmit_SEC(event) {
+            if (!quizForm_SEC || !generalQuizFeedbackDiv_SEC) return;
+
+            const currentLocalProgress = await getPageProgressFromStorage_SEC(PAGE_KEY_SEC);
+            const submitButton = quizForm_SEC.querySelector('button[type="submit"]');
+
+            // Handle "Intentar de Nuevo" click
+            if (submitButton && submitButton.textContent === 'Intentar de Nuevo') {
+                // Reset form to allow new attempt
+                quizForm_SEC.reset();
+                clearAllVisualFeedback_SEC(true); // Clear all borders, icons, and general message
+                if(generalQuizFeedbackDiv_SEC) generalQuizFeedbackDiv_SEC.style.display = 'none';
+                
+                let progressToSave = await getPageProgressFromStorage_SEC(PAGE_KEY_SEC);
+                progressToSave.user_quiz_answers = {};
+                progressToSave.quiz_current_score = 0;
+                progressToSave.quiz_feedback_active = false; 
+                await savePageProgressToStorage_SEC(PAGE_KEY_SEC, progressToSave);
+                
+                // Important: Update task status to reflect quiz is no longer passed (attempted might still be true or become true on next submit)
+                await updateTaskStatusInStorage_SEC(TASKS_SEC.QUIZ_PASSED, false); 
+                // QUIZ_ATTEMPTED remains true or will become true on next submit.
+                
+                quizForm_SEC.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                if (submitButton) {
+                    submitButton.textContent = 'Enviar Respuestas';
+                    submitButton.disabled = false;
+                }
+                return;
+            }
+
+            // Basic validation - all questions must be answered
+            const totalQuestions = quizDataSecante.length;
+            const selectedRadios = quizForm_SEC.querySelectorAll('input[type="radio"]:checked');
+            if (selectedRadios.length < totalQuestions) {
+                alert('Por favor responde todas las preguntas antes de enviar.');
+                return;
+            }
+            
+            await updateTaskStatusInStorage_SEC(TASKS_SEC.QUIZ_ATTEMPTED, true); // Mark as attempted
+            
+            let progress = await getPageProgressFromStorage_SEC(PAGE_KEY_SEC);
+            progress.user_quiz_answers = {}; // Reset before populating
+            quizDataSecante.forEach((qData, qIndex) => {
+                 const questionName = `question-${qIndex + 1}-secante`;
+                 const selected = quizForm_SEC.querySelector(`input[name="${questionName}"]:checked`);
+                 if (selected) {
+                     progress.user_quiz_answers[questionName] = selected.value;
+                 }
+            });
+
+            // Calculate score and determine if passed
+            let score = 0;
+            let allCorrect = true;
+            quizDataSecante.forEach((qData, qIndex) => {
+                const questionName = `question-${qIndex + 1}-secante`;
+                const userAnswer = progress.user_quiz_answers[questionName];
+                if (userAnswer && qData.options[userAnswer] === true) {
+                    score++;
+                } else {
+                    allCorrect = false;
+                }
+            });
+            const scorePercentage = (score / totalQuestions) * 100;
+            const passed = allCorrect;
+            
+            // Set feedback active
+            progress.quiz_feedback_active = true;
+            progress.quiz_current_score = scorePercentage;
+            // progress[TASKS_SEC.QUIZ_PASSED] = passed; // THIS LINE IS REMOVED
+            
+            // Only save the answers and feedback status. The TASKS_SEC.QUIZ_PASSED flag will be set by updateTaskStatusInStorage_SEC.
+            await savePageProgressToStorage_SEC(PAGE_KEY_SEC, progress); 
+            
+            await displayQuizFeedback_SEC(); // This will show feedback based on the answers.
+                                     // It does NOT update the QUIZ_PASSED task status itself.
+            
+            // Now, explicitly update the QUIZ_PASSED task status.
+            // This will trigger the progress bar update and other UI changes.
+            await updateTaskStatusInStorage_SEC(TASKS_SEC.QUIZ_PASSED, passed); 
+        }
+
+        // Typeset MathJax content initially
+        if (window.MathJax && window.MathJax.typesetPromise) {
+            window.MathJax.typesetPromise().catch(err => console.error("MathJax initial typesetting error (Secante):", err));
+        }
+        // --- End of Secante Page Specific Script ---
+    });
+    </script>
+
+    <script type="module">
+        const { createApp, ref, onMounted, onUnmounted, watch, nextTick } = Vue;
+
+        const LeftSidebar = { // Definición del componente LeftSidebar para Vue
+        props: {
+            pageThemeColor: { type: String, default: 'red' }, // Color base del tema (e.g., 'red', 'blue')
+            pageGradientFrom: { type: String, default: 'from-red-500' }, // Clase para inicio de gradiente
+            pageGradientTo: { type: String, default: 'to-red-700' },     // Clase para fin de gradiente
+            pageActiveTextColor: { type: String, default: 'text-custom-red' } // Texto activo para links, usa el color base
+        },
+        template: `{% raw %}
+            <aside 
+                :class="[
+                    'bg-gradient-to-b', pageGradientFrom, pageGradientTo,
+                    'shadow-xl', 'rounded-lg', 'p-4',
+                    'flex', 'flex-col',
+                    'transition-all', 'duration-300', 'ease-in-out',
+                    'order-1', 
+                    isCollapsed ? 'w-full lg:w-20' : 'w-full lg:w-64',
+                    'self-start', 
+                    'lg:sticky', 'lg:top-8', 
+                    'lg:max-h-[calc(100vh-4rem)]', // Altura máxima considerando 2rem (top-8) * 2 para arriba y abajo
+                    'overflow-y-auto' // Scroll si el contenido excede la altura máxima
+                ]"
+                aria-label="Sidebar de navegación del método">
+                <div :class="['flex justify-between items-center mb-4 border-b pb-3', 'border-' + pageThemeColor + '-400']">
+                    <h3 v-show="!isCollapsed" class="text-lg font-semibold text-white select-none">Contenido</h3>
+                    <button @click="toggleCollapse" :class="['p-1.5 ml-2 text-white rounded focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-75', 'hover:bg-' + pageThemeColor + '-600']" :aria-label="isCollapsed ? 'Expandir menú' : 'Colapsar menú'">
+                        <svg v-if="!isCollapsed" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5" />
+                        </svg>
+                        <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5m-6-15l7.5 7.5-7.5 7.5" />
+                        </svg>
+                    </button>
+                </div>
+                <nav v-show="!isCollapsed" class="flex-grow">
+                    <ul class="space-y-1">
+                        <li v-for="item in navItems" :key="item.id">
+                            <a :href="item.href"
+                               @click.prevent="smoothScroll(item.href)"
+                               :class="[
+                                   'nav-link block px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 flex items-center',
+                                   isActive(item.id) ? ['bg-white shadow-sm font-semibold', pageActiveTextColor] : ['text-' + pageThemeColor + '-100', 'hover:text-white', 'hover:bg-' + pageThemeColor + '-600']
+                               ]">
+                                <span v-html="item.iconSVG" class="mr-3 translate-y-px"></span>
+                                <span>{{ item.text }}</span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+                <nav v-show="isCollapsed" class="mt-4 flex-grow">
+                     <ul class="space-y-1">
+                        <li v-for="item in navItems" :key="item.id + '-collapsed'">
+                            <a :href="item.href"
+                               @click.prevent="smoothScroll(item.href)"
+                               :title="item.text"
+                               :aria-label="item.text"
+                               :class="[
+                                   'nav-link-collapsed block py-2 pl-2.5 pr-1.5 rounded-md transition-colors duration-150 flex justify-center items-center',
+                                   isActive(item.id) ? ['bg-white shadow-sm', pageActiveTextColor] : ['text-' + pageThemeColor + '-100', 'hover:text-white', 'hover:bg-' + pageThemeColor + '-600']
+                               ]">
+                                <span v-html="item.iconSVG" class="w-6 h-6 translate-y-px"></span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </aside>
+        {% endraw %}`,
+        setup(props) {
+            const isCollapsed = ref(false);
+            const activeSectionId = ref(null);
+            // navItems se define aquí o se pasa como prop si varía mucho entre páginas
+            const navItems = ref([
+                { id: 'teoria', text: 'Fundamento Teórico', href: '#teoria', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>' },
+                { id: 'algoritmo', text: 'Pasos del Algoritmo', href: '#algoritmo', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" /></svg>' },
+                { id: 'ejemplo', text: 'Ejemplo Detallado', href: '#ejemplo', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>' },
+                { id: 'codigo', text: 'Implementación (Python)', href: '#codigo', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" /></svg>' },
+                { id: 'graficas', text: 'Gráficas Interactivas', href: '#graficas', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>' },
+                { id: 'videos', text: 'Videos Explicativos', href: '#videos', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.75.75 0 010 1.656l-5.603 3.113A.75.75 0 019 15.95V9.05a.75.75 0 011.307-.588l5.603 3.112z" /></svg>' },
+                { id: 'conclusion-metodo', text: 'Conclusión y Aplicaciones', href: '#conclusion-metodo', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' },
+                { id: 'referencias', text: 'Referencias', href: '#referencias', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 3.75V16.5L12 14.25L7.5 16.5V3.75m9 0H18A2.25 2.25 0 0120.25 6v12A2.25 2.25 0 0118 20.25H6A2.25 2.25 0 013.75 18V6A2.25 2.25 0 016 3.75h1.5m9 0h-9" /></svg>' },
+                { id: 'cuestionario', text: 'Cuestionario', href: '#cuestionario', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' }
+            ]); // Asegúrate de que estos navItems sean los correctos para todas las páginas o ajústalos.
+
+            let sections = []; // Para el scroll-spy
+
+            const toggleCollapse = () => {
+                isCollapsed.value = !isCollapsed.value;
+            };
+
+            const isActive = (id) => {
+                return activeSectionId.value === id;
+            };
+            
+            const smoothScroll = (targetHref) => {
+                const targetId = targetHref.substring(1);
+                const targetElement = document.getElementById(targetId);
+                if (targetElement) {
+                    targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+                    history.pushState(null, null, targetHref); 
+                }
+            };
+
+            const handleScroll = () => {
+                if (!sections || sections.length === 0) return;
+                const scrollMarginTopValue = parseInt(getComputedStyle(sections[0]).scrollMarginTop) || 96; 
+                let newActiveSectionId = null;
+                for (let i = 0; i < sections.length; i++) {
+                    const section = sections[i];
+                    const sectionTopBoundary = section.offsetTop - scrollMarginTopValue;
+                    const sectionBottomBoundary = sectionTopBoundary + section.offsetHeight;
+                    if (window.scrollY >= sectionTopBoundary && window.scrollY < sectionBottomBoundary) {
+                        newActiveSectionId = section.id;
+                        break;
+                    }
+                }
+                if (newActiveSectionId === null && sections.length > 0) {
+                    for (let i = sections.length - 1; i >= 0; i--) {
+                        const section = sections[i];
+                        if ((section.offsetTop - scrollMarginTopValue) <= window.scrollY + 5) {
+                            newActiveSectionId = section.id;
+                            break;
+                        }
+                    }
+                }
+                 if (newActiveSectionId === null && sections.length > 0 && window.scrollY < (sections[0].offsetTop - scrollMarginTopValue)) {
+                    newActiveSectionId = sections[0].id;
+                 }
+                if (activeSectionId.value !== newActiveSectionId) {
+                    activeSectionId.value = newActiveSectionId;
+                }
+            };
+
+            onMounted(() => {
+                nextTick(() => {
+                    sections = Array.from(document.querySelectorAll('main article section[id]'));
+                    handleScroll(); 
+                    window.addEventListener('scroll', handleScroll, { passive: true });
+                });
+            });
+
+            onUnmounted(() => {
+                window.removeEventListener('scroll', handleScroll);
+            });
+
+            return {
+                isCollapsed,
+                toggleCollapse,
+                navItems,
+                isActive,
+                smoothScroll,
+                activeSectionId,
+                // pageThemeColor, pageGradientFrom, pageGradientTo, pageActiveTextColor // Expuestas desde props
+            };
+        }
+    };
+
+        const app = createApp({
+            components: {
+                LeftSidebar
+            },
+            setup() {
+                const METHOD_KEY = "secante"; 
+                const METHOD_NAME_TITLE_CASE = "Secante";
+
+                onMounted(() => {
+                    if (window.MathJax && window.MathJax.typesetPromise) {
+                        nextTick(() => {
+                            window.MathJax.typesetPromise().catch(err => console.error("MathJax typesetting error on mount:", err));
+                        });
+                    }
+                });
+                
+                return {
+                     methodKeyProps: METHOD_KEY,
+                     methodNameProps: METHOD_NAME_TITLE_CASE
+                };
+            }
+        });
+
+        app.config.compilerOptions.isCustomElement = tag => tag.startsWith('mjx-');
+        app.mount('#app');
+
+    </script>
+</body>
+</html> 

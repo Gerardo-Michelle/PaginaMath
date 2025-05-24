@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>__METHOD_NAME_PLACEHOLDER__ - Métodos Numéricos</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- <link rel="stylesheet" href="../style.css"> --> <!-- Comentado para priorizar Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script> <!-- Tailwind CSS CDN -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'], // Establecer Inter como fuente sans por defecto
+                    },
+                    colors: {
+                        'custom-blue': '#242A38',
+                        'custom-red': '#E94560',
+                        'custom-gray-bg': '#F3F4F6',
+                        'sidebar-bg': '#FFFFFF',
+                        'sidebar-text': '#4B5563',
+                        'sidebar-hover-bg': '#FEF2F2',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Configuración de MathJax -->
+    <script>
+        window.MathJax = {
+            tex: {
+                packages: {'[+]': ['input/mml', 'output/chtml']}
+            },
+            chtml: { 
+                matchFontHeight: false
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <!-- Pyodide y Chart.js -->
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        @keyframes animatedRainbowBorder {
+            0% { background-position: 0% center; }
+            100% { background-position: 200% center; }
+        }
+        .animate-rainbow-border::before {
+            content: ''; position: absolute; z-index: -1; top: -2px; left: -2px; right: -2px; bottom: -2px;
+            border-radius: 9999px;
+            background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #007bff, #8a2be2, #ff00ff, #ff0000);
+            background-size: 200% 100%;
+            animation: animatedRainbowBorder 3s linear infinite;
+        }
+        .animate-rainbow-border { position: relative; z-index: 0; }
+    </style>
+</head>
+<body class="bg-custom-gray-bg text-gray-700 font-sans antialiased">
+    <div id="app">
+        <header class="bg-custom-blue text-white shadow-md">
+            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                <h1 class="text-xl font-semibold"><a href="../index.html" class="hover:text-gray-300">Métodos Numéricos</a></h1>
+                <nav><a href="../index.html#method-cards-container" class="text-sm px-4 py-2 rounded-md hover:bg-gray-700 transition-colors duration-150">Volver a Métodos</a></nav>
+            </div>
+        </header>
+
+        <div class="container mx-auto mt-8 mb-8 flex flex-col lg:flex-row lg:space-x-8 px-4">
+            <left-sidebar></left-sidebar>
+            <main class="w-full flex-1 min-w-0 bg-white shadow-xl rounded-lg p-6 md:p-8 order-2 mb-6 lg:mb-0">
+                <article class="method-content">
+                    <h2 class="text-3xl font-bold mb-6 text-gray-800 border-b border-gray-200 pb-4">Método de __METHOD_NAME_PLACEHOLDER__</h2>
+                    
+                    <section id="teoria" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Fundamento Teórico</h3>
+                        <!-- Contenido de la sección TEORÍA para __METHOD_NAME_PLACEHOLDER__ -->
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            [Aquí va la explicación detallada del fundamento teórico del método __METHOD_NAME_PLACEHOLDER__, incluyendo sus bases matemáticas, teoremas relevantes y cualquier concepto preliminar necesario para entenderlo.]
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Por ejemplo, puedes discutir las condiciones bajo las cuales el método es aplicable, sus orígenes, y cómo se compara conceptualmente con otros métodos si es relevante.
+                        </p>
+                        <!-- Fin del contenido de TEORÍA -->
+                    </section>
+
+                    <section id="algoritmo" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Pasos del Algoritmo</h3>
+                        <!-- Contenido de la sección ALGORITMO para __METHOD_NAME_PLACEHOLDER__ -->
+                        <ol class="list-decimal list-inside space-y-3 pl-4 text-gray-600 leading-relaxed">
+                            <li><strong>Paso 1:</strong> [Descripción del primer paso del algoritmo].</li>
+                            <li><strong>Paso 2:</strong> [Descripción del segundo paso, incluyendo fórmulas si aplica, por ejemplo: \(x_k = g(x_{k-1})\)].</li>
+                            <li><strong>Paso 3:</strong> [Continuación de los pasos].</li>
+                            <li><strong>Criterio de terminación:</strong> [Explicar cómo se determina cuándo detener el algoritmo, ej. tolerancia de error \(\epsilon_a \le \epsilon_s\) o número máximo de iteraciones].</li>
+                        </ol>
+                        <!-- Fin del contenido de ALGORITMO -->
+                    </section>
+
+                    <section id="ejemplo" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Ejemplo Paso a Paso</h3>
+                        <!-- Contenido de la sección EJEMPLO para __METHOD_NAME_PLACEHOLDER__ -->
+                        <p class="text-gray-600 leading-relaxed mb-3">
+                            <strong>Problema:</strong> [Enunciado del problema de ejemplo para el método __METHOD_NAME_PLACEHOLDER__].
+                        </p>
+                        <p class="font-medium text-gray-700 mb-1"><strong>Iteración 1:</strong></p>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-4">[Cálculos y resultados de la primera iteración].</p>
+                        <p class="font-medium text-gray-700 mb-1"><strong>Iteración 2:</strong></p>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-4">[Cálculos y resultados de la segunda iteración].</p>
+                        <p class="text-gray-600 leading-relaxed italic mb-2"><em>(El proceso continuaría...)</em></p>
+                        <!-- Fin del contenido de EJEMPLO -->
+                    </section>
+
+                    <section id="codigo" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Código de Implementación (Python) - Ejecutable</h3>
+                        <div class="code-editor-container bg-gray-50 p-4 rounded-lg shadow-inner">
+                            <textarea id="__METHOD_KEY_PLACEHOLDER__-code-input" class="code-input w-full h-72 p-3 border border-gray-300 rounded-md font-mono text-sm" style="resize: none;">import math
+
+# 1. Define tu función aquí (la que se usará en el método)
+def funcion_ejemplo(x):
+    """Función de ejemplo f(x). Reemplaza con la función deseada."""
+    # Ejemplo: return x**3 - x - 2
+    # Ejemplo: return math.cos(x) - x
+    return math.sin(x) # Placeholder
+
+# 2. Define la implementación de tu método numérico aquí
+#    (ej. metodo_biseccion, metodo_newton_raphson, etc.)
+#    IMPORTANTE: Esta función DEBE definir/actualizar dos variables GLOBALES:
+#    - raiz_aproximada: El valor numérico final de la raíz encontrada.
+#    - iteraciones: Una lista de diccionarios, donde cada diccionario representa
+#                   una iteración y contiene datos relevantes como {'iter': i, 'c': x_i, 'error': err_i, ...}
+#                   (las claves exactas pueden variar, pero 'c' para la aproximación actual es usada por la gráfica).
+
+def metodo_especifico_placeholder(func, param1, param2, tol=1e-5, max_iter=50):
+    """
+    Implementa aquí la lógica del método: __METHOD_NAME_PLACEHOLDER__.
+    Recuerda definir/actualizar las variables globales 'raiz_aproximada' e 'iteraciones'.
+    """
+    global raiz_aproximada, iteraciones # Indicar que modificaremos las globales
+
+    print(f"Ejecutando __METHOD_NAME_PLACEHOLDER__ con parámetros: {param1}, {param2}, tol={tol}")
+    
+    # Inicializar variables globales
+    raiz_aproximada = None
+    iteraciones = [] 
+    
+    # --- Lógica del método __METHOD_NAME_PLACEHOLDER__ ---
+    # ... (Tu código va aquí) ...
+    # Ejemplo: Calcular aproximaciones, errores, etc.
+    # Ejemplo: Añadir datos a la lista de iteraciones en cada paso:
+    # iter_data = {'iter': iter_num, 'c': approx_actual, 'error': error_aprox, 'a': val_a, 'b': val_b} # Ajusta claves
+    # iteraciones.append(iter_data) 
+    # Al final, asignar el resultado a raiz_aproximada
+    
+    # Ejemplo (simulación muy básica):
+    for i in range(5): # Simular 5 iteraciones
+        approx = param1 + (param2 - param1) * (i+1)/5.0 # Simulación
+        err = abs(approx - (param1 + (param2 - param1) * i/5.0)) # Simulación error
+        iter_data = {'iter': i+1, 'c': approx, 'error': err, 'a': param1, 'b': param2} # Datos ejemplo
+        iteraciones.append(iter_data)
+        print(f"Iter {i+1}: approx={approx:.6f}, error={err:.6f}")
+    
+    raiz_aproximada = approx # Asignar la última aproximación simulada
+    print(f"Proceso terminado (simulado). Raíz final: {raiz_aproximada}")
+    # --- Fin de la lógica del método ---
+    
+    # Aunque las variables globales se actualicen, es buena práctica retornar los valores también.
+    return raiz_aproximada, iteraciones
+
+# 3. Define los parámetros de ejemplo para tu método
+#    (ajusta los nombres y valores según necesite tu método)
+parametro_1 = 0.0   # Ej: Límite inferior, valor inicial, etc.
+parametro_2 = 1.5   # Ej: Límite superior, etc. (si no se necesita, puedes quitarlo)
+tolerancia_ejemplo = 1e-6
+max_iter_ejemplo = 30
+
+print(f"\\nIniciando ejecución de ejemplo para __METHOD_NAME_PLACEHOLDER__...")
+print(f"Función: {funcion_ejemplo.__doc__ or 'funcion_ejemplo'}")
+print(f"Parámetros: {parametro_1}, {parametro_2}, tol={tolerancia_ejemplo}")
+
+# 4. Llama a tu función del método. 
+#    Asegúrate que las variables resultantes se llamen EXACTAMENTE 
+#    'raiz_aproximada' e 'iteraciones' para compatibilidad con el script de la gráfica.
+raiz_aproximada, iteraciones = metodo_especifico_placeholder(
+    funcion_ejemplo, 
+    parametro_1, 
+    parametro_2, 
+    tol=tolerancia_ejemplo, 
+    max_iter=max_iter_ejemplo
+)
+
+# 5. Prints finales (opcional pero útil)
+if raiz_aproximada is not None:
+    print(f"\\nResultado final (variable global raiz_aproximada): {raiz_aproximada:.8f}")
+    try:
+        f_en_raiz = funcion_ejemplo(raiz_aproximada)
+        print(f"Valor de f(raiz_aproximada): {f_en_raiz:.8f}")
+    except Exception as e:
+        print(f"No se pudo evaluar f en la raíz final: {e}")
+else:
+    print("\\nNo se encontró una raíz aproximada.")
+
+# print("\\nResumen de iteraciones (variable global iteraciones):")
+# for iter_d in iteraciones:
+#    print(iter_d)
+
+                            </textarea>
+                            <button id="run-__METHOD_KEY_PLACEHOLDER__-code-button" class="run-button mt-4 px-5 py-2.5 bg-custom-red text-white rounded-md hover:bg-red-700">Ejecutar Código</button>
+                            <h4 class="mt-5 mb-2 text-lg font-semibold text-gray-700">Salida:</h4>
+                            <pre id="__METHOD_KEY_PLACEHOLDER__-code-output" class="code-output bg-gray-900 text-white p-4 rounded-md min-h-[100px] whitespace-pre-wrap">Presiona "Ejecutar Código" para ver la salida.</pre>
+                        </div>
+                    </section>
+
+                    <section id="graficas" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Gráficas Interactivas</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            <!-- Descripción de la gráfica para __METHOD_NAME_PLACEHOLDER__ -->
+                            La siguiente gráfica ilustra la convergencia del método __METHOD_NAME_PLACEHOLDER__ para la función de ejemplo. 
+                            Muestra la función \(f(x)\), las aproximaciones sucesivas de la raíz (o los intervalos), y la raíz final encontrada.
+                            Interactúa con la gráfica para explorar los datos.
+                            <!-- Fin de la descripción de la gráfica -->
+                        </p>
+                        <div class="interactive-graphics w-full h-96 bg-white p-4 rounded-lg shadow-md">
+                            <canvas id="__METHOD_KEY_PLACEHOLDER__-chart"></canvas>
+                            <p id="chart-loading-message" class="text-center text-gray-600 italic mt-2">Cargando gráfica...</p>
+                        </div>
+                    </section>
+
+                    <section id="videos" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Videos Explicativos</h3>
+                        <div class="video-embed w-full h-96">
+                            <iframe class="w-full h-full rounded-lg shadow-lg" src="https://www.youtube.com/embed/__YOUTUBE_VIDEO_ID_PLACEHOLDER__" title="Video de __METHOD_NAME_PLACEHOLDER__" frameborder="0" allowfullscreen></iframe>
+                        </div>
+                    </section>
+
+                    <section id="conclusion" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Conclusión y Aplicaciones</h3>
+                        <!-- Contenido de la sección CONCLUSIÓN para __METHOD_NAME_PLACEHOLDER__ -->
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            [Resume las características principales del método __METHOD_NAME_PLACEHOLDER__, sus ventajas, desventajas y cuándo es más apropiado usarlo.]
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-2 font-medium">
+                            <strong>Aplicaciones Comunes:</strong>
+                        </p>
+                        <ul class="list-disc list-inside space-y-2 pl-4 text-gray-600 mb-4">
+                            <li>[Ejemplo de aplicación 1]</li>
+                            <li>[Ejemplo de aplicación 2]</li>
+                        </ul>
+                        <!-- Fin del contenido de CONCLUSIÓN -->
+                    </section>
+
+                    <section id="referencias" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Referencias</h3>
+                        <!-- Contenido de la sección REFERENCIAS para __METHOD_NAME_PLACEHOLDER__ -->
+                        <ul class="list-disc list-inside space-y-2 text-gray-600 leading-relaxed pl-4">
+                            <li>[Referencia bibliográfica 1, ej: Chapra, S. C., & Canale, R. P. (2015). <em>Numerical Methods for Engineers</em>...]</li>
+                            <li>[Otra referencia o recurso web relevante]</li>
+                        </ul>
+                        <!-- Fin del contenido de REFERENCIAS -->
+                    </section>
+
+                     <section id="cuestionario" class="scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Cuestionario: Método de __METHOD_NAME_PLACEHOLDER__</h3>
+                        <form id="quiz-__METHOD_KEY_PLACEHOLDER__" class="space-y-6 bg-gray-50 p-6 rounded-lg shadow-inner">
+                            <!-- Pregunta 1 -->
+                            <div class="quiz-question">
+                                <p class="font-medium text-gray-700 mb-2"><strong>1. [Texto de la Pregunta 1 sobre __METHOD_NAME_PLACEHOLDER__]</strong></p>
+                                <div class="quiz-option-wrapper flex items-center mb-1.5">
+                                    <label class="block flex-grow"><input type="radio" name="q1-__METHOD_KEY_PLACEHOLDER__" value="a" class="mr-2 text-custom-red focus:ring-custom-red">[Opción A para Q1]</label>
+                                    <span class="feedback-icon ml-2 w-5 h-5"></span>
+                                </div>
+                                <div class="quiz-option-wrapper flex items-center mb-1.5">
+                                    <label class="block flex-grow"><input type="radio" name="q1-__METHOD_KEY_PLACEHOLDER__" value="b" class="mr-2 text-custom-red focus:ring-custom-red">[Opción B para Q1]</label>
+                                    <span class="feedback-icon ml-2 w-5 h-5"></span>
+                                </div>
+                                <div class="quiz-option-wrapper flex items-center">
+                                    <label class="block flex-grow"><input type="radio" name="q1-__METHOD_KEY_PLACEHOLDER__" value="c" class="mr-2 text-custom-red focus:ring-custom-red">[Opción C para Q1]</label>
+                                    <span class="feedback-icon ml-2 w-5 h-5"></span>
+                                </div>
+                            </div>
+                            <!-- Pregunta 2 -->
+                            <div class="quiz-question">
+                                <p class="font-medium text-gray-700 mb-2"><strong>2. [Texto de la Pregunta 2 sobre __METHOD_NAME_PLACEHOLDER__]</strong></p>
+                                <div class="quiz-option-wrapper flex items-center mb-1.5">
+                                    <label class="block flex-grow"><input type="radio" name="q2-__METHOD_KEY_PLACEHOLDER__" value="a" class="mr-2 text-custom-red focus:ring-custom-red">[Opción A para Q2]</label>
+                                    <span class="feedback-icon ml-2 w-5 h-5"></span>
+                                </div>
+                                <div class="quiz-option-wrapper flex items-center mb-1.5">
+                                    <label class="block flex-grow"><input type="radio" name="q2-__METHOD_KEY_PLACEHOLDER__" value="b" class="mr-2 text-custom-red focus:ring-custom-red">[Opción B para Q2]</label>
+                                    <span class="feedback-icon ml-2 w-5 h-5"></span>
+                                </div>
+                                <div class="quiz-option-wrapper flex items-center">
+                                    <label class="block flex-grow"><input type="radio" name="q2-__METHOD_KEY_PLACEHOLDER__" value="c" class="mr-2 text-custom-red focus:ring-custom-red">[Opción C para Q2]</label>
+                                    <span class="feedback-icon ml-2 w-5 h-5"></span>
+                                </div>
+                            </div>
+                            <!-- Pregunta 3 -->
+                             <div class="quiz-question">
+                                <p class="font-medium text-gray-700 mb-2"><strong>3. [Texto de la Pregunta 3 sobre __METHOD_NAME_PLACEHOLDER__]</strong></p>
+                                <div class="quiz-option-wrapper flex items-center mb-1.5">
+                                    <label class="block flex-grow"><input type="radio" name="q3-__METHOD_KEY_PLACEHOLDER__" value="a" class="mr-2 text-custom-red focus:ring-custom-red">[Opción A para Q3]</label>
+                                    <span class="feedback-icon ml-2 w-5 h-5"></span>
+                                </div>
+                                <div class="quiz-option-wrapper flex items-center mb-1.5">
+                                    <label class="block flex-grow"><input type="radio" name="q3-__METHOD_KEY_PLACEHOLDER__" value="b" class="mr-2 text-custom-red focus:ring-custom-red">[Opción B para Q3]</label>
+                                    <span class="feedback-icon ml-2 w-5 h-5"></span>
+                                </div>
+                                <div class="quiz-option-wrapper flex items-center">
+                                    <label class="block flex-grow"><input type="radio" name="q3-__METHOD_KEY_PLACEHOLDER__" value="c" class="mr-2 text-custom-red focus:ring-custom-red">[Opción C para Q3]</label>
+                                    <span class="feedback-icon ml-2 w-5 h-5"></span>
+                                </div>
+                            </div>
+                            <button type="submit" class="w-full px-5 py-2.5 bg-custom-blue text-white rounded-md hover:bg-blue-700">Enviar Cuestionario</button>
+                        </form>
+                    </section>
+                </article>
+            </main>
+
+            <aside class="w-full lg:w-1/4 bg-sidebar-bg shadow-xl rounded-lg p-6 self-start sticky top-8 order-3 space-y-6">
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-4">Perfil</h3>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex-shrink-0">
+                           <svg class="w-12 h-12 text-gray-400 bg-gray-100 rounded-full p-1 ring-1 ring-gray-200" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-800 text-md">Estudiante Modelo</p>
+                            <p class="text-sm text-gray-500">Aprendiz Activo</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pb-6 border-b border-gray-200 space-y-3">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide">Progreso en Método de __METHOD_NAME_PLACEHOLDER__</h3>
+                    
+                    <ul class="space-y-2 text-sm">
+                        <li class="flex items-center">
+                            <span id="task-read-theory-status" class="task-status-icon mr-2 text-gray-400">
+                                <!-- Icono se actualiza por JS -->
+                            </span>
+                            <span class="text-gray-600">Leer la teoría completa</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-run-code-status" class="task-status-icon mr-2 text-gray-400">
+                                <!-- Icono se actualiza por JS -->
+                            </span>
+                            <span class="text-gray-600">Ejecutar el código Python</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-attempted-status" class="task-status-icon mr-2 text-gray-400">
+                                <!-- Icono se actualiza por JS -->
+                            </span>
+                            <span class="text-gray-600">Intentar el cuestionario</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-passed-status" class="task-status-icon mr-2 text-gray-400">
+                                <!-- Icono se actualiza por JS -->
+                            </span>
+                            <span class="text-gray-600">Aprobar el cuestionario</span>
+                        </li>
+                    </ul>
+
+                    <div class="flex items-center justify-between mb-1 mt-3">
+                       <span class="text-xs font-medium text-custom-red">Progreso General</span>
+                       <span class="text-xs font-medium text-custom-red right-sidebar-progress-text">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div class="bg-custom-red h-3 rounded-full right-sidebar-progress-bar transition-width duration-500 ease-in-out" style="width: 0%"></div>
+                    </div>
+                    
+                    <button id="completion-__METHOD_KEY_PLACEHOLDER__-sidebar" class="mt-4 w-full completion-button px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 font-medium text-sm transition-colors duration-150">Marcar Todo Completado</button>
+                </div>
+
+                <!-- Evaluación sección comentada (se puede reactivar si se desea un botón directo al quiz aquí) -->
+                <!-- 
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Evaluación</h3>
+                    <a href="#cuestionario" class="block w-full text-center px-4 py-2 bg-custom-blue text-white rounded-md hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-custom-blue focus:ring-offset-2 font-medium text-sm transition-colors duration-150">Realizar Cuestionario</a>
+                </div>
+                -->
+
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Recursos y Notas</h3>
+                    <p class="text-sm text-gray-600">
+                        <a href="https://archive.org/details/numerical-methods-for-engineers-7th-edit" target="_blank" rel="noopener noreferrer" class="hover:text-custom-red hover:underline">
+                            Métodos Numéricos para Ingenieros 7ma Edición de Chapra (Referencia General)
+                        </a>
+                    </p>
+                    <img src="https://images.cdn3.buscalibre.com/fit-in/360x360/97/ff/97ffa61a8adb147e569e12c4f1f797b3.jpg" alt="Portada del libro Métodos Numéricos para Ingenieros de Chapra" class="mt-2 w-full rounded-md shadow-sm">
+                    <!-- <p class="text-sm text-gray-500 mt-2">Añade aquí notas específicas o enlaces a recursos adicionales para este método.</p> -->
+                </div>
+
+                <div>
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Siguiente Paso</h3>
+                    <a href="../methods/__NEXT_METHOD_FILENAME_PLACEHOLDER__.html" class="group flex items-center text-sm font-medium text-custom-red hover:text-red-700 transition-colors duration-150">
+                       <span>Explorar Método de __NEXT_METHOD_NAME_PLACEHOLDER__</span> 
+                       <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform duration-150" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </a>
+                </div>
+            </aside>
+
+        </div>
+
+        <footer class="bg-custom-blue text-gray-300 text-center p-6 mt-12">
+            <p>&copy; 2024 Plataforma Educativa de Métodos Numéricos. <a href="../index.html" class="hover:text-white underline">Volver al inicio</a></p>
+        </footer>
+    </div>
+
+    <script src="../script.js"></script> <!-- Script global (si existe y es necesario) -->
+    <script>
+        // CLAVE ÚNICA PARA ESTA PÁGINA DE MÉTODO (ej. 'biseccion', 'regla_falsa', 'newton_raphson')
+        // DEBE SER REEMPLAZADA AL CREAR UNA NUEVA PÁGINA DE MÉTODO DESDE ESTA PLANTILLA.
+        let pageKey = '__METHOD_KEY_PLACEHOLDER__'; 
+        
+        const TASKS = ['read_theory', 'run_code', 'quiz_attempted', 'quiz_passed'];
+        const TOTAL_TASKS = TASKS.length;
+        
+        // Iconos para el estado de las tareas en el sidebar
+        const ICON_PENDING = '<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0-4.418-4.03-8-9-8S3 7.582 3 12c0 1.454.402 2.813 1.098 3.977L3 21l5.023-1.098A8.902 8.902 0 0012 21c4.97 0 9-3.582 9-9z"></path></svg>';
+        const ICON_COMPLETED = '<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>';
+        const ICON_IN_PROGRESS = '<svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path></svg>';
+
+        // --- Funciones de Gestión de Progreso (localStorage) ---
+        function getTaskProgress(pKey) {
+            const progress = JSON.parse(localStorage.getItem(pKey)) || { read_theory: false, run_code: false, quiz_attempted: false, quiz_passed: false, overall_progress: 0, user_quiz_answers: {} };
+            // Asegurar valores por defecto si faltan
+            progress.read_theory = progress.read_theory || false;
+            progress.run_code = progress.run_code || false;
+            progress.quiz_attempted = progress.quiz_attempted || false;
+            progress.quiz_passed = progress.quiz_passed || false;
+            progress.overall_progress = progress.overall_progress || 0;
+            progress.user_quiz_answers = progress.user_quiz_answers || {};
+            return progress;
+        }
+        
+        // --- Lógica del Sidebar de Progreso ---
+        function updateSidebarUI(pKey) {
+            const progress = getTaskProgress(pKey);
+            let completedTasks = 0;
+            const taskStatusIcons = { // Definir dentro para asegurar que se usan los elementos correctos
+                read_theory: document.getElementById('task-read-theory-status'),
+                run_code: document.getElementById('task-run-code-status'),
+                quiz_attempted: document.getElementById('task-quiz-attempted-status'),
+                quiz_passed: document.getElementById('task-quiz-passed-status'),
+            };
+            const overallProgressText = document.querySelector('.right-sidebar-progress-text'); 
+            const overallProgressBar = document.querySelector('.right-sidebar-progress-bar'); 
+            const mainCompletionButton = document.getElementById('completion-' + pKey + '-sidebar');
+
+            TASKS.forEach(task => {
+                const isCompleted = progress[task] === true;
+                if (isCompleted) completedTasks++;
+                
+                const iconElement = taskStatusIcons[task];
+                if (iconElement) {
+                    let isAttemptedAndNotPassed = task === 'quiz_passed' && progress['quiz_attempted'] === true && !isCompleted;
+                    let newIconHTML = ICON_PENDING;
+                    if (isCompleted) newIconHTML = ICON_COMPLETED;
+                    else if (isAttemptedAndNotPassed) newIconHTML = ICON_IN_PROGRESS;
+                    iconElement.innerHTML = newIconHTML;
+                }
+            });
+
+            const percentage = TOTAL_TASKS > 0 ? Math.round((completedTasks / TOTAL_TASKS) * 100) : 0;
+            
+            if (overallProgressBar) {
+                overallProgressBar.style.width = `${percentage}%`;
+                if (percentage === 100) {
+                    overallProgressBar.classList.add('animate-rainbow-border');
+                } else {
+                    overallProgressBar.classList.remove('animate-rainbow-border');
+                }
+            }
+            if (overallProgressText) overallProgressText.textContent = `${percentage}%`;
+
+            // Actualizar estado del botón "Marcar Todo Completado"
+            if (mainCompletionButton) {
+                 mainCompletionButton.removeEventListener('mouseenter', handleMarkAllMouseEnter); // Limpiar listeners previos
+                 mainCompletionButton.removeEventListener('mouseleave', handleMarkAllMouseLeave);
+                 mainCompletionButton.classList.remove('bg-green-600', 'hover:bg-green-700', 'bg-yellow-500', 'hover:bg-yellow-600', 'bg-red-600', 'hover:bg-red-700');
+
+                 if (percentage === 100) {
+                     mainCompletionButton.textContent = 'Deshacer Completado';
+                     mainCompletionButton.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+                     mainCompletionButton.dataset.isUndo = "true";
+                     mainCompletionButton.addEventListener('mouseenter', handleMarkAllMouseEnter);
+                     mainCompletionButton.addEventListener('mouseleave', handleMarkAllMouseLeave);
+                 } else {
+                     mainCompletionButton.textContent = 'Marcar Todo Completado';
+                     mainCompletionButton.classList.add('bg-green-600', 'hover:bg-green-700');
+                     mainCompletionButton.dataset.isUndo = "false";
+                 }
+            }
+        }
+
+        function updateTaskStatusInStorage(pKey, taskName, isCompleted) {
+            const currentProgress = getTaskProgress(pKey);
+            if (currentProgress[taskName] !== isCompleted) {
+                currentProgress[taskName] = isCompleted;
+                if (taskName === 'quiz_attempted' && !isCompleted) { 
+                    currentProgress.quiz_passed = false; 
+                    currentProgress.user_quiz_answers = {}; 
+                }
+                 // Recalcular progreso general después de cambiar una tarea
+                 let completedCount = TASKS.reduce((count, task) => count + (currentProgress[task] ? 1 : 0), 0);
+                 currentProgress.overall_progress = TOTAL_TASKS > 0 ? Math.round((completedCount / TOTAL_TASKS) * 100) : 0;
+
+                localStorage.setItem(pKey, JSON.stringify(currentProgress));
+                updateSidebarUI(pKey); // Actualizar toda la UI del sidebar
+            }
+        }
+        
+        function handleMarkAllMouseEnter() { // Funciones para efecto hover del botón deshacer
+            const btn = document.getElementById('completion-' + pageKey + '-sidebar');
+            if (btn && btn.dataset.isUndo === "true") {
+                btn.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+                btn.classList.add('bg-red-600', 'hover:bg-red-700');
+            }
+        }
+
+        function handleMarkAllMouseLeave() { // Funciones para efecto hover del botón deshacer
+             const btn = document.getElementById('completion-' + pageKey + '-sidebar');
+            if (btn && btn.dataset.isUndo === "true") {
+                btn.classList.remove('bg-red-600', 'hover:bg-red-700');
+                btn.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+            }
+        }
+
+        // --- Lógica del Cuestionario ---
+        function displayQuizFeedback(pKey, correctAnswersMap) {
+            const progress = getTaskProgress(pKey);
+            const userAnswers = progress.user_quiz_answers || {}; 
+            const quizFormElem = document.getElementById('quiz-' + pKey);
+            if (!quizFormElem) return;
+
+            const quizAttempted = progress.quiz_attempted === true;
+
+            // Reset visual state before applying feedback
+            quizFormElem.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                 wrapper.classList.remove('correct-answer', 'incorrect-answer');
+                 const feedbackIcon = wrapper.querySelector('.feedback-icon');
+                 if (feedbackIcon) feedbackIcon.innerHTML = '';
+            });
+            quizFormElem.querySelectorAll('input[type="radio"]').forEach(radio => {
+                 radio.disabled = false; // Enable by default
+                 radio.checked = (radio.value === userAnswers[radio.name]); // Check saved answer
+            });
+             const submitButton = quizFormElem.querySelector('button[type="submit"]');
+             if (submitButton) {
+                 submitButton.disabled = false;
+                 submitButton.textContent = 'Enviar Cuestionario';
+             }
+
+
+            if (quizAttempted) {
+                // Apply visual feedback only if attempted
+                for (const [questionName, correctAnswer] of Object.entries(correctAnswersMap)) {
+                    const radioInputs = quizFormElem.querySelectorAll(`input[name="${questionName}"]`);
+                    radioInputs.forEach(input => {
+                        const wrapper = input.closest('.quiz-option-wrapper');
+                        if (!wrapper) return;
+                        const feedbackIcon = wrapper.querySelector('.feedback-icon');
+                        
+                        if (input.value === correctAnswer) {
+                            wrapper.classList.add('correct-answer');
+                            if (input.checked && feedbackIcon) feedbackIcon.innerHTML = '✔️';
+                        } else if (input.checked && input.value !== correctAnswer) {
+                            wrapper.classList.add('incorrect-answer');
+                            if(feedbackIcon) feedbackIcon.innerHTML = '❌';
+                        }
+                    });
+                }
+                 // Disable form if passed
+                 if (progress.quiz_passed === true) {
+                     quizFormElem.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = true);
+                     if (submitButton) { submitButton.disabled = true; submitButton.textContent = 'Cuestionario Aprobado'; }
+                 }
+            }
+        }
+        
+        // --- Lógica de Pyodide y Gráficas ---
+        async function drawChartJsGraph(pyodideInstance, canvasElement, loadingElement, currentCode) {
+            if (!pyodideInstance) { if(loadingElement) loadingElement.textContent = 'Pyodide no listo.'; return; }
+            if (!canvasElement) { console.error("Canvas element for graph not found."); return; } 
+            if(loadingElement) loadingElement.textContent = 'Generando datos para la gráfica...';
+            
+            let methodChart = Chart.getChart(canvasElement); // Obtener instancia existente si la hay
+             if (methodChart) {
+                 methodChart.destroy(); // Destruir gráfica anterior
+             }
+
+            try {
+                // 1. Ejecutar el código del usuario
+                await pyodideInstance.loadPackagesFromImports(currentCode);
+                await pyodideInstance.runPythonAsync(currentCode);
+
+                // 2. Script para preparar datos para Chart.js
+                const pythonCodeForChartData = `
+import json
+import math
+
+# Obtener variables globales definidas por el código del usuario
+# Usar globals().get('var_name', default_value) para seguridad
+current_a = globals().get('a_param', globals().get('a_intervalo', 0.0)) 
+current_b = globals().get('b_param', globals().get('b_intervalo', 1.0)) 
+current_a = float(current_a) if current_a is not None else 0.0
+current_b = float(current_b) if current_b is not None else 1.0
+
+iterations_data_for_graph = globals().get('iteraciones', [])
+final_root_for_graph = globals().get('raiz_aproximada', None)
+func_to_plot_for_graph = globals().get('funcion_ejemplo', None)
+
+# Validaciones y fallbacks
+if not isinstance(iterations_data_for_graph, list):
+    print("Advertencia: 'iteraciones' no es una lista. Usando lista vacía.")
+    iterations_data_for_graph = []
+
+if final_root_for_graph is None:
+    print("Advertencia: 'raiz_aproximada' no encontrada. Usando estimación.")
+    if iterations_data_for_graph and isinstance(iterations_data_for_graph[-1], dict) and 'c' in iterations_data_for_graph[-1]:
+         final_root_for_graph = iterations_data_for_graph[-1]['c']
+    else:
+         final_root_for_graph = (current_a + current_b) / 2.0 if current_b is not None and current_a is not None else 0.0
+
+# Generar puntos para f(x)
+plot_range = abs(current_b - current_a) if current_a is not None and current_b is not None and current_b != current_a else 2.0
+x_min_plot = current_a - plot_range * 0.2 if current_a is not None else -1.0
+x_max_plot = current_b + plot_range * 0.2 if current_b is not None else 1.0
+if x_min_plot == x_max_plot: x_min_plot -=1; x_max_plot +=1
+num_points_func = 200
+x_func_vals = [x_min_plot + i * (x_max_plot - x_min_plot) / (num_points_func - 1) for i in range(num_points_func)]
+y_func_vals = []
+
+if func_to_plot_for_graph and callable(func_to_plot_for_graph):
+    try:
+        y_func_vals = [func_to_plot_for_graph(x) for x in x_func_vals]
+    except Exception as e_plot:
+        print(f"Error evaluando f(x) para gráfica: {e_plot}")
+        y_func_vals = [math.sin(x) * 0.1 for x in x_func_vals] # Fallback discreto
+else:
+    print("Error: 'funcion_ejemplo' no encontrada o no es llamable.")
+    y_func_vals = [math.sin(x) * 0.1 for x in x_func_vals] # Fallback discreto
+
+# Filtrar iteraciones válidas
+valid_iterations_data = [d for d in iterations_data_for_graph if isinstance(d, dict) and d.get('c') is not None]
+
+json_output = json.dumps({
+    "x_func_vals": x_func_vals,
+    "y_func_vals": y_func_vals,
+    "iterations": valid_iterations_data,
+    "final_root": final_root_for_graph,
+    "initial_a": current_a,
+    "initial_b": current_b
+})
+print(json_output) 
+`;
+                
+                let capturedChartOutput = "";
+                pyodideInstance.setStdout({ batched: (msg) => { capturedChartOutput += msg + "\\n"; } });
+                pyodideInstance.setStderr({ batched: (msg) => { capturedChartOutput += "Error Pyodide (Chart Data): " + msg + "\\n"; } });
+
+                await pyodideInstance.runPythonAsync(pythonCodeForChartData);
+                
+                pyodideInstance.setStdout({}); 
+                pyodideInstance.setStderr({});
+
+                let chartDataJson;
+                const lines = capturedChartOutput.trim().split('\\n');
+                for (let i = lines.length - 1; i >= 0; i--) { 
+                    if (lines[i].startsWith("{") && lines[i].endsWith("}")) {
+                        chartDataJson = lines[i];
+                        break;
+                    }
+                }
+
+                if (!chartDataJson) throw new Error("No valid JSON output for chart. Output: " + capturedChartOutput);
+                if (capturedChartOutput.includes("Error Pyodide (Chart Data)") || (lines.length > 1 && !lines[lines.length-1].startsWith("{"))) {
+                     console.warn("Potential issues in chart data script, but found JSON. Output:", capturedChartOutput);
+                }
+                
+                const chartData = JSON.parse(chartDataJson);
+                const ctx = canvasElement.getContext('2d'); 
+                
+                // Crear datasets para Chart.js
+                const datasets = [];
+                datasets.push({
+                    label: 'f(x)', data: chartData.x_func_vals.map((val, i) => ({x: val, y: chartData.y_func_vals[i]})),
+                    borderColor: 'rgb(54, 162, 235)', borderWidth: 2, fill: false, tension: 0.1, type: 'line', order: 1
+                });
+
+                if (chartData.iterations && chartData.iterations.length > 0) {
+                    datasets.push({
+                        label: 'Aprox. Raíz (iter)', data: chartData.iterations.map(iter => ({x: iter.c, y: 0})), 
+                        backgroundColor: 'rgb(255, 99, 132)', borderColor: 'rgb(255, 99, 132)',
+                        pointRadius: 5, pointHoverRadius: 7, showLine: false, type: 'scatter', order: 2
+                    });
+                    
+                    const iterCount = chartData.iterations.length;
+                    const indicesToShow = new Set([0]);
+                    if (iterCount > 2) indicesToShow.add(Math.floor(iterCount / 2));
+                    if (iterCount > 1) indicesToShow.add(iterCount - 1);
+
+                    Array.from(indicesToShow).sort((a,b)=>a-b).forEach(idx => {
+                        if (chartData.iterations[idx]) {
+                            const iter = chartData.iterations[idx];
+                             // Mostrar 'a' y 'b' solo si existen en los datos de iteración
+                            if (iter.a !== undefined && iter.a !== null) {
+                                datasets.push({
+                                    label: `a_${iter.iter} (${iter.a.toFixed(3)})`, data: [{x: iter.a, y: 0}],
+                                    backgroundColor: 'rgba(75, 192, 192, 0.5)', borderColor: 'rgb(75, 192, 192)',
+                                    pointRadius: 6, pointStyle: 'rectRot', showLine: false, type: 'scatter', order: 3
+                                });
+                            }
+                            if (iter.b !== undefined && iter.b !== null) {
+                                datasets.push({
+                                    label: `b_${iter.iter} (${iter.b.toFixed(3)})`, data: [{x: iter.b, y: 0}],
+                                    backgroundColor: 'rgba(153, 102, 255, 0.5)', borderColor: 'rgb(153, 102, 255)',
+                                    pointRadius: 6, pointStyle: 'triangle', showLine: false, type: 'scatter', order: 3
+                                });
+                            }
+                        }
+                    });
+                }
+                
+                if (chartData.final_root !== null && chartData.final_root !== undefined) {
+                     datasets.push({
+                        label: `Raíz Final (${parseFloat(chartData.final_root).toFixed(4)})`, data: [{x: chartData.final_root, y: 0}],
+                        backgroundColor: 'rgb(75, 192, 75)', borderColor: 'rgb(75, 192, 75)',
+                        pointRadius: 8, pointHoverRadius: 10, pointStyle: 'star', showLine: false, type: 'scatter', order: 4
+                    });
+                }
+                
+                // Crear la nueva instancia del gráfico
+                 new Chart(ctx, {
+                    type: 'scatter', data: { datasets: datasets },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        scales: {
+                            x: { type: 'linear', position: 'bottom', title: { display: true, text: 'x' } },
+                            y: { type: 'linear', title: { display: true, text: 'f(x)' }, grid: { zeroLineColor: 'rgba(0,0,0,1)', zeroLineWidth: 1 } }
+                        },
+                        plugins: {
+                            legend: { position: 'top', labels: { filter: item => item.text !== undefined && !item.text.startsWith('a_') && !item.text.startsWith('b_') } }, // Ocultar a_i, b_i de la leyenda por defecto
+                            title: { display: true, text: `Convergencia Gráfica: ${document.title.split('-')[0].trim()}` }, // Título dinámico
+                            tooltip: { callbacks: { label: function(context) { return (context.dataset.label || '') + (context.parsed.x !== null ? ` (x: ${context.parsed.x.toFixed(4)}, y: ${context.parsed.y.toFixed(4)})` : ''); } } }
+                        },
+                        animation: { duration: 500 }
+                    }
+                });
+                if(loadingElement) loadingElement.style.display = 'none';
+
+            } catch (error) { 
+                if(loadingElement) loadingElement.textContent = `Error al generar gráfica: ${error.message || String(error)}`; 
+                console.error("Error en drawChartJsGraph:", error); 
+                // Opcional: Mostrar error en el canvas
+                if (canvasElement) {
+                     const ctx = canvasElement.getContext('2d');
+                     ctx.clearRect(0,0, canvasElement.width, canvasElement.height); // Limpiar canvas
+                     ctx.font = "14px Arial"; ctx.fillStyle = "red"; ctx.textAlign = "center";
+                     ctx.fillText("Error al generar la gráfica.", canvasElement.width/2, canvasElement.height/2);
+                }
+            }
+        }
+
+        // --- Inicialización en DOMContentLoaded ---
+        document.addEventListener('DOMContentLoaded', async () => { 
+            
+            // Mover declaraciones aquí para asegurar que se inicializan después del DOM
+            let pyodide = null;
+            let graphCanvas = null;
+            let chartLoadingMessage = null;
+            let codeInput = null;
+            let codeOutput = null;
+            let runButton = null;
+            let mainCompletionButton = null;
+            let quizForm = null;
+            // Las referencias a los iconos de tareas y barras de progreso se obtendrán en updateSidebarUI
+
+            // Inicializar referencias a elementos del DOM específicos de la página
+            try {
+                codeInput = document.getElementById(pageKey + '-code-input'); 
+                codeOutput = document.getElementById(pageKey + '-code-output'); 
+                runButton = document.getElementById('run-' + pageKey + '-code-button');
+                graphCanvas = document.getElementById(pageKey + '-chart'); 
+                chartLoadingMessage = document.getElementById('chart-loading-message'); 
+                mainCompletionButton = document.getElementById('completion-' + pageKey + '-sidebar');
+                quizForm = document.getElementById('quiz-' + pageKey);
+
+                if (!codeInput || !codeOutput || !runButton || !graphCanvas || !chartLoadingMessage || !mainCompletionButton || !quizForm) {
+                     console.error("Error: No se encontraron todos los elementos del DOM necesarios para la página del método:", pageKey);
+                     // Podrías mostrar un mensaje de error al usuario aquí.
+                }
+            } catch (e) {
+                 console.error("Error al buscar elementos del DOM:", e);
+                 return; // Detener ejecución si los elementos básicos no están
+            }
+
+            // Corregir el anclaje si existe al cargar
+            if (window.location.hash) {
+                const targetElement = document.getElementById(window.location.hash.substring(1));
+                if (targetElement) {
+                     // Esperar un breve instante para que la disposición se asiente, luego scrollear
+                     setTimeout(() => {
+                           const topPos = targetElement.getBoundingClientRect().top + window.pageYOffset - (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--scroll-mt').trim() || '96'));
+                           window.scrollTo({ top: topPos, behavior: 'auto' }); // 'auto' para salto inicial
+                     }, 100);
+                }
+            }
+            
+            // Cargar Pyodide (Singleton Pattern)
+            if (!window.pyodideInstance) {
+                console.log("Cargando Pyodide...");
+                if(chartLoadingMessage) chartLoadingMessage.textContent = 'Cargando Pyodide...';
+                try {
+                    window.pyodideInstance = await window.loadPyodide();
+                    console.log("Pyodide cargado.");
+                } catch (error) {
+                    console.error("Error fatal al cargar Pyodide:", error);
+                    if (chartLoadingMessage) chartLoadingMessage.textContent = 'Error al cargar Pyodide.';
+                    if (codeOutput) codeOutput.textContent = 'Error: Pyodide no pudo cargarse.';
+                    // Deshabilitar funcionalidades que dependen de Pyodide
+                    if(runButton) runButton.disabled = true;
+                    return; 
+                }
+            }
+            pyodide = window.pyodideInstance; 
+
+            // Dibujar la gráfica inicial
+            if (graphCanvas && codeInput) {
+                 await drawChartJsGraph(pyodide, graphCanvas, chartLoadingMessage, codeInput.value); 
+            }
+            
+            // --- Event Listeners ---
+
+            // Botón Ejecutar Código
+            if (runButton && codeInput && codeOutput && graphCanvas) {
+                runButton.addEventListener('click', async () => {
+                    codeOutput.textContent = "Ejecutando código...\\n";
+                    try {
+                        let capturedRunOutput = "";
+                        pyodide.setStdout({ batched: (msg) => { capturedRunOutput += msg + "\\n"; } });
+                        pyodide.setStderr({ batched: (msg) => { capturedRunOutput += "Error Ejecución: " + msg + "\\n"; } });
+                        
+                        await pyodide.loadPackagesFromImports(codeInput.value);
+                        await pyodide.runPythonAsync(codeInput.value); 
+
+                        codeOutput.textContent = capturedRunOutput.trim() || "Ejecución completada (sin salida).";
+                        updateTaskStatusInStorage(pageKey, 'run_code', true);
+                        
+                        // Redibujar gráfica después de la ejecución
+                        await drawChartJsGraph(pyodide, graphCanvas, chartLoadingMessage, codeInput.value);
+
+                    } catch (error) { 
+                        codeOutput.textContent = `Error durante la ejecución:\\n${error.message || String(error)}`; 
+                        console.error("Error en runButton click:", error);
+                    } finally {
+                        pyodide.setStdout({}); 
+                        pyodide.setStderr({}); 
+                    }
+                });
+            } 
+
+            // Observador de Sección de Teoría/Conclusión
+            const theorySectionForObserver = document.getElementById('conclusion'); 
+            if (theorySectionForObserver) {
+                const observerOptions = { root: null, rootMargin: '0px', threshold: 0.5 };
+                const observerCallback = (entries, observerInstance) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting && !getTaskProgress(pageKey).read_theory) {
+                             updateTaskStatusInStorage(pageKey, 'read_theory', true);
+                             observerInstance.unobserve(entry.target); 
+                        }
+                    });
+                };
+                const theoryObserver = new IntersectionObserver(observerCallback, observerOptions);
+                theoryObserver.observe(theorySectionForObserver);
+            }
+
+            // Formulario del Cuestionario
+            if (quizForm) {
+                 // Definir las respuestas correctas específicas aquí
+                 const correctAnswers = { 
+                     // Reemplaza estas claves y valores con los de tu cuestionario específico
+                     [`q1-${pageKey}`]: 'b', 
+                     [`q2-${pageKey}`]: 'c', 
+                     [`q3-${pageKey}`]: 'a'  
+                 };
+                
+                // Cargar estado inicial del quiz
+                displayQuizFeedback(pageKey, correctAnswers); 
+
+                quizForm.addEventListener('submit', function(event) {
+                    event.preventDefault();
+                    const formData = new FormData(quizForm);
+                    let allAnswered = true;
+                    for (const questionName of Object.keys(correctAnswers)) {
+                        if (formData.get(questionName) === null) { allAnswered = false; break; }
+                    }
+
+                    if (!allAnswered) { alert("Por favor, responde todas las preguntas."); return; }
+                    
+                    updateTaskStatusInStorage(pageKey, 'quiz_attempted', true);
+
+                    let score = 0;
+                    const totalQuestions = Object.keys(correctAnswers).length;
+                    const userSubmittedAnswers = {};
+                    for (const [qName, correctVal] of Object.entries(correctAnswers)) {
+                        const userVal = formData.get(qName);
+                        userSubmittedAnswers[qName] = userVal;
+                        if (userVal === correctVal) score++;
+                    }
+                    
+                    let currentProgress = getTaskProgress(pageKey);
+                    currentProgress.user_quiz_answers = userSubmittedAnswers;
+                    localStorage.setItem(pageKey, JSON.stringify(currentProgress)); 
+                    
+                    const passed = (score === totalQuestions);
+                    updateTaskStatusInStorage(pageKey, 'quiz_passed', passed);
+                    
+                    displayQuizFeedback(pageKey, correctAnswers); 
+                    alert(passed ? `¡Correcto! ${score}/${totalQuestions}` : `Resultado: ${score}/${totalQuestions}. Revisa e intenta de nuevo.`);
+                });
+            }
+            
+            // Botón Marcar Todo Completado
+            if (mainCompletionButton) {
+                mainCompletionButton.addEventListener('click', () => {
+                    const progress = getTaskProgress(pageKey);
+                    const allCurrentlyCompleted = TASKS.every(task => progress[task] === true);
+                    const markAllAs = !allCurrentlyCompleted; 
+
+                    TASKS.forEach(taskName => {
+                         const currentProgress = getTaskProgress(pageKey); // Obtener el estado más reciente
+                         if (currentProgress[taskName] !== markAllAs) { // Solo actualizar si es diferente
+                            currentProgress[taskName] = markAllAs;
+                            if (taskName === 'quiz_attempted' && !markAllAs) { 
+                                currentProgress.quiz_passed = false; 
+                                currentProgress.user_quiz_answers = {}; 
+                            }
+                            // Recalcular progreso general después de cada cambio de tarea
+                            let completedCount = TASKS.reduce((count, task) => count + (currentProgress[task] ? 1 : 0), 0);
+                            currentProgress.overall_progress = TOTAL_TASKS > 0 ? Math.round((completedCount / TOTAL_TASKS) * 100) : 0;
+                            localStorage.setItem(pageKey, JSON.stringify(currentProgress)); 
+                         }
+                    });
+
+                     // Resetear quiz si se marca como incompleto
+                     if (!markAllAs) { 
+                         const quizFormElem = document.getElementById('quiz-' + pageKey);
+                         if (quizFormElem) {
+                            quizFormElem.reset(); 
+                            // Definir aquí también las respuestas correctas para el reset visual
+                            const correctAnswersForQuiz = { /* ... define o accede a las respuestas ... */ 
+                                 [`q1-${pageKey}`]: 'b', [`q2-${pageKey}`]: 'c', [`q3-${pageKey}`]: 'a' 
+                             };
+                            displayQuizFeedback(pageKey, correctAnswersForQuiz); 
+                         }
+                     }
+                     
+                    updateSidebarUI(pageKey); // Actualizar UI una vez al final
+                    alert(markAllAs ? 'Tareas marcadas como completadas.' : 'Completado deshecho.');
+                }); 
+            } 
+            
+            // Carga inicial del progreso y UI del sidebar
+            updateSidebarUI(pageKey); 
+            
+        }); // Fin DOMContentLoaded
+    </script> 
+
+    <script>
+        // Script para Vue.js (Sidebar de navegación izquierda)
+        const { createApp, ref, onMounted, onUnmounted } = Vue;
+
+        const LeftSidebar = {
+            template: `
+                <aside :class="['bg-custom-red shadow-xl rounded-lg p-4 self-start sticky top-8 mb-6 lg:mb-0 order-1 transition-all duration-300 ease-in-out', isCollapsed ? 'w-full lg:w-20' : 'w-full lg:w-1/4']">
+                    <div class="flex justify-between items-center mb-4 border-b border-red-400 pb-3">
+                        <h3 v-show="!isCollapsed" class="text-lg font-semibold text-white select-none">Contenido del Método</h3>
+                        <button @click="toggleCollapse" class="p-1.5 ml-auto text-white hover:bg-red-700 rounded focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-75" :aria-label="isCollapsed ? 'Expandir menú' : 'Colapsar menú'">
+                            <!-- SVGs para colapsar/expandir -->
+                            <svg v-if="!isCollapsed" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5" /></svg>
+                            <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5m-6-15l7.5 7.5-7.5 7.5" /></svg>
+                        </button>
+                    </div>
+                    <nav v-show="!isCollapsed">
+                        <ul class="space-y-1">
+                            <li v-for="item in navItems" :key="item.id">
+                                <a :href="item.href" @click.prevent="smoothScroll(item.href)"
+                                   :class="['nav-link block px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 flex items-center', isActive(item.id) ? 'bg-white text-custom-blue font-semibold shadow-sm' : 'text-red-100 hover:bg-red-700 hover:text-white']">
+                                    <span v-html="item.iconSVG" class="mr-3 translate-y-px"></span>
+                                    <span>{{ item.text }}</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                    <nav v-show="isCollapsed" class="mt-4">
+                         <ul class="space-y-1">
+                            <li v-for="item in navItems" :key="item.id + '-collapsed'">
+                                <a :href="item.href" @click.prevent="smoothScroll(item.href)" :title="item.text" :aria-label="item.text"
+                                   :class="['nav-link-collapsed block py-2 pl-2.5 pr-1.5 rounded-md transition-colors duration-150 flex justify-center items-center', isActive(item.id) ? 'bg-white text-custom-blue shadow-sm' : 'text-red-100 hover:bg-red-700 hover:text-white']">
+                                    <span v-html="item.iconSVG" class="w-6 h-6 translate-y-px"></span>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                </aside>
+            `,
+            setup() {
+                const isCollapsed = ref(false);
+                const activeSectionId = ref(null);
+                const navItems = ref([ // IDs fijos
+                    { id: 'teoria', href: '#teoria', text: 'Fundamento Teórico', iconSVG: '<svg ...></svg>' }, // Iconos SVGs omitidos por brevedad
+                    { id: 'algoritmo', href: '#algoritmo', text: 'Algoritmo', iconSVG: '<svg ...></svg>' },
+                    { id: 'ejemplo', href: '#ejemplo', text: 'Ejemplo Detallado', iconSVG: '<svg ...></svg>' },
+                    { id: 'codigo', href: '#codigo', text: 'Código (Python)', iconSVG: '<svg ...></svg>' },
+                    { id: 'graficas', href: '#graficas', text: 'Gráficas Interactivas', iconSVG: '<svg ...></svg>' },
+                    { id: 'videos', href: '#videos', text: 'Videos Explicativos', iconSVG: '<svg ...></svg>' },
+                    { id: 'conclusion', href: '#conclusion', text: 'Conclusión', iconSVG: '<svg ...></svg>' },
+                    { id: 'referencias', href: '#referencias', text: 'Referencias', iconSVG: '<svg ...></svg>' },
+                    { id: 'cuestionario', href: '#cuestionario', text: 'Cuestionario', iconSVG: '<svg ...></svg>' }
+                ]); // Rellena los SVGs como estaban antes
+
+                let sections = []; 
+                const scrollMarginTopValue = ref(96); 
+
+                const toggleCollapse = () => { isCollapsed.value = !isCollapsed.value; };
+                const isActive = (id) => activeSectionId.value === id;
+                
+                const smoothScroll = (targetHref) => {
+                    const targetId = targetHref.substring(1); 
+                    const targetElement = document.getElementById(targetId);
+                    if (targetElement) {
+                        const topPos = targetElement.getBoundingClientRect().top + window.pageYOffset - scrollMarginTopValue.value;
+                        window.scrollTo({ top: topPos, behavior: "smooth" });
+                        history.pushState(null, '', targetHref);
+                    }
+                };
+
+                const handleScroll = () => {
+                    if (!sections || sections.length === 0) return;
+                    const currentScrollY = window.scrollY;
+                    let newActiveSectionId = null;
+                    for (let i = sections.length - 1; i >= 0; i--) {
+                        const section = sections[i];
+                        const sectionTop = section.getBoundingClientRect().top + window.pageYOffset - scrollMarginTopValue.value - 50; 
+                        if (currentScrollY >= sectionTop) { newActiveSectionId = section.id; break; }
+                    }
+                    activeSectionId.value = newActiveSectionId;
+                };
+
+                onMounted(() => {
+                    sections = Array.from(document.querySelectorAll('main article section[id]'));
+                    const rootStyle = getComputedStyle(document.documentElement);
+                    const scrollMtValueCss = rootStyle.getPropertyValue('--scroll-mt');
+                    if (scrollMtValueCss) scrollMarginTopValue.value = parseInt(scrollMtValueCss.trim()) || 96;
+                    
+                    window.addEventListener('scroll', handleScroll, { passive: true });
+                    handleScroll(); 
+                });
+
+                onUnmounted(() => { window.removeEventListener('scroll', handleScroll); });
+
+                return { isCollapsed, toggleCollapse, navItems, isActive, smoothScroll };
+            }
+        };
+
+        const app = createApp({ setup() { return {}; } });
+        app.component('left-sidebar', LeftSidebar);
+        app.mount('#app');
+    </script>
+
+</body>
+</html> 

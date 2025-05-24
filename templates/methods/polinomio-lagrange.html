@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polinomio de Lagrange - Métodos Numéricos</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script> <!-- Tailwind CSS CDN -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'custom-blue': '#242A38',
+                        'custom-red': '#E94560',
+                        'custom-gray-bg': '#F3F4F6',
+                        'sidebar-bg': '#FFFFFF',
+                        'sidebar-text': '#4B5563',
+                        'sidebar-hover-bg': '#FEF2F2',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Configuración de MathJax -->
+    <script>
+        window.MathJax = {
+            tex: {
+                packages: {'[+]': ['input/mml', 'output/chtml']}
+            },
+            chtml: {
+                matchFontHeight: false
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <!-- Cargar Pyodide -->
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+    <!-- Cargar Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        @keyframes animatedRainbowBorder {
+            0% { background-position: 0% center; }
+            100% { background-position: 200% center; }
+        }
+        .animate-rainbow-border { position: relative; z-index: 0; }
+        .animate-rainbow-border::before {
+            content: ''; position: absolute; z-index: -1; top: -2px; left: -2px; right: -2px; bottom: -2px;
+            border-radius: 9999px;
+            background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #007bff, #8a2be2, #ff00ff, #ff0000);
+            background-size: 200% 100%;
+            animation: animatedRainbowBorder 3s linear infinite;
+        }
+        /* Styles for fullscreen code output - Lagrange Polynomial */
+        .pl-output-fullscreen {
+            position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important;
+            z-index: 9990 !important; background-color: #111827 !important; /* bg-gray-900 */
+            padding: 20px !important; margin: 0 !important; border-radius: 0 !important;
+            overflow-y: auto !important; max-height: 100vh !important;
+        }
+        .pl-body-fullscreen-active { overflow: hidden !important; }
+        .pl-output-controls-container-fixed {
+            position: fixed !important; top: 10px !important; right: 10px !important;
+            z-index: 9995 !important; display: flex !important; gap: 0.25rem !important;
+        }
+        .pl-font-button {
+            background-color: #374151; color: white; padding: 4px 8px; border-radius: 0.375rem;
+            font-size: 0.75rem; cursor: pointer; transition: background-color 0.2s ease-in-out;
+            border: 1px solid #4B5563;
+        }
+        .pl-font-button:hover { background-color: #4B5563; }
+        .pl-font-button-flash-red { animation: pl-flash-red 0.3s ease-in-out; }
+        .pl-font-button-flash-blue { animation: pl-flash-blue 0.3s ease-in-out; }
+        @keyframes pl-flash-red { 0% { background-color: #EF4444; } 100% { background-color: #374151; } }
+        @keyframes pl-flash-blue { 0% { background-color: #3B82F6; } 100% { background-color: #374151; } }
+    </style>
+</head>
+<body class="bg-custom-gray-bg text-gray-700 font-sans antialiased">
+    <div id="app">
+        <header class="bg-custom-blue text-white shadow-md">
+            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                <h1 class="text-xl font-semibold">
+                    <a href="../index.html" class="hover:text-gray-300">Métodos Numéricos</a>
+                </h1>
+                <nav>
+                    <a href="../index.html#method-cards-container" class="text-sm px-4 py-2 rounded-md hover:bg-gray-700 transition-colors duration-150">Volver a Métodos</a>
+                </nav>
+            </div>
+        </header>
+
+        <div class="container mx-auto mt-8 mb-8 flex flex-col lg:flex-row lg:space-x-8 px-4">
+
+            <left-sidebar></left-sidebar>
+
+            <main class="w-full flex-1 min-w-0 bg-white shadow-xl rounded-lg p-6 md:p-8 order-2 mb-6 lg:mb-0">
+                <article class="method-content">
+                    <h2 class="text-3xl font-bold mb-6 text-gray-800 border-b border-gray-200 pb-4">Polinomio de Interpolación de Lagrange</h2>
+
+                    <section id="teoria" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Fundamento Teórico</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            El polinomio de interpolación de Lagrange es un método para encontrar un polinomio único de grado \(n\) que pasa exactamente por \(n+1\) puntos de datos distintos: \((x_0, y_0), (x_1, y_1), \dots, (x_n, y_n)\).
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            La idea fundamental es construir el polinomio como una suma ponderada de los valores \(y_i\), donde cada ponderación es un polinomio \(L_{n,i}(x)\) (también llamado polinomio base de Lagrange) de grado \(n\). Estos polinomios base tienen la propiedad de que \(L_{n,i}(x_j) = 1\) si \(i = j\) y \(L_{n,i}(x_j) = 0\) si \(i \neq j\).
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            La fórmula del polinomio de interpolación de Lagrange es:
+                        </p>
+                        <p style="text-align:center;" class="mb-4">
+                            \(P_n(x) = \sum_{i=0}^{n} [y_i \cdot L_{n,i}(x)]\)
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">Cada polinomio base \(L_{n,i}(x)\) se define como:</p>
+                        <p style="text-align:center;" class="mb-4">
+                            \(L_{n,i}(x) = \prod_{j=0, j \neq i}^{n} \frac{(x - x_j)}{(x_i - x_j)}\)
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Por ejemplo, para tres puntos (interpolación cuadrática, \(n=2\)):
+                        </p>
+                        <p style="text-align:center;" class="mb-4">
+                            \(P_2(x) = y_0 \frac{(x-x_1)(x-x_2)}{(x_0-x_1)(x_0-x_2)} + y_1 \frac{(x-x_0)(x-x_2)}{(x_1-x_0)(x_1-x_2)} + y_2 \frac{(x-x_0)(x-x_1)}{(x_2-x_0)(x_2-x_1)}\)
+                        </p>
+                        <p class="text-gray-600 leading-relaxed">
+                            Aunque conceptualmente elegante, la adición de un nuevo punto de datos requiere el recálculo de todos los polinomios base, lo que puede ser una desventaja en comparación con el polinomio de Newton.
+                        </p>
+                    </section>
+
+                    <section id="algoritmo" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Pasos del Algoritmo</h3>
+                        <ol class="list-decimal list-inside space-y-3 pl-4 text-gray-600 leading-relaxed">
+                            <li>Dados \(n+1\) puntos distintos: \((x_0, y_0), (x_1, y_1), \dots, (x_n, y_n)\). Asegurarse de que todos los valores \(x_i\) sean únicos.</li>
+                            <li>Se desea encontrar el valor de \(y\) para un punto \(x\).</li>
+                            <li>Para cada punto \(i\) (de 0 a \(n\)), construir el polinomio base de Lagrange \(L_{n,i}(x)\):
+                                <p style="text-align:center;" class="my-2">
+                                    \(L_{n,i}(x) = \prod_{j=0, j \neq i}^{n} \frac{(x - x_j)}{(x_i - x_j)}\)
+                                </p>
+                                Calcula el producto de los términos \((x - x_j)\) en el numerador y el producto de los términos \((x_i - x_j)\) en el denominador.
+                            </li>
+                            <li>Calcular el valor interpolado \(P_n(x)\) sumando los productos de cada \(y_i\) con su respectivo \(L_{n,i}(x)\):
+                                <p style="text-align:center;" class="my-2">
+                                    \(y = P_n(x) = \sum_{i=0}^{n} [y_i \cdot L_{n,i}(x)]\)
+                                </p>
+                            </li>
+                            <li>El valor \(y\) calculado es la estimación interpolada.</li>
+                        </ol>
+                    </section>
+
+                    <section id="ejemplo" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Ejemplo Paso a Paso (Cuadrático)</h3>
+                        <p class="text-gray-600 leading-relaxed mb-3">Interpolar usando el polinomio de Lagrange para los puntos: \((x_0=1, y_0=1)\), \((x_1=2, y_1=4)\), \((x_2=3, y_2=9)\). Estimar \(y\) para \(x=2.5\).</p>
+                        <ol class="list-decimal list-inside space-y-3 pl-4 text-gray-600 leading-relaxed">
+                            <li><strong>Puntos conocidos:</strong> \((1,1), (2,4), (3,9)\)</li>
+                            <li><strong>Punto a interpolar:</strong> \(x = 2.5\)</li>
+                            <li><strong>Calcular Polinomios Base \(L_{2,i}(2.5)\):</strong>
+                                <ul class="list-disc list-inside pl-4 space-y-2 mt-2">
+                                    <li>\(L_{2,0}(2.5) = \frac{(2.5 - x_1)(2.5 - x_2)}{(x_0 - x_1)(x_0 - x_2)} = \frac{(2.5 - 2)(2.5 - 3)}{(1 - 2)(1 - 3)} = \frac{(0.5)(-0.5)}{(-1)(-2)} = \frac{-0.25}{2} = -0.125\)</li>
+                                    <li>\(L_{2,1}(2.5) = \frac{(2.5 - x_0)(2.5 - x_2)}{(x_1 - x_0)(x_1 - x_2)} = \frac{(2.5 - 1)(2.5 - 3)}{(2 - 1)(2 - 3)} = \frac{(1.5)(-0.5)}{(1)(-1)} = \frac{-0.75}{-1} = 0.75\)</li>
+                                    <li>\(L_{2,2}(2.5) = \frac{(2.5 - x_0)(2.5 - x_1)}{(x_2 - x_0)(x_2 - x_1)} = \frac{(2.5 - 1)(2.5 - 2)}{(3 - 1)(3 - 2)} = \frac{(1.5)(0.5)}{(2)(1)} = \frac{0.75}{2} = 0.375\)</li>
+                                </ul>
+                            </li>
+                            <li class="mt-2"><strong>Aplicar la fórmula de interpolación de Lagrange:</strong>
+                                <p class="mt-1">
+                                    \(P_2(2.5) = y_0 L_{2,0}(2.5) + y_1 L_{2,1}(2.5) + y_2 L_{2,2}(2.5)\)<br>
+                                    \(P_2(2.5) = (1)(-0.125) + (4)(0.75) + (9)(0.375)\)<br>
+                                    \(P_2(2.5) = -0.125 + 3.0 + 3.375 = 6.25\)
+                                </p>
+                            </li>
+                        </ol>
+                        <p class="text-gray-600 leading-relaxed mt-3">El valor interpolado de \(y\) en \(x=2.5\) es \(6.25\).</p>
+                    </section>
+
+                    <section id="codigo" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Código de Implementación (Python) - Ejecutable</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">Modifica y ejecuta el código Python para el Polinomio de Lagrange. Los resultados y la gráfica se actualizarán.</p>
+                        <div class="code-editor-container bg-gray-50 p-4 rounded-lg shadow-inner">
+                            <textarea id="lagrange-code-input" class="code-input w-full h-96 p-3 border border-gray-300 rounded-md font-mono text-sm" style="resize: none;">
+import numpy as np
+
+# --- Funciones Base de Lagrange ---
+def L_ni_poly(x_nodes, i, x_symbolic='x'):
+    """Genera la expresión simbólica de L_n,i(x) como string."""
+    n = len(x_nodes)
+    num_str = []
+    den_val = 1.0
+    for j in range(n):
+        if i == j:
+            continue
+        num_str.append(f"({x_symbolic} - {x_nodes[j]})")
+
+        diff = x_nodes[i] - x_nodes[j]
+        if diff == 0:
+            # This case should ideally not be reached if x_nodes are distinct
+            return "Error: Nodos x duplicados"
+        den_val *= diff
+
+    numerator_expression = "".join([f" * {s}" if k > 0 else s for k,s in enumerate(num_str)])
+    if not numerator_expression: numerator_expression = "1" # Para L_0,0(x) en interpolación de 0-grado
+
+    return f"({numerator_expression}) / {den_val}"
+
+def L_ni_eval(x_nodes, i, x_eval):
+    """Calcula L_n,i(x_eval) numéricamente."""
+    n = len(x_nodes)
+    prod = 1.0
+    for j in range(n):
+        if i != j:
+            if (x_nodes[i] - x_nodes[j]) == 0:
+                raise ValueError("Los nodos x deben ser distintos.")
+            prod *= (x_eval - x_nodes[j]) / (x_nodes[i] - x_nodes[j])
+    return prod
+
+def P_n_eval(x_nodes, y_nodes, x_eval):
+    """Calcula P_n(x_eval) numéricamente."""
+    n = len(x_nodes)
+    if n != len(y_nodes):
+        raise ValueError("x_nodes y y_nodes deben tener la misma longitud.")
+    if n == 0:
+        return 0.0
+
+    y_interpolated = 0.0
+    for i in range(n):
+        y_interpolated += y_nodes[i] * L_ni_eval(x_nodes, i, x_eval)
+    return y_interpolated
+
+# --- Función Principal para Detalles y Gráfica ---
+def calculate_lagrange_details(x_nodes_list_str_py, y_nodes_list_str_py, x_eval_target_str_py, num_plot_points=100):
+    # Validar y convertir entradas
+    try:
+        # Convert string lists from JS (which are already lists of strings) to lists of floats
+        x_nodes = [float(x) for x in x_nodes_list_str_py]
+        y_nodes = [float(y) for y in y_nodes_list_str_py]
+        x_eval_target = float(x_eval_target_str_py)
+    except ValueError:
+        return "<p style='color:red;'>Error: Asegúrese que todos los nodos (x,y) y el punto a evaluar sean números.</p>", {}
+
+    if len(x_nodes) != len(y_nodes):
+        return "<p style='color:red;'>Error: Las listas de nodos x e y deben tener la misma longitud.</p>", {}
+    if not x_nodes:
+        return "<p style='color:red;'>Error: Las listas de nodos no pueden estar vacías.</p>", {}
+    if len(set(x_nodes)) != len(x_nodes): # Chequear nodos x distintos
+        return "<p style='color:red;'>Error: Los valores de x_nodes deben ser distintos.</p>", {}
+
+
+    html_parts = []
+    html_parts.append(f'<div style="text-align: center; font-weight: bold; margin-bottom:10px; font-size:1.1em;">Polinomio de Interpolación de Lagrange</div>')
+    html_parts.append(f'<p style="text-align:center; margin-bottom:5px;">Puntos de datos: x = {x_nodes}, y = {y_nodes}</p>')
+    html_parts.append(f'<p style="text-align:center; margin-bottom:15px;">Evaluando el polinomio en x = {x_eval_target}</p>')
+
+    html_parts.append('<p><b>Polinomios Base L<sub>n,i</sub>(x):</b> (expresiones simbólicas)</p>')
+    html_parts.append('<ul style="font-size:0.9em; margin-left:20px; list-style-type:none;">')
+    Pn_symbolic_terms = []
+    for i in range(len(x_nodes)):
+        L_ni_expr = L_ni_poly(x_nodes, i)
+        html_parts.append(f'<li>L<sub>{len(x_nodes)-1},{i}</sub>(x) = {L_ni_expr}</li>')
+        Pn_symbolic_terms.append(f"{y_nodes[i]} * ({L_ni_expr})")
+    html_parts.append('</ul>')
+
+    Pn_symbolic_str = " + ".join(Pn_symbolic_terms)
+    html_parts.append(f'<p style="margin-top:10px;"><b>Polinomio Interpolador P<sub>n</sub>(x):</b></p>')
+    html_parts.append(f'<p style="font-size:0.9em; margin-left:20px; word-break:break-all;">P<sub>{len(x_nodes)-1}</sub>(x) = {Pn_symbolic_str}</p>')
+
+    html_parts.append(f'<p style="margin-top:10px;"><b>Cálculo en x = {x_eval_target}:</b></p>')
+    html_parts.append('<table border="1" style="width:100%; border-collapse: collapse; margin-bottom:15px; font-size: 0.85em;">')
+    html_parts.append('<thead><tr>' +
+                      '<th style="padding:4px; text-align:center;">i</th>' +
+                      '<th style="padding:4px; text-align:center;">y<sub>i</sub></th>' +
+                      '<th style="padding:4px; text-align:center;">L<sub>n,i</sub>({x_eval_target})</th>' +
+                      '<th style="padding:4px; text-align:center;">y<sub>i</sub> * L<sub>n,i</sub>({x_eval_target})</th>' +
+                      '</tr></thead><tbody>')
+
+    calculated_y_at_target = 0.0
+    l_ni_values_for_chart = [] # Para la gráfica (opcional)
+
+    for i in range(len(x_nodes)):
+        yi = y_nodes[i]
+        l_ni_at_target = L_ni_eval(x_nodes, i, x_eval_target)
+        term_value = yi * l_ni_at_target
+        calculated_y_at_target += term_value
+        l_ni_values_for_chart.append(l_ni_at_target)
+
+        html_parts.append(f'<tr><td style="text-align:center;">{i}</td>' +
+                          f'<td style="text-align:right; padding-right:5px;">{yi:.4f}</td>' +
+                          f'<td style="text-align:right; padding-right:5px;">{l_ni_at_target:.4f}</td>' +
+                          f'<td style="text-align:right; padding-right:5px;">{term_value:.4f}</td></tr>')
+
+    html_parts.append('</tbody></table>')
+    html_parts.append(f'<div style="text-align:center; margin-top:10px; padding:5px; background-color:#e8f5e9; border:1px solid #a5d6a7; border-radius:4px; color: #000000;">')
+    html_parts.append(f'<b>Resultado:</b> P<sub>{len(x_nodes)-1}</sub>({x_eval_target}) = <b>{calculated_y_at_target:.8f}</b></div>')
+
+    # --- Preparar datos para el gráfico ---
+    np_x_nodes = np.array(x_nodes)
+    x_min_plot, x_max_plot = np.min(np_x_nodes), np.max(np_x_nodes)
+    # Extender un poco el rango para mejor visualización si hay más de un punto
+    if len(np_x_nodes) > 1:
+        plot_range_extension = (x_max_plot - x_min_plot) * 0.1
+        x_min_plot -= plot_range_extension
+        x_max_plot += plot_range_extension
+    elif len(np_x_nodes) == 1: # Un solo punto, crear un pequeño rango alrededor
+        x_min_plot -= 1
+        x_max_plot += 1
+    else: # No hay puntos, rango por defecto
+        x_min_plot, x_max_plot = -1, 1
+
+    plot_x_vals = np.linspace(x_min_plot, x_max_plot, num_plot_points).tolist()
+    plot_y_polynomial = [P_n_eval(x_nodes, y_nodes, val) for val in plot_x_vals]
+
+    original_points_for_chart = [{"x": float(x_nodes[i]), "y": float(y_nodes[i])} for i in range(len(x_nodes))]
+    polynomial_line_for_chart = [{"x": float(plot_x_vals[i]), "y": float(plot_y_polynomial[i])} for i in range(len(plot_x_vals))]
+
+    basis_polynomial_lines = []
+    if len(x_nodes) <= 5: # Graficar L_ni(x) solo si hay pocos puntos para no saturar
+        for i in range(len(x_nodes)):
+            plot_y_Lni = [L_ni_eval(x_nodes, i, val) for val in plot_x_vals]
+            basis_polynomial_lines.append({
+                "label": f"L_{len(x_nodes)-1},{i}(x)",
+                "data": [{"x": float(plot_x_vals[k]), "y": float(plot_y_Lni[k])} for k in range(len(plot_x_vals))]
+            })
+
+    chart_package_data = {
+        "original_points": original_points_for_chart,
+        "polynomial_line": polynomial_line_for_chart,
+        "basis_lines": basis_polynomial_lines, # Lista de polinomios base para graficar
+        "point_of_evaluation": {"x": x_eval_target, "y": calculated_y_at_target}
+    }
+
+    return "".join(html_parts), chart_package_data
+
+# --- Parámetros de Ejemplo (Python local defaults) ---
+default_x_nodes_local_py = [1.0, 2.0, 3.0]
+default_y_nodes_local_py = [1.0, 4.0, 9.0]
+default_x_eval_local_py_str = "2.5"
+
+# This block is for when the script is run directly with `python script.py`
+# It will be ENTIRELY REPLACED by JavaScript logic when run in Pyodide.
+if __name__ == "__main__":
+    # For local execution, explicitly declare these as global for this module's scope
+    global pyodide_pl_html_output
+    global pyodide_pl_chart_data_package
+
+    # Use the Python-defined defaults for local run
+    # calculate_lagrange_details expects lists of numbers (or strings that can be float) for nodes
+    # and a string for x_eval_target.
+    _html_out, _chart_data_out = calculate_lagrange_details(
+        [str(x) for x in default_x_nodes_local_py], # Convert to list of strings
+        [str(y) for y in default_y_nodes_local_py], # Convert to list of strings
+        default_x_eval_local_py_str
+    )
+
+    pyodide_pl_html_output = _html_out
+    pyodide_pl_chart_data_package = _chart_data_out
+
+    print("--- Local Python Execution HTML Output ---")
+    print(pyodide_pl_html_output)
+    print("\n--- Local Python Chart Data ---")
+    print(pyodide_pl_chart_data_package)
+                            </textarea>
+
+                            <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 text-sm">
+                                <div>
+                                    <label for="pl-x-nodes-input" class="block mb-1 font-medium text-gray-700">Nodos X (separados por coma):</label>
+                                    <input type="text" id="pl-x-nodes-input" value="1, 2, 3" class="w-full p-2 border border-gray-300 rounded-md">
+                                </div>
+                                <div>
+                                    <label for="pl-y-nodes-input" class="block mb-1 font-medium text-gray-700">Nodos Y (separados por coma):</label>
+                                    <input type="text" id="pl-y-nodes-input" value="1, 4, 9" class="w-full p-2 border border-gray-300 rounded-md">
+                                </div>
+                                <div>
+                                    <label for="pl-x-eval-input" class="block mb-1 font-medium text-gray-700">Punto X a evaluar:</label>
+                                    <input type="text" id="pl-x-eval-input" value="2.5" class="w-full p-2 border border-gray-300 rounded-md">
+                                </div>
+                            </div>
+
+                            <button id="run-lagrange-code-button" class="run-button mt-2 px-5 py-2.5 bg-custom-red text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 font-medium text-sm transition-colors duration-150">Ejecutar Código y Actualizar Gráfica</button>
+
+                            <div class="relative">
+                                <div id="pl-output-controls-container" class="absolute top-2 right-2 z-10 flex items-center space-x-1 transition-all duration-500 ease-out">
+                                    <button id="pl-decrease-font-button" title="Disminuir fuente" class="pl-font-button p-1.5 font-semibold flex items-center justify-center" style="min-width: 30px;">aa</button>
+                                    <button id="pl-increase-font-button" title="Aumentar fuente" class="pl-font-button p-1.5 font-semibold flex items-center justify-center" style="min-width: 30px;">AA</button>
+                                    <button id="pl-fullscreen-output-button" title="Pantalla Completa" class="bg-gray-700 hover:bg-gray-600 text-white p-1.5 rounded-md text-xs"></button>
+                                </div>
+                                <h4 class="mt-5 mb-2 text-lg font-semibold text-gray-700">Salida:</h4>
+                                <pre id="pl-code-output" class="code-output bg-gray-900 text-white p-4 pt-10 rounded-md min-h-[100px] whitespace-pre-wrap transition-all duration-500 ease-out text-xs leading-relaxed max-h-96 overflow-y-auto font-mono">Presiona "Ejecutar Código" para ver la salida.</pre>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="graficas" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Gráfica Interactiva del Polinomio de Lagrange</h3>
+                         <p class="text-gray-600 leading-relaxed mb-4">
+                            La gráfica muestra los puntos de datos originales, el polinomio de interpolación de Lagrange resultante, y opcionalmente los polinomios base \(L_{n,i}(x)\) (si hay 5 puntos o menos). El punto evaluado \(P(x_{eval})\) también se resalta.
+                        </p>
+                        <div class="interactive-graphics w-full h-96 bg-white p-4 rounded-lg shadow-md">
+                            <canvas id="lagrange-chart"></canvas>
+                            <p id="chart-loading-message-pl" class="text-center text-gray-600 italic mt-2"><em>Cargando gráfica... (Requiere Pyodide)</em></p>
+                        </div>
+                    </section>
+
+                    <section id="videos" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Video Explicativo</h3>
+                        <div class="video-embed w-full h-96">
+                             <iframe class="w-full h-full rounded-lg shadow-lg" src="https://www.youtube.com/embed/CeYKhxfmneI" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+                        </div>
+                    </section>
+
+                    <section id="conclusion" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Conclusión y Aplicaciones</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            El polinomio de interpolación de Lagrange es una herramienta poderosa y teóricamente importante para la interpolación. Proporciona una fórmula directa para el polinomio de interpolación sin necesidad de resolver sistemas de ecuaciones o calcular tablas de diferencias (como en Newton).
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Su principal desventaja práctica es que si se añade o modifica un punto de datos, todos los polinomios base \(L_{n,i}(x)\) deben ser recalculados, lo que lo hace menos eficiente que el método de Newton para conjuntos de datos dinámicos. Para un conjunto fijo de puntos, es tan válido como el polinomio de Newton (ya que el polinomio de interpolación es único).
+                        </p>
+                         <p class="text-gray-600 leading-relaxed">
+                            <strong>Aplicaciones:</strong>
+                            <ul class="list-disc list-inside space-y-2 pl-4 mt-2">
+                                <li>Cuando se necesita una expresión explícita del polinomio interpolador.</li>
+                                <li>Pruebas teóricas y derivaciones en análisis numérico.</li>
+                                <li>Aproximación de funciones a partir de un conjunto discreto de puntos.</li>
+                                <li>Reconstrucción de señales y datos en diversas áreas científicas y de ingeniería.</li>
+                            </ul>
+                        </p>
+                    </section>
+
+                    <section id="referencias" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Referencias y Lecturas Adicionales</h3>
+                        <ul class="list-disc list-inside space-y-2 pl-4 text-gray-600 leading-relaxed">
+                            <li>Chapra, S. C., & Canale, R. P. (2015). <em>Numerical Methods for Engineers</em> (7th ed.). McGraw-Hill Education. (Capítulo 18.2)</li>
+                            <li>Burden, R. L., & Faires, J. D. (2011). <em>Numerical Analysis</em> (9th ed.). Brooks/Cole, Cengage Learning. (Sección 3.1)</li>
+                        </ul>
+                    </section>
+
+
+                    <section id="cuestionario" class="scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Cuestionario: Polinomio de Lagrange</h3>
+                        <form id="quiz-polinomio-lagrange" class="space-y-6 bg-gray-50 p-6 rounded-lg shadow-inner">
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700"><strong>1. La propiedad clave de los polinomios base de Lagrange \(L_{n,i}(x)\) es que \(L_{n,i}(x_j)\) es igual a:</strong></p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 1</legend>
+                                    <div class="space-y-2">
+                                        <label for="q1-opt1-pl" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt1-pl" name="q1-polinomio-lagrange" type="radio" value="a" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">0 si i = j, y 1 si i ≠ j.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt2-pl" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt2-pl" name="q1-polinomio-lagrange" type="radio" value="b" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">1 si i = j, y 0 si i ≠ j.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt3-pl" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt3-pl" name="q1-polinomio-lagrange" type="radio" value="c" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Siempre 1.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="q1-polinomio-lagrange-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+                             <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700"><strong>2. Si se añade un nuevo punto de datos a un conjunto existente, ¿cómo afecta esto al cálculo del polinomio de Lagrange?</strong></p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 2</legend>
+                                    <div class="space-y-2">
+                                        <label for="q2-opt1-pl" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt1-pl" name="q2-polinomio-lagrange" type="radio" value="a" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Solo se añade un nuevo término al polinomio existente.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt2-pl" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt2-pl" name="q2-polinomio-lagrange" type="radio" value="b" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Todos los polinomios base de Lagrange deben ser recalculados.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt3-pl" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt3-pl" name="q2-polinomio-lagrange" type="radio" value="c" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">El polinomio no cambia, solo se ajusta el último término.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="q2-polinomio-lagrange-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+                             <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700"><strong>3. Para \(n+1\) puntos de datos, ¿cuál es el grado del polinomio de interpolación de Lagrange?</strong></p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 3</legend>
+                                    <div class="space-y-2">
+                                        <label for="q3-opt1-pl" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt1-pl" name="q3-polinomio-lagrange" type="radio" value="a" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">n+1.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt2-pl" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt2-pl" name="q3-polinomio-lagrange" type="radio" value="b" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">n.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt3-pl" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt3-pl" name="q3-polinomio-lagrange" type="radio" value="c" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">n-1.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="q3-polinomio-lagrange-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+                            <button type="submit" class="mt-6 w-full px-6 py-3 bg-custom-red text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors duration-150">
+                                Enviar Respuestas
+                            </button>
+                        </form>
+                        <div id="quiz-feedback-polinomio-lagrange" class="quiz-feedback-message mt-4 p-3 rounded-md text-sm" style="display: none;"></div>
+                    </section>
+
+                </article>
+            </main>
+
+            <aside class="w-full lg:w-1/4 bg-sidebar-bg shadow-xl rounded-lg p-6 self-start sticky top-8 order-3 space-y-6">
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-4">Perfil</h3>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex-shrink-0">
+                           <svg class="w-12 h-12 text-gray-400 bg-gray-100 rounded-full p-1 ring-1 ring-gray-200" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-800 text-md">Estudiante Aplicado</p>
+                            <p class="text-sm text-gray-500">Explorador Numérico</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pb-6 border-b border-gray-200 space-y-3">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide">Progreso en Polinomio de Lagrange</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li class="flex items-center">
+                            <span id="task-read_theory_pl-status" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Leer la teoría completa</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-run_code_pl-status" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Ejecutar el código Python</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz_attempted_pl-status" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Intentar el cuestionario</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz_passed_pl-status" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Aprobar el cuestionario</span>
+                        </li>
+                    </ul>
+                    <div class="flex items-center justify-between mb-1 mt-3">
+                       <span class="text-xs font-medium text-custom-red">Progreso General</span>
+                       <span class="text-xs font-medium text-custom-red right-sidebar-progress-text">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div class="bg-custom-red h-3 rounded-full right-sidebar-progress-bar transition-width duration-500 ease-in-out" style="width: 0%"></div>
+                    </div>
+                    <button id="completion-polinomio-lagrange-sidebar" class="mt-4 w-full completion-button px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 font-medium text-sm transition-colors duration-150">Marcar Todo Completado</button>
+                </div>
+
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Recursos y Notas</h3>
+                    <p class="text-sm text-gray-600">
+                        <a href="https://archive.org/details/numerical-methods-for-engineers-7th-edit" target="_blank" rel="noopener noreferrer" class="hover:text-custom-red hover:underline">
+                            Métodos Numéricos para Ingenieros 7ma Edición de Chapra
+                        </a> (Referencia Principal)
+                    </p>
+                     <img src="https://www.elsotano.com/imagenes_grandes/9786071/9786071512965.JPG" alt="Portada Chapra Métodos Numéricos" class="mt-2 w-full rounded-md shadow-sm">
+                </div>
+
+                <div>
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Siguiente Paso</h3>
+                    <a href="../methods/interpolacion-newton.html" class="group flex items-center text-sm font-medium text-custom-red hover:text-red-700 transition-colors duration-150"> <!-- Asumiendo que existe esta página -->
+                       <span>Explorar Interpolación de Newton</span>
+                       <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform duration-150" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </a>
+                </div>
+            </aside>
+        </div>
+
+        <footer class="bg-custom-blue text-gray-300 text-center p-6 mt-12">
+            <p>© 2024 Plataforma Educativa de Métodos Numéricos. <a href="../index.html" class="hover:text-white underline">Volver al inicio</a></p>
+        </footer>
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted, onUnmounted, computed } = Vue;
+
+        const LeftSidebar = { // Definición del componente LeftSidebar para Vue
+        props: {
+            pageThemeColor: { type: String, default: 'red' }, // Color base del tema (e.g., 'red', 'blue')
+            pageGradientFrom: { type: String, default: 'from-red-500' }, // Clase para inicio de gradiente
+            pageGradientTo: { type: String, default: 'to-red-700' },     // Clase para fin de gradiente
+            pageActiveTextColor: { type: String, default: 'text-custom-red' } // Texto activo para links, usa el color base
+        },
+        template: `{% raw %}
+            <aside 
+                :class="[
+                    'bg-gradient-to-b', pageGradientFrom, pageGradientTo,
+                    'shadow-xl', 'rounded-lg', 'p-4',
+                    'flex', 'flex-col',
+                    'transition-all', 'duration-300', 'ease-in-out',
+                    'order-1', 
+                    isCollapsed ? 'w-full lg:w-20' : 'w-full lg:w-64',
+                    'self-start', 
+                    'lg:sticky', 'lg:top-8', 
+                    'lg:max-h-[calc(100vh-4rem)]', // Altura máxima considerando 2rem (top-8) * 2 para arriba y abajo
+                    'overflow-y-auto' // Scroll si el contenido excede la altura máxima
+                ]"
+                aria-label="Sidebar de navegación del método">
+                <div :class="['flex justify-between items-center mb-4 border-b pb-3', 'border-' + pageThemeColor + '-400']">
+                    <h3 v-show="!isCollapsed" class="text-lg font-semibold text-white select-none">Contenido</h3>
+                    <button @click="toggleCollapse" :class="['p-1.5 ml-2 text-white rounded focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-75', 'hover:bg-' + pageThemeColor + '-600']" :aria-label="isCollapsed ? 'Expandir menú' : 'Colapsar menú'">
+                        <svg v-if="!isCollapsed" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5" />
+                        </svg>
+                        <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5m-6-15l7.5 7.5-7.5 7.5" />
+                        </svg>
+                    </button>
+                </div>
+                <nav v-show="!isCollapsed" class="flex-grow">
+                    <ul class="space-y-1">
+                        <li v-for="item in navItems" :key="item.id">
+                            <a :href="item.href"
+                               @click.prevent="smoothScroll(item.href)"
+                               :class="[
+                                   'nav-link block px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 flex items-center',
+                                   isActive(item.id) ? ['bg-white shadow-sm font-semibold', pageActiveTextColor] : ['text-' + pageThemeColor + '-100', 'hover:text-white', 'hover:bg-' + pageThemeColor + '-600']
+                               ]">
+                                <span v-html="item.iconSVG" class="mr-3 translate-y-px"></span>
+                                <span>{{ item.text }}</span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+                <nav v-show="isCollapsed" class="mt-4 flex-grow">
+                     <ul class="space-y-1">
+                        <li v-for="item in navItems" :key="item.id + '-collapsed'">
+                            <a :href="item.href"
+                               @click.prevent="smoothScroll(item.href)"
+                               :title="item.text"
+                               :aria-label="item.text"
+                               :class="[
+                                   'nav-link-collapsed block py-2 pl-2.5 pr-1.5 rounded-md transition-colors duration-150 flex justify-center items-center',
+                                   isActive(item.id) ? ['bg-white shadow-sm', pageActiveTextColor] : ['text-' + pageThemeColor + '-100', 'hover:text-white', 'hover:bg-' + pageThemeColor + '-600']
+                               ]">
+                                <span v-html="item.iconSVG" class="w-6 h-6 translate-y-px"></span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </aside>
+        {% endraw %}`,
+        setup(props) {
+            const isCollapsed = ref(false);
+            const activeSectionId = ref(null);
+            // navItems se define aquí o se pasa como prop si varía mucho entre páginas
+            const navItems = ref([
+                { id: 'teoria', text: 'Fundamento Teórico', href: '#teoria', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>' },
+                { id: 'algoritmo', text: 'Pasos del Algoritmo', href: '#algoritmo', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" /></svg>' },
+                { id: 'ejemplo', text: 'Ejemplo Detallado', href: '#ejemplo', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>' },
+                { id: 'codigo', text: 'Implementación (Python)', href: '#codigo', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" /></svg>' },
+                { id: 'graficas', text: 'Gráficas Interactivas', href: '#graficas', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>' },
+                { id: 'videos', text: 'Videos Explicativos', href: '#videos', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.75.75 0 010 1.656l-5.603 3.113A.75.75 0 019 15.95V9.05a.75.75 0 011.307-.588l5.603 3.112z" /></svg>' },
+                { id: 'conclusion-metodo', text: 'Conclusión y Aplicaciones', href: '#conclusion-metodo', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' },
+                { id: 'referencias', text: 'Referencias', href: '#referencias', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 3.75V16.5L12 14.25L7.5 16.5V3.75m9 0H18A2.25 2.25 0 0120.25 6v12A2.25 2.25 0 0118 20.25H6A2.25 2.25 0 013.75 18V6A2.25 2.25 0 016 3.75h1.5m9 0h-9" /></svg>' },
+                { id: 'cuestionario', text: 'Cuestionario', href: '#cuestionario', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' }
+            ]); // Asegúrate de que estos navItems sean los correctos para todas las páginas o ajústalos.
+
+            let sections = []; // Para el scroll-spy
+
+            const toggleCollapse = () => {
+                isCollapsed.value = !isCollapsed.value;
+            };
+
+            const isActive = (id) => {
+                return activeSectionId.value === id;
+            };
+            
+            const smoothScroll = (targetHref) => {
+                const targetId = targetHref.substring(1);
+                const targetElement = document.getElementById(targetId);
+                if (targetElement) {
+                    targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+                    history.pushState(null, null, targetHref); 
+                }
+            };
+
+            const handleScroll = () => {
+                if (!sections || sections.length === 0) return;
+                const scrollMarginTopValue = parseInt(getComputedStyle(sections[0]).scrollMarginTop) || 96; 
+                let newActiveSectionId = null;
+                for (let i = 0; i < sections.length; i++) {
+                    const section = sections[i];
+                    const sectionTopBoundary = section.offsetTop - scrollMarginTopValue;
+                    const sectionBottomBoundary = sectionTopBoundary + section.offsetHeight;
+                    if (window.scrollY >= sectionTopBoundary && window.scrollY < sectionBottomBoundary) {
+                        newActiveSectionId = section.id;
+                        break;
+                    }
+                }
+                if (newActiveSectionId === null && sections.length > 0) {
+                    for (let i = sections.length - 1; i >= 0; i--) {
+                        const section = sections[i];
+                        if ((section.offsetTop - scrollMarginTopValue) <= window.scrollY + 5) {
+                            newActiveSectionId = section.id;
+                            break;
+                        }
+                    }
+                }
+                 if (newActiveSectionId === null && sections.length > 0 && window.scrollY < (sections[0].offsetTop - scrollMarginTopValue)) {
+                    newActiveSectionId = sections[0].id;
+                 }
+                if (activeSectionId.value !== newActiveSectionId) {
+                    activeSectionId.value = newActiveSectionId;
+                }
+            };
+
+            onMounted(() => {
+                nextTick(() => {
+                    sections = Array.from(document.querySelectorAll('main article section[id]'));
+                    handleScroll(); 
+                    window.addEventListener('scroll', handleScroll, { passive: true });
+                });
+            });
+
+            onUnmounted(() => {
+                window.removeEventListener('scroll', handleScroll);
+            });
+
+            return {
+                isCollapsed,
+                toggleCollapse,
+                navItems,
+                isActive,
+                smoothScroll,
+                activeSectionId,
+                // pageThemeColor, pageGradientFrom, pageGradientTo, pageActiveTextColor // Expuestas desde props
+            };
+        }
+    };
+
+        const app = createApp({});
+        app.component('left-sidebar', LeftSidebar);
+        app.mount('#app');
+    </script>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const PAGE_KEY_PL = 'polinomio-lagrange';
+        const QUIZ_FORM_ID_PL = 'quiz-polinomio-lagrange';
+        const QUIZ_FEEDBACK_ID_PL = 'quiz-feedback-polinomio-lagrange';
+        const COMPLETION_BUTTON_ID_PL = 'completion-polinomio-lagrange-sidebar';
+
+        const TASKS_PL = {
+            READ_THEORY: 'read_theory_pl',
+            RUN_CODE: 'run_code_pl',
+            QUIZ_ATTEMPTED: 'quiz_attempted_pl',
+            QUIZ_PASSED: 'quiz_passed_pl'
+        };
+        const ALL_TASK_KEYS_PL = Object.values(TASKS_PL);
+        const TOTAL_TASKS_PL = ALL_TASK_KEYS_PL.length;
+
+        const ICON_PENDING_PL = '<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0-4.418-4.03-8-9-8S3 7.582 3 12c0 1.454.402 2.813 1.098 3.977L3 21l5.023-1.098A8.902 8.902 0 0012 21c4.97 0 9-3.582 9-9z"></path></svg>';
+        const ICON_COMPLETED_PL = '<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>';
+        const ICON_IN_PROGRESS_PL = '<svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path></svg>';
+
+        const quizDataLagrange = {
+            'q1-polinomio-lagrange': {
+                correct: 'b', // 1 si i = j, y 0 si i != j
+                feedbacks: {
+                    'a': 'Incorrecto. Esta es la condición opuesta. \\(L_{n,i}(x_j)\\) debe ser 1 en el nodo \\(x_i\\) y 0 en otros nodos \\(x_j\\).',
+                    'c': 'Incorrecto. La propiedad de los polinomios base de Lagrange es ser selectivos: valen 1 en su propio nodo \\(x_i\\) y 0 en los demás nodos \\(x_j\\).'
+                }
+            },
+            'q2-polinomio-lagrange': {
+                correct: 'b', // Todos los polinomios base de Lagrange deben ser recalculados.
+                feedbacks: {
+                    'a': 'Incorrecto. La forma de los polinomios base \\(L_{n,i}(x)\\) depende de todos los nodos \\(x_j\\), por lo que todos cambian.',
+                    'c': 'Incorrecto. Al añadir un punto, el grado del polinomio aumenta y todos los polinomios base se modifican.'
+                }
+            },
+            'q3-polinomio-lagrange': {
+                correct: 'b', // n
+                feedbacks: {
+                    'a': 'Incorrecto. \\(n+1\\) es el número de puntos. El polinomio que pasa por \\(n+1\\) puntos tiene un grado máximo de \\(n\\).',
+                    'c': 'Incorrecto. Con \\(n+1\\) puntos, se puede ajustar un polinomio de grado hasta \\(n\\).'
+                }
+            }
+        };
+
+        const mainCompletionButtonPL = document.getElementById(COMPLETION_BUTTON_ID_PL);
+        const quizFormPL = document.getElementById(QUIZ_FORM_ID_PL);
+        const generalQuizFeedbackDivPL = document.getElementById(QUIZ_FEEDBACK_ID_PL);
+
+        const taskStatusIconsPL = ALL_TASK_KEYS_PL.reduce((acc, key) => {
+            // Correct the ID mapping to match HTML
+            acc[key] = document.getElementById(`task-${key.replace(/_/g, '-')}-status`);
+            return acc;
+        }, {});
+
+        const overallProgressTextPL = document.querySelector('#app .right-sidebar-progress-text');
+        const overallProgressBarPL = document.querySelector('#app .right-sidebar-progress-bar');
+
+        function getPageProgressFromStorage_PL(pKey) {
+            const progress = JSON.parse(localStorage.getItem(pKey)) || {};
+            const defaultStructure = ALL_TASK_KEYS_PL.reduce((obj, task) => ({ ...obj, [task]: false }), {});
+            defaultStructure.overall_progress = 0;
+            defaultStructure.user_quiz_answers = {};
+            defaultStructure.quiz_current_score = 0;
+            defaultStructure.quiz_total_questions = Object.keys(quizDataLagrange).length;
+            defaultStructure.quiz_feedback_active = false;
+            return { ...defaultStructure, ...progress };
+        }
+
+        function savePageProgressToStorage_PL(pKey, progressData) {
+            localStorage.setItem(pKey, JSON.stringify(progressData));
+        }
+
+        function updateTaskStatusInStoragePL(taskName, isCompleted) {
+            const currentProgress = getPageProgressFromStorage_PL(PAGE_KEY_PL);
+            if (currentProgress[taskName] !== isCompleted) {
+                currentProgress[taskName] = isCompleted;
+                if (taskName === TASKS_PL.QUIZ_ATTEMPTED && !isCompleted) {
+                    currentProgress[TASKS_PL.QUIZ_PASSED] = false;
+                    currentProgress.user_quiz_answers = {};
+                    currentProgress.quiz_current_score = 0;
+                    currentProgress.quiz_feedback_active = false;
+                }
+                if (taskName === TASKS_PL.QUIZ_PASSED && isCompleted) {
+                    currentProgress[TASKS_PL.QUIZ_ATTEMPTED] = true;
+                }
+                savePageProgressToStorage_PL(PAGE_KEY_PL, currentProgress);
+                calculateAndUpdateOverallProgressPL();
+            }
+        }
+
+        function renderTaskStatusPL() {
+            const progress = getPageProgressFromStorage_PL(PAGE_KEY_PL);
+            ALL_TASK_KEYS_PL.forEach(taskKey => {
+                const iconElement = taskStatusIconsPL[taskKey];
+                if (iconElement) {
+                    let newIconHTML = ICON_PENDING_PL;
+                    if (progress[taskKey] === true) newIconHTML = ICON_COMPLETED_PL;
+                    else if (taskKey === TASKS_PL.QUIZ_PASSED && progress[TASKS_PL.QUIZ_ATTEMPTED] === true) newIconHTML = ICON_IN_PROGRESS_PL;
+                    iconElement.innerHTML = newIconHTML;
+                }
+            });
+        }
+
+        function calculateAndUpdateOverallProgressPL() {
+            const progress = getPageProgressFromStorage_PL(PAGE_KEY_PL);
+            let completedTasksCount = ALL_TASK_KEYS_PL.filter(taskKey => progress[taskKey] === true).length;
+            const percentage = TOTAL_TASKS_PL > 0 ? (completedTasksCount / TOTAL_TASKS_PL) * 100 : 0;
+            progress.overall_progress = percentage;
+            savePageProgressToStorage_PL(PAGE_KEY_PL, progress);
+
+            if (overallProgressBarPL) {
+                overallProgressBarPL.style.width = `${percentage.toFixed(0)}%`;
+                overallProgressBarPL.classList.toggle('animate-rainbow-border', percentage.toFixed(0) === '100');
+            }
+            if (overallProgressTextPL) overallProgressTextPL.textContent = `${percentage.toFixed(0)}%`;
+            renderTaskStatusPL();
+            updateMainCompletionButtonStatePL();
+        }
+
+        function handleMarkAllMouseEnter_PL() { if (mainCompletionButtonPL && mainCompletionButtonPL.dataset.isUndo === "true") { mainCompletionButtonPL.classList.remove('bg-yellow-500', 'hover:bg-yellow-600'); mainCompletionButtonPL.classList.add('bg-red-600', 'hover:bg-red-700'); } }
+        function handleMarkAllMouseLeave_PL() { if (mainCompletionButtonPL && mainCompletionButtonPL.dataset.isUndo === "true") { mainCompletionButtonPL.classList.remove('bg-red-600', 'hover:bg-red-700'); mainCompletionButtonPL.classList.add('bg-yellow-500', 'hover:bg-yellow-600'); } }
+
+        function updateMainCompletionButtonStatePL() {
+            if (!mainCompletionButtonPL) return;
+            const progress = getPageProgressFromStorage_PL(PAGE_KEY_PL);
+            const allTasksCompleted = ALL_TASK_KEYS_PL.every(taskKey => progress[taskKey] === true);
+            mainCompletionButtonPL.removeEventListener('mouseenter', handleMarkAllMouseEnter_PL);
+            mainCompletionButtonPL.removeEventListener('mouseleave', handleMarkAllMouseLeave_PL);
+            mainCompletionButtonPL.classList.remove('bg-green-600', 'hover:bg-green-700', 'bg-yellow-500', 'hover:bg-yellow-600', 'bg-red-600', 'hover:bg-red-700');
+            if (allTasksCompleted) {
+                mainCompletionButtonPL.textContent = 'Deshacer Completado';
+                mainCompletionButtonPL.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+                mainCompletionButtonPL.dataset.isUndo = "true";
+                mainCompletionButtonPL.addEventListener('mouseenter', handleMarkAllMouseEnter_PL);
+                mainCompletionButtonPL.addEventListener('mouseleave', handleMarkAllMouseLeave_PL);
+            } else {
+                mainCompletionButtonPL.textContent = 'Marcar Todo Completado';
+                mainCompletionButtonPL.classList.add('bg-green-600', 'hover:bg-green-700');
+                mainCompletionButtonPL.dataset.isUndo = "false";
+            }
+        }
+
+        function handleMainCompletionClickPL() {
+            const progress = getPageProgressFromStorage_PL(PAGE_KEY_PL);
+            const allCurrentlyCompleted = ALL_TASK_KEYS_PL.every(taskKey => progress[taskKey] === true);
+            const markAllAs = !allCurrentlyCompleted;
+            ALL_TASK_KEYS_PL.forEach(taskName => updateTaskStatusInStoragePL(taskName, markAllAs));
+            if (!markAllAs) {
+                let currentProgress = getPageProgressFromStorage_PL(PAGE_KEY_PL);
+                currentProgress.user_quiz_answers = {}; currentProgress.quiz_current_score = 0; currentProgress.quiz_feedback_active = false;
+                savePageProgressToStorage_PL(PAGE_KEY_PL, currentProgress);
+                if (quizFormPL) {
+                    quizFormPL.reset();
+                    const submitButton = quizFormPL.querySelector('button[type="submit"]');
+                    if (submitButton) { submitButton.textContent = 'Enviar Respuestas'; submitButton.disabled = false; }
+                    quizFormPL.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                    clearAllVisualFeedbackPL(true);
+                }
+                if(generalQuizFeedbackDivPL) generalQuizFeedbackDivPL.style.display = 'none';
+            }
+            calculateAndUpdateOverallProgressPL();
+            alert(markAllAs ? 'Todas las tareas marcadas como completadas.' : 'Se ha deshecho el completado de todas las tareas.');
+        }
+
+        function clearAllVisualFeedbackPL(restoreDefaultHover = false) {
+            if (!quizFormPL) return;
+            quizFormPL.querySelectorAll('input[type="radio"]').forEach(input => {
+                const wrapper = input.closest('label.quiz-option-wrapper');
+                if (wrapper) {
+                    wrapper.classList.remove('border-green-500', 'bg-green-50', 'ring-green-500', 'border-red-500', 'bg-red-50', 'ring-red-500', 'ring-1');
+                    if(restoreDefaultHover){ wrapper.classList.add('border-gray-300', 'hover:border-gray-400', 'has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red'); }
+                    else { wrapper.classList.remove('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                        if(!wrapper.classList.contains('border-green-500') && !wrapper.classList.contains('border-red-500')){ wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red'); }
+                    }
+                    const feedbackIconPlaceholder = wrapper.querySelector('.feedback-icon-placeholder span');
+                    if (feedbackIconPlaceholder) feedbackIconPlaceholder.innerHTML = '';
+                }
+            });
+            quizFormPL.querySelectorAll('.specific-question-feedback').forEach(div => { div.textContent = ''; div.style.display = 'none'; });
+            if (generalQuizFeedbackDivPL) generalQuizFeedbackDivPL.style.display = 'none';
+        }
+
+        function displayQuizFeedbackPL() {
+            if (!quizFormPL) return;
+            const progress = getPageProgressFromStorage_PL(PAGE_KEY_PL);
+            const userAnswers = progress.user_quiz_answers || {};
+            const quizButton = quizFormPL.querySelector('button[type="submit"]');
+            clearAllVisualFeedbackPL(false);
+            for (const questionName in quizDataLagrange) {
+                const questionData = quizDataLagrange[questionName];
+                const correctAnswerValue = questionData.correct;
+                const userAnswerValue = userAnswers[questionName];
+                const specificFeedbackDiv = document.getElementById(`${questionName}-specific-feedback`);
+                quizFormPL.querySelectorAll(`input[name="${questionName}"]`).forEach(input => {
+                    const wrapper = input.closest('label.quiz-option-wrapper'); if (!wrapper) return;
+                    const feedbackIconSpan = wrapper.querySelector('.feedback-icon-placeholder span');
+                    wrapper.classList.remove('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                    if (input.value === userAnswerValue) {
+                        input.checked = true;
+                        if (userAnswerValue === correctAnswerValue) { wrapper.classList.add('border-green-500', 'bg-green-50', 'ring-1', 'ring-green-500'); if(feedbackIconSpan) feedbackIconSpan.innerHTML = '✔️'; }
+                        else { wrapper.classList.add('border-red-500', 'bg-red-50', 'ring-1', 'ring-red-500'); if(feedbackIconSpan) feedbackIconSpan.innerHTML = '❌';
+                            if (specificFeedbackDiv && questionData.feedbacks[userAnswerValue]) { specificFeedbackDiv.innerHTML = questionData.feedbacks[userAnswerValue]; specificFeedbackDiv.style.display = 'block'; if(window.MathJax) MathJax.typesetPromise([specificFeedbackDiv]); } // Added MathJax typesetting
+                            else if (specificFeedbackDiv) { specificFeedbackDiv.innerHTML = "Respuesta incorrecta."; specificFeedbackDiv.style.display = 'block'; }
+                        }
+                    } else { wrapper.classList.add('border-gray-300', 'hover:border-gray-400', 'has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red'); }
+                });
+            }
+            if (progress.quiz_passed) {
+                if (quizButton) { quizButton.textContent = 'Cuestionario Aprobado'; quizButton.disabled = true; }
+                quizFormPL.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = true);
+                if (generalQuizFeedbackDivPL) { generalQuizFeedbackDivPL.innerHTML = '<p class="text-green-700 font-medium">¡Felicidades! Has aprobado. Todas tus respuestas son correctas.</p>'; generalQuizFeedbackDivPL.className = 'quiz-feedback-message mt-4 p-4 rounded-md text-sm bg-green-50 border border-green-200'; generalQuizFeedbackDivPL.style.display = 'block'; }
+            } else if (progress.quiz_feedback_active) {
+                 if (quizButton) { quizButton.textContent = 'Intentar de Nuevo'; quizButton.disabled = false; }
+                quizFormPL.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                if (generalQuizFeedbackDivPL) { generalQuizFeedbackDivPL.innerHTML = '<p class="text-red-700 font-medium">Algunas respuestas son incorrectas. Revisa el feedback e inténtalo de nuevo.</p>'; generalQuizFeedbackDivPL.className = 'quiz-feedback-message mt-4 p-4 rounded-md text-sm bg-red-50 border border-red-200'; generalQuizFeedbackDivPL.style.display = 'block'; }
+            } else {
+                if (quizButton) { quizButton.textContent = 'Enviar Respuestas'; quizButton.disabled = false; }
+                quizFormPL.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                if(generalQuizFeedbackDivPL) generalQuizFeedbackDivPL.style.display = 'none';
+                clearAllVisualFeedbackPL(true);
+            }
+        }
+
+        if (quizFormPL) {
+            quizFormPL.addEventListener('submit', function(event) {
+                event.preventDefault();
+                const currentLocalProgress = getPageProgressFromStorage_PL(PAGE_KEY_PL);
+                const submitButton = quizFormPL.querySelector('button[type="submit"]');
+                if (currentLocalProgress.quiz_passed) return;
+                if (submitButton && submitButton.textContent === 'Intentar de Nuevo') {
+                    quizFormPL.reset(); clearAllVisualFeedbackPL(true); if(generalQuizFeedbackDivPL) generalQuizFeedbackDivPL.style.display = 'none';
+                    let progressToSave = getPageProgressFromStorage_PL(PAGE_KEY_PL);
+                    progressToSave.user_quiz_answers = {}; progressToSave.quiz_current_score = 0; progressToSave.quiz_feedback_active = false; progressToSave[TASKS_PL.QUIZ_PASSED] = false;
+                    savePageProgressToStorage_PL(PAGE_KEY_PL, progressToSave);
+                    submitButton.textContent = 'Enviar Respuestas'; quizFormPL.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                    calculateAndUpdateOverallProgressPL(); return;
+                }
+                if (generalQuizFeedbackDivPL) { generalQuizFeedbackDivPL.style.display = 'none'; generalQuizFeedbackDivPL.innerHTML = ''; }
+                const formData = new FormData(quizFormPL); let allAnswered = true; let score = 0; const userAnswersData = {};
+                for (const questionName in quizDataLagrange) {
+                    const userAnswer = formData.get(questionName); if (userAnswer === null) { allAnswered = false; break; }
+                    userAnswersData[questionName] = userAnswer; if (userAnswer === quizDataLagrange[questionName].correct) { score++; }
+                }
+                if (!allAnswered) {
+                    if(generalQuizFeedbackDivPL) { generalQuizFeedbackDivPL.innerHTML = '<p class="text-yellow-700 font-medium">Por favor, responde todas las preguntas.</p>'; generalQuizFeedbackDivPL.className = 'quiz-feedback-message mt-4 p-4 rounded-md text-sm bg-yellow-50 border border-yellow-200'; generalQuizFeedbackDivPL.style.display = 'block'; }
+                    else { alert("Por favor, responde todas las preguntas."); }
+                    return;
+                }
+                updateTaskStatusInStoragePL(TASKS_PL.QUIZ_ATTEMPTED, true);
+                const passed = score === Object.keys(quizDataLagrange).length;
+                updateTaskStatusInStoragePL(TASKS_PL.QUIZ_PASSED, passed);
+                let progressToSave = getPageProgressFromStorage_PL(PAGE_KEY_PL);
+                progressToSave.user_quiz_answers = userAnswersData; progressToSave.quiz_current_score = score; progressToSave.quiz_feedback_active = true;
+                savePageProgressToStorage_PL(PAGE_KEY_PL, progressToSave);
+                displayQuizFeedbackPL(); calculateAndUpdateOverallProgressPL();
+            });
+        }
+
+        // Pyodide, Chart.js, and specific page logic for Lagrange Polynomial
+        const runButtonPL = document.getElementById('run-lagrange-code-button');
+        const codeInputPL = document.getElementById('lagrange-code-input');
+        const codeOutputPL = document.getElementById('pl-code-output');
+        const graphCanvasPL = document.getElementById('lagrange-chart');
+        const chartLoadingMessagePL = document.getElementById('chart-loading-message-pl');
+        const xNodesInput = document.getElementById('pl-x-nodes-input');
+        const yNodesInput = document.getElementById('pl-y-nodes-input');
+        const xEvalInput = document.getElementById('pl-x-eval-input');
+
+        let pyodideInstancePL = null;
+        window.lagrangeChartInstancePL = null; // Make chart instance global for updates
+
+        // --- START: Fullscreen and Font Control Logic for Code Output (PL) ---
+        const fullscreenButton_PL = document.getElementById('pl-fullscreen-output-button');
+        const codeOutput_PL = document.getElementById('pl-code-output');
+        const outputControlsContainer_PL = document.getElementById('pl-output-controls-container');
+        const increaseFontButton_PL = document.getElementById('pl-increase-font-button');
+        const decreaseFontButton_PL = document.getElementById('pl-decrease-font-button');
+        let originalOutputFontSize_PL = '';
+        const MIN_FONT_SIZE_PX_PL = 8; const MAX_FONT_SIZE_PX_PL = 28; const FONT_SIZE_STEP_PX_PL = 1;
+        let plCodeOutputInitialRect = null;
+
+        if (fullscreenButton_PL) {
+            fullscreenButton_PL.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15" /></svg>`;
+            fullscreenButton_PL.title = "Ver en pantalla completa";
+        }
+        if (fullscreenButton_PL && codeOutput_PL && outputControlsContainer_PL) {
+            fullscreenButton_PL.addEventListener('click', () => {
+                const isFullscreen = codeOutput_PL.classList.contains('pl-output-fullscreen');
+                if (isFullscreen) { // EXITING
+                    outputControlsContainer_PL.style.opacity = '0'; if(increaseFontButton_PL) increaseFontButton_PL.style.display = 'none'; if(decreaseFontButton_PL) decreaseFontButton_PL.style.display = 'none';
+                    if (plCodeOutputInitialRect) { const finalRect = codeOutput_PL.getBoundingClientRect(); const scaleX = plCodeOutputInitialRect.width / finalRect.width; const scaleY = plCodeOutputInitialRect.height / finalRect.height; const deltaX = (plCodeOutputInitialRect.left + plCodeOutputInitialRect.width / 2) - (finalRect.left + finalRect.width / 2); const deltaY = (plCodeOutputInitialRect.top + plCodeOutputInitialRect.height / 2) - (finalRect.top + finalRect.height / 2); codeOutput_PL.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`; }
+                    setTimeout(() => { codeOutput_PL.style.transition = 'none'; codeOutput_PL.classList.remove('pl-output-fullscreen'); document.body.classList.remove('pl-body-fullscreen-active'); outputControlsContainer_PL.classList.remove('pl-output-controls-container-fixed'); outputControlsContainer_PL.style.transition = 'none'; outputControlsContainer_PL.style.opacity = '1'; outputControlsContainer_PL.offsetHeight; outputControlsContainer_PL.style.transition = ''; codeOutput_PL.style.transform = ''; if (originalOutputFontSize_PL) { codeOutput_PL.style.fontSize = originalOutputFontSize_PL; } codeOutput_PL.offsetHeight; codeOutput_PL.style.transition = ''; fullscreenButton_PL.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15" /></svg>`; fullscreenButton_PL.title = "Ver en pantalla completa"; plCodeOutputInitialRect = null; }, 500);
+                } else { // ENTERING
+                    originalOutputFontSize_PL = window.getComputedStyle(codeOutput_PL).fontSize; plCodeOutputInitialRect = codeOutput_PL.getBoundingClientRect(); outputControlsContainer_PL.style.transition = 'none'; outputControlsContainer_PL.style.opacity = '0'; outputControlsContainer_PL.offsetHeight; outputControlsContainer_PL.style.transition = ''; codeOutput_PL.style.transition = 'none'; codeOutput_PL.classList.add('pl-output-fullscreen'); document.body.classList.add('pl-body-fullscreen-active'); outputControlsContainer_PL.classList.add('pl-output-controls-container-fixed'); const finalRect = codeOutput_PL.getBoundingClientRect(); const scaleX = plCodeOutputInitialRect.width / finalRect.width; const scaleY = plCodeOutputInitialRect.height / finalRect.height; const deltaX = (plCodeOutputInitialRect.left + plCodeOutputInitialRect.width / 2) - (finalRect.left + finalRect.width / 2); const deltaY = (plCodeOutputInitialRect.top + plCodeOutputInitialRect.height / 2) - (finalRect.top + finalRect.height / 2); codeOutput_PL.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`; codeOutput_PL.offsetHeight; codeOutput_PL.style.transition = ''; codeOutput_PL.style.transform = 'translate(0px, 0px) scale(1)'; fullscreenButton_PL.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9V4.5M15 9h4.5M15 9l5.25-5.25M15 15v4.5M15 15h4.5M15 15l5.25 5.25" /></svg>`; fullscreenButton_PL.title = "Salir de pantalla completa"; setTimeout(() => { outputControlsContainer_PL.style.opacity = '1'; if(increaseFontButton_PL) increaseFontButton_PL.style.display = 'inline-flex'; if(decreaseFontButton_PL) decreaseFontButton_PL.style.display = 'inline-flex'; }, 500);
+                }
+            });
+        }
+        if (increaseFontButton_PL && codeOutput_PL) { increaseFontButton_PL.addEventListener('click', () => { if (codeOutput_PL.classList.contains('pl-output-fullscreen')) { let cs = parseFloat(window.getComputedStyle(codeOutput_PL).fontSize); if (cs < MAX_FONT_SIZE_PX_PL) { codeOutput_PL.style.fontSize = (cs + FONT_SIZE_STEP_PX_PL) + 'px'; increaseFontButton_PL.classList.add('pl-font-button-flash-blue'); setTimeout(() => { increaseFontButton_PL.classList.remove('pl-font-button-flash-blue'); }, 400); } } }); }
+        if (decreaseFontButton_PL && codeOutput_PL) { decreaseFontButton_PL.addEventListener('click', () => { if (codeOutput_PL.classList.contains('pl-output-fullscreen')) { let cs = parseFloat(window.getComputedStyle(codeOutput_PL).fontSize); if (cs > MIN_FONT_SIZE_PX_PL) { codeOutput_PL.style.fontSize = (cs - FONT_SIZE_STEP_PX_PL) + 'px'; decreaseFontButton_PL.classList.add('pl-font-button-flash-red'); setTimeout(() => { decreaseFontButton_PL.classList.remove('pl-font-button-flash-red'); }, 400); } } }); }
+        if(increaseFontButton_PL) increaseFontButton_PL.style.display = 'none'; if(decreaseFontButton_PL) decreaseFontButton_PL.style.display = 'none';
+        // --- END: Fullscreen and Font Control Logic (PL) ---
+
+        async function initializePyodidePL() {
+            if (window.loadPyodide && !pyodideInstancePL) {
+                if (codeOutputPL) codeOutputPL.textContent = "Cargando Pyodide...";
+                if (chartLoadingMessagePL) chartLoadingMessagePL.textContent = "Cargando Pyodide...";
+                try {
+                    pyodideInstancePL = await window.loadPyodide();
+                    await pyodideInstancePL.loadPackage("numpy"); // Lagrange code uses numpy
+                    if (codeOutputPL) codeOutputPL.textContent = "Pyodide cargado. Presiona 'Ejecutar Código'.";
+                    if (chartLoadingMessagePL) chartLoadingMessagePL.textContent = "Pyodide cargado. Generando gráfica...";
+                } catch (error) {
+                    console.error('Error al cargar Pyodide (Lagrange):', error);
+                    if (codeOutputPL) codeOutputPL.textContent = "Error al cargar Pyodide.";
+                    if (chartLoadingMessagePL) chartLoadingMessagePL.textContent = "Error al cargar Pyodide para la gráfica.";
+                }
+            }
+            return pyodideInstancePL;
+        }
+
+        async function runLagrangeCode() {
+            const pyodide = await initializePyodidePL();
+            if (!pyodide) { if(codeOutputPL) codeOutputPL.textContent = "Pyodide no inicializado."; return; }
+            if (!codeInputPL || !codeOutputPL) return;
+
+            const pythonCodeFromTextarea = codeInputPL.value;
+
+            if(codeOutputPL) codeOutputPL.innerHTML = "<p>Ejecutando código...</p>";
+            if(chartLoadingMessagePL) chartLoadingMessagePL.textContent = "Generando datos...";
+
+            const xNodesStrArray = xNodesInput.value.split(',').map(s => s.trim()).filter(s => s !== "");
+            const yNodesStrArray = yNodesInput.value.split(',').map(s => s.trim()).filter(s => s !== "");
+            const xEvalValStr = xEvalInput.value.trim();
+
+            try {
+                pyodide.globals.set("param_x_nodes_list_str_py", xNodesStrArray);
+                pyodide.globals.set("param_y_nodes_list_str_py", yNodesStrArray);
+                pyodide.globals.set("param_x_eval_target_str_py", xEvalValStr);
+
+                const pyodideMainExecutionLogic = `
+global pyodide_pl_html_output # Declare upfront for the current scope
+global pyodide_pl_chart_data_package # Declare upfront
+
+# These parameters are set by JS in Pyodide's global scope
+_calc_html_output, _calc_chart_data = calculate_lagrange_details(
+    param_x_nodes_list_str_py,
+    param_y_nodes_list_str_py,
+    param_x_eval_target_str_py
+)
+
+pyodide_pl_html_output = _calc_html_output
+pyodide_pl_chart_data_package = _calc_chart_data
+`;
+                const mainBlockRegex = /if __name__ == "__main__":[\s\S]*$/;
+                let scriptToRunInPyodide;
+
+                if (mainBlockRegex.test(pythonCodeFromTextarea)) {
+                    scriptToRunInPyodide = pythonCodeFromTextarea.replace(mainBlockRegex, pyodideMainExecutionLogic);
+                } else {
+                    scriptToRunInPyodide = pythonCodeFromTextarea + "\n" + pyodideMainExecutionLogic;
+                }
+
+                await pyodide.loadPackagesFromImports(scriptToRunInPyodide);
+                await pyodide.runPythonAsync(scriptToRunInPyodide);
+
+                const htmlResult = pyodide.globals.get("pyodide_pl_html_output");
+
+                if (codeOutputPL) {
+                    if (htmlResult && String(htmlResult).trim() !== "") codeOutputPL.innerHTML = String(htmlResult);
+                    else codeOutputPL.innerHTML = "<p>Ejecución completada. No se generó salida HTML. Revisa la consola.</p>";
+                }
+
+                updateTaskStatusInStoragePL(TASKS_PL.RUN_CODE, true);
+                await drawLagrangeChart();
+
+            } catch (error) {
+                console.error("[Lagrange Poly] Error durante ejecución Python:", error);
+                if (codeOutputPL) {
+                    codeOutputPL.innerHTML = `<p style="color:red;">Error (ver consola): ${String(error).replace(/</g, "<")}</p>`;
+                    if (error.stack) codeOutputPL.innerHTML += `<pre style="color:pink; font-size:0.8em; white-space:pre-wrap;">${error.stack.replace(/</g, "<")}</pre>`;
+                }
+                if (chartLoadingMessagePL) chartLoadingMessagePL.textContent = "Error al generar datos. Revisa consola.";
+            }
+        }
+
+        const distinctColors = [
+            'rgb(255, 99, 132)', 'rgb(54, 162, 235)', 'rgb(255, 206, 86)',
+            'rgb(75, 192, 192)', 'rgb(153, 102, 255)', 'rgb(255, 159, 64)',
+            'rgb(255, 0, 0)', 'rgb(0, 255, 0)', 'rgb(0, 0, 255)', 'rgb(255, 255, 0)'
+        ];
+
+        async function drawLagrangeChart() {
+            const pyodide = await initializePyodidePL();
+            if (!pyodide) { if(chartLoadingMessagePL) chartLoadingMessagePL.textContent = 'Pyodide no inicializado.'; return; }
+            if (!graphCanvasPL) return;
+
+            const chartDataJsProxy = pyodide.globals.get("pyodide_pl_chart_data_package");
+            if (!chartDataJsProxy) {
+                if(chartLoadingMessagePL) { chartLoadingMessagePL.textContent = 'Datos del gráfico no encontrados en Pyodide.'; chartLoadingMessagePL.style.display = 'block'; }
+                 if (window.lagrangeChartInstancePL) window.lagrangeChartInstancePL.destroy();
+                return;
+            }
+            const chartDataJs = chartDataJsProxy.toJs({ dict_converter: Object.fromEntries });
+
+
+            if (!chartDataJs || Object.keys(chartDataJs).length === 0 || !chartDataJs.original_points) {
+                 if(chartLoadingMessagePL) {
+                    chartLoadingMessagePL.textContent = 'No hay datos para la gráfica. Ejecuta el código con puntos válidos.';
+                    chartLoadingMessagePL.style.display = 'block';
+                 }
+                 if (window.lagrangeChartInstancePL) window.lagrangeChartInstancePL.destroy();
+                 return;
+            }
+            if(chartLoadingMessagePL) chartLoadingMessagePL.textContent = 'Actualizando gráfica...';
+
+            try {
+                const datasets = [];
+                datasets.push({
+                    label: 'Puntos Originales', data: chartDataJs.original_points,
+                    borderColor: 'rgb(255, 0, 0)', backgroundColor: 'rgb(255, 0, 0)',
+                    pointRadius: 5, pointHoverRadius: 7, type: 'scatter', order: 0
+                });
+
+                if (chartDataJs.polynomial_line && chartDataJs.polynomial_line.length > 0) {
+                    datasets.push({
+                        label: 'Polinomio P(x)', data: chartDataJs.polynomial_line,
+                        borderColor: distinctColors[1], borderWidth: 2, fill: false,
+                        tension: 0.1, type: 'line', order: 1
+                    });
+                }
+
+                if (chartDataJs.basis_lines && chartDataJs.basis_lines.length > 0) {
+                    chartDataJs.basis_lines.forEach((basis, index) => {
+                        datasets.push({
+                            label: basis.label, data: basis.data,
+                            borderColor: distinctColors[(index + 2) % distinctColors.length],
+                            borderWidth: 1, borderDash: [5, 5], fill: false,
+                            tension: 0.1, type: 'line', order: 2
+                        });
+                    });
+                }
+
+                if (chartDataJs.point_of_evaluation) {
+                    datasets.push({
+                        label: `P(${chartDataJs.point_of_evaluation.x.toFixed(2)}) = ${chartDataJs.point_of_evaluation.y.toFixed(4)}`,
+                        data: [chartDataJs.point_of_evaluation],
+                        borderColor: 'rgb(0, 128, 0)', backgroundColor: 'rgb(0, 128, 0)',
+                        pointRadius: 6, pointHoverRadius: 8, type: 'scatter', order: -1
+                    });
+                }
+
+                if (window.lagrangeChartInstancePL) window.lagrangeChartInstancePL.destroy();
+                const ctx = graphCanvasPL.getContext('2d');
+                window.lagrangeChartInstancePL = new Chart(ctx, {
+                    data: { datasets: datasets },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        scales: {
+                            x: { type: 'linear', position: 'bottom', title: { display: true, text: 'x' } },
+                            y: { title: { display: true, text: 'y / L(x)' } }
+                        },
+                        plugins: {
+                            legend: { position: 'top' },
+                            title: { display: true, text: "Polinomio de Interpolación de Lagrange" }
+                        }
+                    }
+                });
+                if(chartLoadingMessagePL) chartLoadingMessagePL.style.display = 'none';
+            } catch (error) {
+                console.error('Error al dibujar gráfica Lagrange:', error);
+                if(chartLoadingMessagePL) {
+                    chartLoadingMessagePL.textContent = `Error al generar gráfica: ${String(error)}`;
+                    chartLoadingMessagePL.style.display = 'block';
+                }
+            }
+        }
+
+        if (runButtonPL) runButtonPL.addEventListener('click', runLagrangeCode);
+
+        const conclusionSectionPL = document.getElementById('conclusion');
+        if (conclusionSectionPL) {
+            const observerOptionsPL = { root: null, rootMargin: '0px', threshold: 0.1 };
+            const observerCallbackPL = (entries, observerInstance) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const currentProgress = getPageProgressFromStorage_PL(PAGE_KEY_PL);
+                        if (!currentProgress[TASKS_PL.READ_THEORY]) {
+                            updateTaskStatusInStoragePL(TASKS_PL.READ_THEORY, true);
+                            observerInstance.unobserve(entry.target);
+                        }
+                    }
+                });
+            };
+            const theoryObserverPL = new IntersectionObserver(observerCallbackPL, observerOptionsPL);
+            theoryObserverPL.observe(conclusionSectionPL);
+        }
+
+        if (mainCompletionButtonPL) mainCompletionButtonPL.addEventListener('click', handleMainCompletionClickPL);
+
+        async function initPagePL() {
+            if (runButtonPL || graphCanvasPL) {
+                await initializePyodidePL();
+                if (pyodideInstancePL) {
+                    await runLagrangeCode();
+                }
+            }
+            const initialProgress = getPageProgressFromStorage_PL(PAGE_KEY_PL);
+            if (initialProgress.quiz_feedback_active || initialProgress.quiz_passed) {
+                displayQuizFeedbackPL();
+            }
+            calculateAndUpdateOverallProgressPL();
+        }
+
+        initPagePL();
+    });
+    </script>
+</body>
+</html>

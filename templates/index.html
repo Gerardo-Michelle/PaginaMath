@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Métodos Numéricos - Plataforma Educativa</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+      body { font-family: 'Inter', sans-serif; }
+      .tab-indicator {
+        position: absolute;
+        bottom: 0;
+        height: 3px;
+        background: #111;
+        border-radius: 2px 2px 0 0;
+        transition: left 0.3s cubic-bezier(.4,0,.2,1), width 0.3s cubic-bezier(.4,0,.2,1);
+        will-change: left, width;
+        z-index: 10;
+      }
+    </style>
+</head>
+<body>
+    <header class="bg-gradient-to-br from-pink-500 via-orange-400 to-blue-500 text-white pb-0">
+        <div class="container mx-auto flex justify-between items-center py-6 px-4">
+            <a href="{{ url_for('index_page') }}" class="font-bold text-2xl tracking-tight">Métodos Numéricos</a>
+            <nav class="hidden md:flex space-x-8 text-lg font-medium">
+                <!-- Enlaces de navegación eliminados según lo solicitado -->
+            </nav>
+            <div>
+                {% if session.user_id %}
+                    <span class="text-white mr-4">Hola, {{ session.username }}</span>
+                    <a href="{{ url_for('dashboard') }}" class="bg-white text-pink-600 px-6 py-2 rounded-lg font-semibold shadow hover:bg-pink-50 transition mr-2">Mi Dashboard</a>
+                    <a href="{{ url_for('logout') }}" class="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-semibold shadow transition">Cerrar Sesión</a>
+                {% else %}
+                    <a href="{{ url_for('login') }}" class="bg-white text-pink-600 px-6 py-2 rounded-lg font-semibold shadow hover:bg-pink-50 transition mr-2">Iniciar Sesión</a>
+                    <a href="{{ url_for('register') }}" class="bg-black hover:bg-gray-800 text-white px-6 py-2 rounded-lg font-semibold shadow transition">Registrarse</a>
+                {% endif %}
+            </div>
+        </div>
+        <div class="container mx-auto text-center py-20 px-4">
+            <h1 class="text-4xl md:text-5xl font-extrabold mb-4 drop-shadow-lg">19 Metodos interactivos<br><span class="text-white/90">para estudiantes y entusiastas</span></h1>
+            <div class="max-w-xl mx-auto mt-10 relative">
+                <form id="search-form" class="flex shadow-lg rounded-lg overflow-hidden bg-white/80 backdrop-blur">
+                    <input id="search-input" type="text" placeholder="¿Qué quieres aprender?" autocomplete="off"
+                        class="flex-1 p-4 text-lg text-gray-800 outline-none text-left" />
+                    <button type="submit" class="bg-black text-white px-8 text-lg font-semibold">Buscar</button>
+                </form>
+                <div id="search-suggestions" class="absolute w-full bg-white shadow-xl rounded-b-lg z-10 max-h-80 overflow-y-auto hidden text-left"></div>
+                
+                <style>
+                    /* Estilos para las sugerencias de búsqueda */
+                    #search-suggestions a {
+                        display: block;
+                        padding: 12px 16px;
+                        border-bottom: 1px solid #e5e7eb;
+                        text-align: left;
+                        transition: all 0.2s ease;
+                    }
+                    
+                    #search-suggestions a:last-child {
+                        border-bottom: none;
+                    }
+                    
+                    #search-suggestions a:hover {
+                        background-color: #f3f4f6;
+                    }
+                    
+                    #search-suggestions a:focus {
+                        background-color: #e5e7eb;
+                        outline: none;
+                        box-shadow: inset 0 0 0 2px rgba(107, 114, 128, 0.3);
+                    }
+                </style>
+            </div>
+            
+            <script>
+                // Lista completa de métodos disponibles con información rica
+                const methodsList = [
+                    { id: 'biseccion', name: 'Bisección', url: '/methods/biseccion', category: 'raices', desc: 'Método para encontrar raíces por divisiones sucesivas' },
+                    { id: 'regla-falsa', name: 'Regla Falsa', url: '/methods/regla-falsa', category: 'raices', desc: 'Aproximación lineal para encontrar raíces' },
+                    { id: 'newton-raphson', name: 'Newton-Raphson', url: '/methods/newton-raphson', category: 'raices', desc: 'Método iterativo usando derivadas' },
+                    { id: 'secante', name: 'Secante', url: '/methods/secante', category: 'raices', desc: 'Variante de Newton sin necesidad de derivadas' },
+                    { id: 'eliminacion-gaussiana', name: 'Eliminación Gaussiana', url: '/methods/eliminacion-gaussiana', category: 'sistemas', desc: 'Resolución de sistemas lineales' },
+                    { id: 'gauss-jordan', name: 'Gauss-Jordan', url: '/methods/gauss-jordan', category: 'sistemas', desc: 'Obtiene la matriz inversa y soluciones' },
+                    { id: 'gauss-seidel', name: 'Gauss-Seidel', url: '/methods/gauss-seidel', category: 'sistemas', desc: 'Método iterativo para sistemas grandes' },
+                    { id: 'jacobi', name: 'Jacobi', url: '/methods/jacobi', category: 'sistemas', desc: 'Resolución iterativa de sistemas lineales' },
+                    { id: 'metodo-inversa', name: 'Método de la Inversa', url: '/methods/metodo-inversa', category: 'sistemas', desc: 'Resolución mediante inversa de matriz' },
+                    { id: 'regla-cramer', name: 'Regla de Cramer', url: '/methods/regla-cramer', category: 'sistemas', desc: 'Usa determinantes para resolver sistemas' },
+                    { id: 'metodo-montante', name: 'Método Montante', url: '/methods/metodo-montante', category: 'sistemas', desc: 'Algoritmo eficiente para matrices' },
+                    { id: 'interpolacion-axb', name: 'Interpolación AX=B', url: '/methods/interpolacion-axb', category: 'interpolacion', desc: 'Ajuste de datos mediante matrices' },
+                    { id: 'polinomio-lagrange', name: 'Polinomio de Lagrange', url: '/methods/polinomio-lagrange', category: 'interpolacion', desc: 'Interpolación polinómica directa' },
+                    { id: 'polinomio-newton', name: 'Polinomio de Newton', url: '/methods/polinomio-newton', category: 'interpolacion', desc: 'Interpolación polinómica incremental' },
+                    { id: 'splines', name: 'Splines', url: '/methods/splines', category: 'interpolacion', desc: 'Curvas suaves por tramos' },
+                    { id: 'integracion-numerica', name: 'Integración Numérica', url: '/methods/integracion-numerica', category: 'integracion', desc: 'Cálculo de áreas bajo curvas' },
+                    { id: 'metodo-euler', name: 'Método de Euler', url: '/methods/metodo-euler', category: 'integracion', desc: 'Ecuaciones diferenciales de primer orden' },
+                    { id: 'runge-kutta', name: 'Runge-Kutta', url: '/methods/runge-kutta', category: 'integracion', desc: 'Ecuaciones diferenciales con alta precisión' },
+                    { id: 'serie-taylor', name: 'Serie de Taylor', url: '/methods/serie-taylor', category: 'series', desc: 'Aproximación mediante sumas de potencias' }
+                ];
+                
+                // Términos alternativos para mejorar la búsqueda
+                const alternativeTerms = {
+                    'biseccion': ['bisecion', 'bisect', 'corte binario', 'dividir intervalo', 'raices'],
+                    'regla-falsa': ['falsa posicion', 'posicion falsa', 'interpolacion lineal'],
+                    'newton-raphson': ['newton', 'raphson', 'metodo tangente', 'derivadas'],
+                    'secante': ['secant', 'cuerda', 'linea secante'],
+                    'gauss-jordan': ['gaussjordan', 'jordan', 'matriz inversa', 'reduccion'],
+                    'eliminacion-gaussiana': ['gauss', 'gaussian', 'eliminacion'],
+                    'gauss-seidel': ['seidel', 'iterativo', 'convergencia'],
+                    'jacobi': ['iteracion jacobi', 'metodo diagonal'],
+                    'serie-taylor': ['expansion', 'maclaurin', 'polinomio taylor']
+                };
+
+                // Referencias a elementos del DOM
+                const searchInput = document.getElementById('search-input');
+                const searchForm = document.getElementById('search-form');
+                const suggestionsContainer = document.getElementById('search-suggestions');
+                
+                // Función para normalizar texto (quitar acentos, mayúsculas, etc)
+                function normalizeText(text) {
+                    return text.toLowerCase()
+                        .normalize("NFD")
+                        .replace(/[\u0300-\u036f]/g, "");
+                }
+                
+                // Función para generar sugerencias
+                function generateSuggestions(query) {
+                    if (!query || query.length < 2) {
+                        suggestionsContainer.innerHTML = '';
+                        suggestionsContainer.classList.add('hidden');
+                        return;
+                    }
+                    
+                    const normalizedQuery = normalizeText(query);
+                    let matches = [];
+                    
+                    // Buscar coincidencias en nombres principales
+                    methodsList.forEach(method => {
+                        const normalizedName = normalizeText(method.name);
+                        const normalizedDesc = normalizeText(method.desc);
+                        
+                        // Coincidencia en nombre o descripción
+                        if (normalizedName.includes(normalizedQuery) || normalizedDesc.includes(normalizedQuery)) {
+                            matches.push({
+                                ...method,
+                                relevance: normalizedName.includes(normalizedQuery) ? 10 : 5
+                            });
+                            return;
+                        }
+                        
+                        // Buscar en términos alternativos
+                        const altTerms = alternativeTerms[method.id] || [];
+                        for (const term of altTerms) {
+                            if (normalizeText(term).includes(normalizedQuery)) {
+                                matches.push({
+                                    ...method,
+                                    relevance: 3
+                                });
+                                return;
+                            }
+                        }
+                    });
+                    
+                    // Ordenar por relevancia
+                    matches.sort((a, b) => b.relevance - a.relevance);
+                    
+                    // Limitar a 5 resultados máximo
+                    matches = matches.slice(0, 5);
+                    
+                    // Generar HTML para las sugerencias
+                    if (matches.length > 0) {
+                        suggestionsContainer.innerHTML = matches.map(method => `
+                            <a href="${method.url}" tabindex="0">
+                                <div class="font-medium text-gray-900">${method.name}</div>
+                                <div class="text-sm text-gray-500">${method.desc}</div>
+                            </a>
+                        `).join('');
+                        suggestionsContainer.classList.remove('hidden');
+                    } else {
+                        suggestionsContainer.innerHTML = '<div style="padding: 12px 16px; text-align: left;" class="text-gray-500 text-sm">No se encontraron métodos</div>';
+                        suggestionsContainer.classList.remove('hidden');
+                    }
+                }
+                
+                // Eventos
+                searchInput.addEventListener('input', function() {
+                    generateSuggestions(this.value);
+                });
+                
+                searchInput.addEventListener('focus', function() {
+                    if (this.value.length >= 2) {
+                        generateSuggestions(this.value);
+                    }
+                });
+                
+                // Cerrar sugerencias al hacer clic fuera
+                document.addEventListener('click', function(e) {
+                    if (!searchInput.contains(e.target) && !suggestionsContainer.contains(e.target)) {
+                        suggestionsContainer.classList.add('hidden');
+                    }
+                });
+                
+                // Enviar formulario
+                searchForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const searchTerm = searchInput.value.toLowerCase().trim();
+                    
+                    if (searchTerm.length < 2) return;
+                    
+                    // Buscar el mejor resultado
+                    const normalizedQuery = normalizeText(searchTerm);
+                    let bestMatch = null;
+                    let highestRelevance = 0;
+                    
+                    methodsList.forEach(method => {
+                        const normalizedName = normalizeText(method.name);
+                        const normalizedDesc = normalizeText(method.desc);
+                        
+                        if (normalizedName.includes(normalizedQuery)) {
+                            const relevance = 10 + (normalizedName === normalizedQuery ? 5 : 0);
+                            if (relevance > highestRelevance) {
+                                highestRelevance = relevance;
+                                bestMatch = method;
+                            }
+                            return;
+                        }
+                        
+                        if (normalizedDesc.includes(normalizedQuery)) {
+                            const relevance = 5;
+                            if (relevance > highestRelevance) {
+                                highestRelevance = relevance;
+                                bestMatch = method;
+                            }
+                            return;
+                        }
+                        
+                        const altTerms = alternativeTerms[method.id] || [];
+                        for (const term of altTerms) {
+                            if (normalizeText(term).includes(normalizedQuery)) {
+                                const relevance = 3;
+                                if (relevance > highestRelevance) {
+                                    highestRelevance = relevance;
+                                    bestMatch = method;
+                                }
+                                return;
+                            }
+                        }
+                    });
+                    
+                    // Redirigir al mejor resultado o a la sección de métodos
+                    if (bestMatch) {
+                        window.location.href = bestMatch.url;
+                    } else {
+                        window.location.href = '#topics-section';
+                    }
+                });
+                
+                // Navegación con teclado en sugerencias
+                searchInput.addEventListener('keydown', function(e) {
+                    const suggestions = suggestionsContainer.querySelectorAll('a');
+                    const activeElement = document.activeElement;
+                    
+                    if (suggestions.length === 0 || suggestionsContainer.classList.contains('hidden')) {
+                        return;
+                    }
+                    
+                    switch (e.key) {
+                        case 'ArrowDown':
+                            e.preventDefault();
+                            if (activeElement === searchInput) {
+                                suggestions[0].focus();
+                            } else {
+                                const currentIndex = Array.from(suggestions).indexOf(activeElement);
+                                if (currentIndex < suggestions.length - 1) {
+                                    suggestions[currentIndex + 1].focus();
+                                }
+                            }
+                            break;
+                            
+                        case 'ArrowUp':
+                            e.preventDefault();
+                            if (activeElement !== searchInput) {
+                                const currentIndex = Array.from(suggestions).indexOf(activeElement);
+                                if (currentIndex > 0) {
+                                    suggestions[currentIndex - 1].focus();
+                                } else {
+                                    searchInput.focus();
+                                }
+                            }
+                            break;
+                            
+                        case 'Escape':
+                            e.preventDefault();
+                            suggestionsContainer.classList.add('hidden');
+                            searchInput.focus();
+                            break;
+                    }
+                });
+            </script>
+            <div class="flex flex-col md:flex-row justify-center gap-8 mt-12 text-lg font-medium">
+                <div class="flex items-center gap-2">
+                    <svg class="w-6 h-6 text-white/80" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3"></path><circle cx="12" cy="12" r="10"></circle></svg>
+                    Acceso libre y para siempre
+                </div>
+                <div class="flex items-center gap-2">
+                    <svg class="w-6 h-6 text-white/80" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3"></path><circle cx="12" cy="12" r="10"></circle></svg>
+                    Actualizaciones periódicas
+                </div>
+                <div class="flex items-center gap-2">
+                    <svg class="w-6 h-6 text-white/80" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3"></path><circle cx="12" cy="12" r="10"></circle></svg>
+                    Sin costo, sin anuncios
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- SECCIÓN QUÉ HACER DESPUÉS -->
+    <section class="py-16 bg-white">
+      <div class="container mx-auto px-4 md:px-10 lg:px-20">
+        <h2 class="text-3xl md:text-4xl font-bold text-center text-gray-900 mb-16">¿Cómo funciona?</h2>
+        <div class="grid md:grid-cols-3 gap-12 relative">
+          <!-- Paso 1 -->
+          <div class="relative p-6 bg-gray-50 rounded-xl shadow-lg overflow-hidden">
+            <div class="absolute bottom-0 right-0 -mr-2 -mb-2 text-9xl font-black text-gray-200 z-0 select-none opacity-50 transform rotate-[-15deg]">1</div>
+            <div class="relative z-10">
+              <div class="flex items-center justify-center w-12 h-12 bg-yellow-100 text-yellow-600 rounded-lg mb-4">
+                <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5" />
+                </svg>
+              </div>
+              <h3 class="text-xl font-semibold text-gray-900 mb-2">Elige un método que te interese</h3>
+              <p class="text-gray-600 text-sm">Explora nuestra colección y encuentra el tema que más te apasione o necesites aprender.</p>
+            </div>
+          </div>
+          <!-- Paso 2 -->
+          <div class="relative p-6 bg-gray-50 rounded-xl shadow-lg overflow-hidden">
+            <div class="absolute bottom-0 right-0 -mr-2 -mb-2 text-9xl font-black text-gray-200 z-0 select-none opacity-50 transform rotate-[-15deg]">2</div>
+            <div class="relative z-10">
+              <div class="flex items-center justify-center w-12 h-12 bg-blue-100 text-blue-600 rounded-lg mb-4">
+                <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                </svg>
+              </div>
+              <h3 class="text-xl font-semibold text-gray-900 mb-2">Sumérgete en el contenido</h3>
+              <p class="text-gray-600 text-sm">Accede a explicaciones claras, ejemplos prácticos y código interactivo para dominar cada técnica.</p>
+            </div>
+          </div>
+          <!-- Paso 3 -->
+          <div class="relative p-6 bg-gray-50 rounded-xl shadow-lg overflow-hidden">
+            <div class="absolute bottom-0 right-0 -mr-2 -mb-2 text-9xl font-black text-gray-200 z-0 select-none opacity-50 transform rotate-[-15deg]">3</div>
+            <div class="relative z-10">
+              <div class="flex items-center justify-center w-12 h-12 bg-red-100 text-red-600 rounded-lg mb-4">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7.014A8.003 8.003 0 0112 3c1.398 0 2.735.548 3.714 1.543C18.5 6.586 19 9.485 19 12c2 1 2.657 1.343 2.657 1.343a8 8 0 01-4.001 5.314z"></path></svg>
+              </div>
+              <h3 class="text-xl font-semibold text-gray-900 mb-2">Aprende y Gana Recompensas</h3>
+              <p class="text-gray-600 text-sm">Cada método que domines te acerca a obtener puntos. ¡Acumúlalos y canjéalos por premios en la tienda!</p>
+            </div>
+          </div>
+        </div>
+        <div class="text-center mt-12">
+          <a href="#topics-section" class="bg-black text-white px-8 py-3 rounded-lg font-semibold hover:bg-gray-800 transition text-lg">Explorar todos los métodos</a>
+        </div>
+      </div>
+    </section>
+
+    <main>
+        <!-- <section id="progress-bar-container">
+            <div id="global-progress-bar"></div>
+            <p id="global-progress-text">Cargando progreso...</p>
+        </section> -->
+
+        <section class="py-16 bg-white" id="topics-section">
+          <div class="container mx-auto px-4 md:px-10 lg:px-20">
+            <!-- Título y botón -->
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
+              <h2 class="text-2xl md:text-3xl font-bold text-gray-900 mb-4 md:mb-0">Elige un tema que te interese</h2>
+              <a href="#" class="text-black font-semibold hover:underline flex items-center gap-2">
+                Ver todos los métodos
+                <span aria-hidden="true">→</span>
+              </a>
+            </div>
+            <!-- Tabs de categorías -->
+            <div id="category-tabs-wrapper" class="relative">
+              <div id="category-tabs" class="flex gap-6 border-b border-gray-200 mb-10 relative">
+                <!-- Los tabs se generarán por JS -->
+                <div id="tab-indicator" class="tab-indicator" style="left:0;width:0;"></div>
+              </div>
+            </div>
+            <!-- Grid de tarjetas de métodos -->
+            <div id="method-cards-grid" class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+              <!-- Las tarjetas se generarán por JS -->
+            </div>
+          </div>
+        </section>
+    </main>
+
+    <footer class="bg-gray-900 text-gray-200 text-center py-8 mt-16">
+      © 2025 Plataforma de Métodos Numéricos | Todos los cursos son gratuitos y de acceso abierto
+    </footer>
+    
+    <!-- Botón para volver arriba -->
+    <button id="scroll-to-top" class="fixed bottom-6 right-6 w-12 h-12 rounded-full bg-red-600 text-white shadow-lg flex items-center justify-center transform transition-all duration-300 opacity-0 translate-y-10 hover:bg-red-700 focus:outline-none z-50">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+      </svg>
+    </button>
+    
+    <script>
+      // Script para el botón de volver arriba
+      document.addEventListener('DOMContentLoaded', function() {
+        const scrollToTopButton = document.getElementById('scroll-to-top');
+        
+        // Función para verificar la posición del scroll
+        function toggleScrollButton() {
+          if (window.pageYOffset > 300) {
+            // Mostrar el botón con una animación suave
+            scrollToTopButton.classList.remove('opacity-0', 'translate-y-10');
+            scrollToTopButton.classList.add('opacity-100', 'translate-y-0');
+          } else {
+            // Ocultar el botón con una animación suave
+            scrollToTopButton.classList.remove('opacity-100', 'translate-y-0');
+            scrollToTopButton.classList.add('opacity-0', 'translate-y-10');
+          }
+        }
+        
+        // Función para volver arriba suavemente
+        function scrollToTop() {
+          window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+          });
+        }
+        
+        // Eventos
+        window.addEventListener('scroll', toggleScrollButton);
+        scrollToTopButton.addEventListener('click', scrollToTop);
+        
+        // Verificar la posición inicial
+        toggleScrollButton();
+      });
+    </script>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+    // --- Datos de métodos y categorías ---
+    const methodCategories = [
+      { key: 'raices', label: 'Raíces de ecuaciones' },
+      { key: 'sistemas', label: 'Sistemas de ecuaciones lineales' },
+      { key: 'interpolacion', label: 'Interpolación y ajuste' },
+      { key: 'integracion', label: 'Integración y diferenciación' },
+      { key: 'series', label: 'Series y aproximaciones' }
+    ];
+    const methods = [
+      // Raíces de ecuaciones
+      { name: 'Bisección', desc: 'Encuentra raíces de ecuaciones cerrando el intervalo iterativamente.', diff: 'Principiante', img: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80', link: '/methods/biseccion', cat: 'raices', eqImg: 'https://latex.codecogs.com/svg.image?f(x)=0' },
+      { name: 'Regla Falsa', desc: 'Aproxima raíces usando interpolación lineal entre extremos.', diff: 'Principiante', img: 'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=400&q=80', link: '/methods/regla-falsa', cat: 'raices', eqImg: 'https://latex.codecogs.com/svg.image?x_r=x_u-\frac{f(x_u)(x_l-x_u)}{f(x_l)-f(x_u)}' },
+      { name: 'Newton-Raphson', desc: 'Usa derivadas para encontrar raíces de manera rápida y eficiente.', diff: 'Intermedio', img: 'https://images.unsplash.com/photo-1465101178521-c1a9136a3b99?auto=format&fit=crop&w=400&q=80', link: '/methods/newton-raphson', cat: 'raices', eqImg: 'https://latex.codecogs.com/svg.image?x_{n+1}=x_n-\frac{f(x_n)}{f\prime(x_n)}' },
+      { name: 'Secante', desc: 'Método abierto para raíces, similar a Newton pero sin derivadas.', diff: 'Intermedio', img: 'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=400&q=80', link: '/methods/secante', cat: 'raices', eqImg: 'https://latex.codecogs.com/svg.image?x_{n+1}=x_n-\frac{f(x_n)(x_n-x_{n-1})}{f(x_n)-f(x_{n-1})}' },
+      // Sistemas de ecuaciones lineales
+      { name: 'Eliminación Gaussiana', desc: 'Resuelve sistemas lineales mediante reducción escalonada.', diff: 'Principiante', img: 'https://images.unsplash.com/photo-1465101178521-c1a9136a3b99?auto=format&fit=crop&w=400&q=80', link: '/methods/eliminacion-gaussiana', cat: 'sistemas', eqImg: 'https://latex.codecogs.com/svg.image?Ax=b' },
+      { name: 'Gauss-Jordan', desc: 'Extiende Gauss para obtener la solución directa de sistemas.', diff: 'Intermedio', img: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80', link: '/methods/gauss-jordan', cat: 'sistemas', eqImg: 'https://latex.codecogs.com/svg.image?A\to[I|A^{-1}]' },
+      { name: 'Gauss-Seidel', desc: 'Método iterativo para resolver sistemas grandes y dispersos.', diff: 'Avanzado', img: 'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=400&q=80', link: '/methods/gauss-seidel', cat: 'sistemas', eqImg: 'https://latex.codecogs.com/svg.image?x_i^{(k+1)}=\frac{1}{a_{ii}}(b_i-\sum_{j<i}a_{ij}x_j^{(k+1)}-\sum_{j>i}a_{ij}x_j^{(k)})' },
+      { name: 'Jacobi', desc: 'Otro método iterativo para sistemas lineales, fácil de paralelizar.', diff: 'Avanzado', img: 'https://images.unsplash.com/photo-1465101178521-c1a9136a3b99?auto=format&fit=crop&w=400&q=80', link: '/methods/jacobi', cat: 'sistemas', eqImg: 'https://latex.codecogs.com/svg.image?x_i^{(k+1)}=\frac{1}{a_{ii}}(b_i-\sum_{j\neq i}a_{ij}x_j^{(k)})' },
+      { name: 'Método de la Inversa', desc: 'Resuelve sistemas usando la matriz inversa (teórico y práctico).', diff: 'Intermedio', img: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80', link: '/methods/metodo-inversa', cat: 'sistemas', eqImg: 'https://latex.codecogs.com/svg.image?x=A^{-1}b' },
+      { name: 'Regla de Cramer', desc: 'Soluciona sistemas pequeños usando determinantes.', diff: 'Principiante', img: 'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=400&q=80', link: '/methods/regla-cramer', cat: 'sistemas', eqImg: 'https://latex.codecogs.com/svg.image?x_i=\frac{\det(A_i)}{\det(A)}' },
+      { name: 'Método Montante', desc: 'Algoritmo eficiente para matrices y sistemas lineales.', diff: 'Avanzado', img: 'https://images.unsplash.com/photo-1465101178521-c1a9136a3b99?auto=format&fit=crop&w=400&q=80', link: '/methods/metodo-montante', cat: 'sistemas', eqImg: 'https://latex.codecogs.com/svg.image?Ax=b\to[x]' },
+      // Interpolación y ajuste
+      { name: 'Interpolación AX=B', desc: 'Ajusta datos a modelos lineales usando matrices.', diff: 'Principiante', img: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80', link: '/methods/interpolacion-axb', cat: 'interpolacion', eqImg: 'https://latex.codecogs.com/svg.image?Ax=b' },
+      { name: 'Polinomio de Lagrange', desc: 'Interpolación polinómica usando puntos conocidos.', diff: 'Intermedio', img: 'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=400&q=80', link: '/methods/polinomio-lagrange', cat: 'interpolacion', eqImg: 'https://latex.codecogs.com/svg.image?P(x)=\sum_{i=0}^n y_i\ell_i(x)' },
+      { name: 'Polinomio de Newton', desc: 'Interpolación polinómica incremental y eficiente.', diff: 'Intermedio', img: 'https://images.unsplash.com/photo-1465101178521-c1a9136a3b99?auto=format&fit=crop&w=400&q=80', link: '/methods/polinomio-newton', cat: 'interpolacion', eqImg: 'https://latex.codecogs.com/svg.image?P(x)=a_0+a_1(x-x_0)+...+a_n(x-x_0)...(x-x_{n-1})' },
+      { name: 'Splines', desc: 'Ajuste suave de curvas usando polinomios por tramos.', diff: 'Avanzado', img: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80', link: '/methods/splines', cat: 'interpolacion', eqImg: 'https://latex.codecogs.com/svg.image?S(x)=a_i+b_i(x-x_i)+c_i(x-x_i)^2+d_i(x-x_i)^3' },
+      // Integración y diferenciación
+      { name: 'Integración numérica', desc: 'Aproxima el área bajo la curva con métodos numéricos.', diff: 'Principiante', img: 'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=400&q=80', link: '/methods/integracion-numerica', cat: 'integracion', eqImg: 'https://latex.codecogs.com/svg.image?\int_a^b f(x)dx\approx\sum w_if(x_i)' },
+      { name: 'Método de Euler', desc: 'Resuelve ecuaciones diferenciales de primer orden.', diff: 'Intermedio', img: 'https://images.unsplash.com/photo-1465101178521-c1a9136a3b99?auto=format&fit=crop&w=400&q=80', link: '/methods/metodo-euler', cat: 'integracion', eqImg: 'https://latex.codecogs.com/svg.image?y_{n+1}=y_n+hf(x_n,y_n)' },
+      { name: 'Runge-Kutta', desc: 'Método avanzado para ecuaciones diferenciales ordinarias.', diff: 'Avanzado', img: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80', link: '/methods/runge-kutta', cat: 'integracion', eqImg: 'https://latex.codecogs.com/svg.image?y_{n+1}=y_n+\frac{h}{6}(k_1+2k_2+2k_3+k_4)' },
+      // Series y aproximaciones
+      { name: 'Serie de Taylor', desc: 'Aproxima funciones usando sumas de potencias.', diff: 'Avanzado', img: 'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=400&q=80', link: '/methods/serie-taylor', cat: 'series', eqImg: 'https://latex.codecogs.com/svg.image?f(x)=\sum_{n=0}^\infty\frac{f^{(n)}(a)}{n!}(x-a)^n' }
+    ];
+    const diffColors = {
+      'Principiante': 'bg-green-500',
+      'Intermedio': 'bg-yellow-500',
+      'Avanzado': 'bg-red-500'
+    };
+
+    // --- Renderizado de tabs y tarjetas ---
+    function renderTabs(activeCat) {
+      const tabs = document.getElementById('category-tabs');
+      // Elimina solo los botones, no el div del indicador
+      Array.from(tabs.querySelectorAll('button')).forEach(btn => btn.remove());
+      methodCategories.forEach(cat => {
+        const btn = document.createElement('button');
+        btn.textContent = cat.label;
+        btn.className = 'py-2 px-1 font-semibold focus:outline-none ' +
+          (cat.key === activeCat ? 'text-black' : 'text-gray-500 hover:text-black');
+        btn.setAttribute('data-category', cat.key);
+        if (cat.key === activeCat) btn.setAttribute('aria-current', 'true');
+        btn.addEventListener('click', () => {
+          renderTabs(cat.key);
+          renderCards(cat.key);
+          setTimeout(moveTabIndicator, 10);
+        });
+        tabs.appendChild(btn);
+      });
+      setTimeout(moveTabIndicator, 10);
+    }
+    window.addEventListener('resize', () => setTimeout(moveTabIndicator, 10));
+    function moveTabIndicator() {
+      const tabs = document.getElementById('category-tabs');
+      const indicator = document.getElementById('tab-indicator');
+      const activeBtn = tabs.querySelector('button[aria-current="true"]');
+      if (activeBtn) {
+        const rect = activeBtn.getBoundingClientRect();
+        const parentRect = tabs.getBoundingClientRect();
+        indicator.style.left = (rect.left - parentRect.left) + 'px';
+        indicator.style.width = rect.width + 'px';
+        indicator.style.opacity = 1;
+      } else {
+        indicator.style.width = '0px';
+        indicator.style.opacity = 0;
+      }
+    }
+    document.addEventListener('DOMContentLoaded', () => setTimeout(moveTabIndicator, 30));
+    function renderCards(activeCat) {
+      const grid = document.getElementById('method-cards-grid');
+      grid.innerHTML = '';
+      const iconSvgs = {
+        'Bisección': `<div class=\"relative h-40 w-full\"><img src=\"/static/ilustraciones/biseccion-ilustracion.png\" alt=\"Ilustración Bisección\" class=\"absolute inset-0 w-full h-full object-cover\" loading=\"lazy\" /></div>`,
+        'Regla Falsa': `<div class=\"relative h-40 w-full\"><img src=\"/static/ilustraciones/regla-falsa-ilustracion.png\" alt=\"Ilustración Regla Falsa\" class=\"absolute inset-0 w-full h-full object-cover\" loading=\"lazy\" /></div>`,
+        'Newton-Raphson': `<div class=\"relative h-40 w-full\"><img src=\"/static/ilustraciones/newton-raphson-ilustracion.png\" alt=\"Ilustración Newton-Raphson\" class=\"absolute inset-0 w-full h-full object-cover\" loading=\"lazy\" /></div>`,
+        'Secante': `<div class=\"relative h-40 w-full\"><img src=\"/static/ilustraciones/secante-ilustracion.png\" alt=\"Ilustración Secante\" class=\"absolute inset-0 w-full h-full object-cover\" loading=\"lazy\" /></div>`,
+        'Eliminación Gaussiana': `<div class=\"relative h-40 w-full\"><img src=\"/static/ilustraciones/eliminacion-gaussiana-ilustracion.png\" alt=\"Ilustración Eliminación Gaussiana\" class=\"absolute inset-0 w-full h-full object-cover\" loading=\"lazy\" /></div>`,
+        'Gauss-Jordan': `<div class=\"relative h-40 w-full\"><img src=\"/static/ilustraciones/gauss-jordan-ilustracion.png\" alt=\"Ilustración Gauss-Jordan\" class=\"absolute inset-0 w-full h-full object-cover\" loading=\"lazy\" /></div>`,
+        'Gauss-Seidel': `<div class=\"relative h-40 w-full\"><img src=\"/static/ilustraciones/gauss-seidel-ilustracion.png\" alt=\"Ilustración Gauss-Seidel\" class=\"absolute inset-0 w-full h-full object-cover\" loading=\"lazy\" /></div>`,
+        'Jacobi': `<div class=\"relative h-40 w-full\"><img src=\"/static/ilustraciones/jacobi-ilustracion.png\" alt=\"Ilustración Jacobi\" class=\"absolute inset-0 w-full h-full object-cover\" loading=\"lazy\" /></div>`,
+        'Método de la Inversa': `<div class=\"relative h-40 w-full\"><img src=\"/static/ilustraciones/metodo-inversa-ilustracion.png\" alt=\"Ilustración Método de la Inversa\" class=\"absolute inset-0 w-full h-full object-cover\" loading=\"lazy\" /></div>`,
+        'Regla de Cramer': `<div class=\"relative h-40 w-full\"><img src=\"/static/ilustraciones/regla-cramer-ilustracion.png\" alt=\"Ilustración Regla de Cramer\" class=\"absolute inset-0 w-full h-full object-cover\" loading=\"lazy\" /></div>`,
+        'Método Montante': `<div class=\"relative h-40 w-full\"><img src=\"/static/ilustraciones/metodo-montante-ilustracion.png\" alt=\"Ilustración Método Montante\" class=\"absolute inset-0 w-full h-full object-cover\" loading=\"lazy\" /></div>`,
+        'Interpolación AX=B': `<div class=\"relative h-40 w-full\"><img src=\"/static/ilustraciones/interpolacion-axb-ilustracion.png\" alt=\"Ilustración Interpolación AX=B\" class=\"absolute inset-0 w-full h-full object-cover\" loading=\"lazy\" /></div>`,
+        'Polinomio de Lagrange': `<div class=\"relative h-40 w-full\"><img src=\"/static/ilustraciones/polinomio-lagrange-ilustracion.png\" alt=\"Ilustración Polinomio de Lagrange\" class=\"absolute inset-0 w-full h-full object-cover\" loading=\"lazy\" /></div>`,
+        'Polinomio de Newton': `<div class=\"relative h-40 w-full\"><img src=\"/static/ilustraciones/polinomio-newton-ilustracion.png\" alt=\"Ilustración Polinomio de Newton\" class=\"absolute inset-0 w-full h-full object-cover\" loading=\"lazy\" /></div>`,
+        'Splines': `<div class=\"relative h-40 w-full\"><img src=\"/static/ilustraciones/splines-ilustracion.png\" alt=\"Ilustración Splines\" class=\"absolute inset-0 w-full h-full object-cover\" loading=\"lazy\" /></div>`,
+        'Integración numérica': `<div class=\"relative h-40 w-full\"><img src=\"/static/ilustraciones/integracion-numerica-ilustracion.png\" alt=\"Ilustración Integración numérica\" class=\"absolute inset-0 w-full h-full object-cover\" loading=\"lazy\" /></div>`,
+        'Método de Euler': `<div class=\"relative h-40 w-full\"><img src=\"/static/ilustraciones/metodo-euler-ilustracion.png\" alt=\"Ilustración Método de Euler\" class=\"absolute inset-0 w-full h-full object-cover\" loading=\"lazy\" /></div>`,
+        'Runge-Kutta': `<div class=\"relative h-40 w-full\"><img src=\"/static/ilustraciones/runge-kutta-ilustracion.png\" alt=\"Ilustración Runge-Kutta\" class=\"absolute inset-0 w-full h-full object-cover\" loading=\"lazy\" /></div>`,
+        'Serie de Taylor': `<div class=\"relative h-40 w-full\"><img src=\"/static/ilustraciones/serie-taylor-cohete.png\" alt=\"Ilustración Serie de Taylor\" class=\"absolute inset-0 w-full h-full object-cover\" loading=\"lazy\" /></div>`
+      };
+      methods.filter(m => m.cat === activeCat).forEach(method => {
+        const card = document.createElement('div');
+        card.className = 'bg-white rounded-2xl shadow flex flex-col overflow-hidden border border-gray-100';
+        card.innerHTML = `
+          <div class=\"h-40 flex items-center justify-center\" style=\"background: #f9fafb;\">
+            ${iconSvgs[method.name] || ''}
+          </div>
+          <div class=\"p-6 flex-1 flex flex-col\">
+            <div class=\"flex items-center gap-2 mb-2\">
+              <span class=\"inline-block w-3 h-3 rounded-full ${diffColors[method.diff]}\"></span>
+              <span class=\"text-xs font-semibold text-gray-700\">${method.diff}</span>
+            </div>
+            <h3 class=\"text-lg font-bold text-gray-900 mb-1\">${method.name}</h3>
+            <p class=\"text-gray-600 text-sm mb-4 flex-1\">${method.desc}</p>
+            <a href=\"${method.link}\" class=\"inline-flex items-center text-black font-semibold border border-black rounded px-4 py-2 hover:bg-black hover:text-white transition\">
+              Ir al método
+              <span class=\"ml-2\">→</span>
+            </a>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+    // Inicializar con la primera categoría
+    renderTabs(methodCategories[0].key);
+    renderCards(methodCategories[0].key);
+    </script>
+</body>
+</html> 

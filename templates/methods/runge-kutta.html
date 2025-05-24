@@ -1,0 +1,1513 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Métodos de Runge-Kutta (RK4) - Métodos Numéricos</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'custom-blue': '#242A38', // Header original color
+                        'custom-red': '#E94560', // Main theme color for Runge-Kutta (now red)
+                        'custom-red-darker': '#D43F56', // A slightly darker red for hovers
+                        'custom-gray-bg': '#F3F4F6',
+                        'sidebar-text': '#4B5563', // General sidebar text
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Configuración de MathJax -->
+    <script>
+        window.MathJax = {
+            tex: {
+                packages: {'[+]': ['input/mml', 'output/chtml']}
+            },
+            chtml: {
+                matchFontHeight: false
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <!-- Pyodide y Chart.js -->
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        /* Rainbow border animation (can be shared) */
+        @keyframes animatedRainbowBorder {
+            0% { background-position: 0% center; }
+            100% { background-position: 200% center; }
+        }
+        .animate-rainbow-border::before {
+            content: ''; position: absolute; z-index: -1; top: -2px; left: -2px; right: -2px; bottom: -2px;
+            border-radius: 9999px; /* pill shape */
+            background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #007bff, #8a2be2, #ff00ff, #ff0000);
+            background-size: 200% 100%;
+            animation: animatedRainbowBorder 3s linear infinite;
+        }
+        .animate-rainbow-border { position: relative; z-index: 0; }
+
+        /* Styles for fullscreen code output - RK4 */
+        .rk4-output-fullscreen {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 9990 !important;
+            background-color: #111827 !important; /* bg-gray-900 */
+            padding: 20px !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+            overflow-y: auto !important;
+            max-height: 100vh !important;
+        }
+        .rk4-body-fullscreen-active {
+            overflow: hidden !important;
+        }
+        .rk4-output-controls-container-fixed {
+            position: fixed !important;
+            top: 15px !important;
+            right: 15px !important;
+            z-index: 9999 !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 0.25rem !important; /* space-x-1 */
+        }
+
+        /* Flash animations for font buttons (generic names) */
+        .font-button-flash-red {
+            animation: flash-red-anim 0.4s ease-out;
+        }
+        @keyframes flash-red-anim {
+            0% { background-color: #EF4444; } /* red-500 */
+            100% { background-color: #374151; } /* gray-700, original button color */
+        }
+        .font-button-flash-blue {
+            animation: flash-blue-anim 0.4s ease-out;
+        }
+        @keyframes flash-blue-anim {
+            0% { background-color: #3B82F6; } /* blue-500 */
+            100% { background-color: #374151; } /* gray-700, original button color */
+        }
+        /* Tailwind CSS "has" polyfill for Firefox or older browsers if needed, but modern browsers support :has() */
+        .quiz-option-wrapper:has(input:checked) {
+            /* These styles will be applied via Tailwind's :has variant for better compatibility */
+        }
+    </style>
+</head>
+<body class="bg-custom-gray-bg text-gray-700 font-sans antialiased">
+    <div id="app">
+        <header class="bg-custom-blue text-white shadow-md">
+            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                <h1 class="text-xl font-semibold"><a href="../index.html" class="hover:text-gray-300">Métodos Numéricos</a></h1>
+                <nav><a href="../index.html#method-cards-container" class="text-sm px-4 py-2 rounded-md hover:bg-gray-700 transition-colors duration-150">Volver a Métodos</a></nav>
+            </div>
+        </header>
+
+        <div class="container mx-auto mt-8 mb-8 flex flex-col lg:flex-row lg:space-x-8 px-4">
+            <left-sidebar page-theme-color="custom-red" page-active-text-color="custom-red"></left-sidebar>
+
+            <main class="w-full flex-1 min-w-0 bg-white shadow-xl rounded-lg p-6 md:p-8 order-2 mb-6 lg:mb-0">
+                <article class="method-content">
+                    <h2 class="text-3xl font-bold mb-6 text-gray-800 border-b border-gray-200 pb-4">Métodos de Runge-Kutta (RK4)</h2>
+
+                    <section id="teoria-rk4" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Fundamento Teórico</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Los métodos de Runge-Kutta son una familia de métodos iterativos para la aproximación de soluciones de ecuaciones diferenciales ordinarias (EDOs). Son conocidos por su alta precisión y estabilidad. El método de Runge-Kutta de cuarto orden (RK4) es uno de los más utilizados.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">Dada una EDO de la forma:</p>
+                        <p class="text-gray-600 leading-relaxed mb-4" style="text-align:center;"><em>\[ \frac{dy}{dx} = f(x, y) \]</em></p>
+                        <p class="text-gray-600 leading-relaxed mb-4">con una condición inicial:</p>
+                        <p class="text-gray-600 leading-relaxed mb-4" style="text-align:center;"><em>\[ y(x_0) = y_0 \]</em></p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            El método RK4 calcula el siguiente valor \( y_{i+1} \) a partir de \( y_i \) usando la siguiente fórmula:
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4" style="text-align:center;"><em>\[ y_{i+1} = y_i + \frac{1}{6}(k_1 + 2k_2 + 2k_3 + k_4)h \]</em></p>
+                        <p class="text-gray-600 leading-relaxed mb-4">donde \( h \) es el tamaño del paso y los coeficientes \( k \) se calculan como:</p>
+                        <ul class="list-none space-y-2 text-gray-600 leading-relaxed mb-4 pl-4" style="text-align:center;">
+                            <li><em>\[ k_1 = f(x_i, y_i) \]</em></li>
+                            <li><em>\[ k_2 = f(x_i + \frac{h}{2}, y_i + \frac{h}{2}k_1) \]</em></li>
+                            <li><em>\[ k_3 = f(x_i + \frac{h}{2}, y_i + \frac{h}{2}k_2) \]</em></li>
+                            <li><em>\[ k_4 = f(x_i + h, y_i + hk_3) \]</em></li>
+                        </ul>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Intuitivamente, el método RK4 toma un promedio ponderado de pendientes en diferentes puntos dentro del intervalo \( [x_i, x_{i+1}] \) para obtener una mejor estimación de la pendiente promedio sobre el intervalo.
+                        </p>
+                         <ul class="list-disc list-inside space-y-2 text-gray-600 leading-relaxed mb-4 pl-4">
+                            <li>\( k_1 \) es la pendiente al inicio del intervalo.</li>
+                            <li>\( k_2 \) es una estimación de la pendiente en el punto medio del intervalo, usando \( k_1 \) para aproximar \( y \) en ese punto.</li>
+                            <li>\( k_3 \) es otra estimación de la pendiente en el punto medio, pero usando \( k_2 \) para aproximar \( y \).</li>
+                            <li>\( k_4 \) es la pendiente al final del intervalo, usando \( k_3 \) para aproximar \( y \).</li>
+                        </ul>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            El error de truncamiento local del método RK4 es del orden de \( O(h^5) \), y el error de truncamiento global es del orden de \( O(h^4) \). Esto lo hace significativamente más preciso que el método de Euler para un mismo tamaño de paso \( h \).
+                        </p>
+                    </section>
+
+                    <section id="algoritmo-rk4" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Pasos del Algoritmo (RK4)</h3>
+                        <ol class="list-decimal list-inside space-y-3 pl-4 text-gray-600 leading-relaxed">
+                            <li>Definir la función \( f(x, y) \) que representa la EDO (\( dy/dx = f(x,y) \)).</li>
+                            <li>Especificar la condición inicial \( (x_0, y_0) \).</li>
+                            <li>Definir el punto \( x_f \) hasta el cual se desea encontrar la solución.</li>
+                            <li>Elegir el número de pasos \( N \) o el tamaño del paso \( h \). (Si se elige \( N \), entonces \( h = (x_f - x_0) / N \)).</li>
+                            <li>Inicializar \( x_i = x_0 \) e \( y_i = y_0 \).</li>
+                            <li>Para \( i \) desde 0 hasta \( N-1 \):
+                                <ol type="a" class="list-[lower-alpha] list-inside space-y-1 pl-6 mt-2">
+                                    <li>Calcular \( k_1 = f(x_i, y_i) \).</li>
+                                    <li>Calcular \( k_2 = f(x_i + \frac{h}{2}, y_i + \frac{h}{2}k_1) \).</li>
+                                    <li>Calcular \( k_3 = f(x_i + \frac{h}{2}, y_i + \frac{h}{2}k_2) \).</li>
+                                    <li>Calcular \( k_4 = f(x_i + h, y_i + hk_3) \).</li>
+                                    <li>Calcular el siguiente valor de \( y \): \( y_{i+1} = y_i + \frac{h}{6}(k_1 + 2k_2 + 2k_3 + k_4) \).</li>
+                                    <li>Actualizar \( x \): \( x_{i+1} = x_i + h \).</li>
+                                    <li>Guardar o imprimir \( (x_{i+1}, y_{i+1}) \). (Actualizar \( y_i = y_{i+1} \) y \( x_i = x_{i+1} \) para la siguiente iteración).</li>
+                                </ol>
+                            </li>
+                            <li>El valor \( y_N \) es la aproximación de \( y(x_f) \).</li>
+                        </ol>
+                    </section>
+
+                    <section id="ejemplo-rk4" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Ejemplo Paso a Paso (RK4)</h3>
+                        <p class="text-gray-600 leading-relaxed mb-3">Resolver la EDO \( \frac{dy}{dx} = x + y \) con la condición inicial \( y(0) = 1 \). Encontrar \( y(0.1) \) usando el método RK4 con \( h = 0.1 \). (Solo un paso para simplificar).</p>
+                        <p class="text-gray-600 leading-relaxed mb-3">Aquí, \( f(x, y) = x + y \), \( x_0 = 0 \), \( y_0 = 1 \), \( h = 0.1 \).</p>
+
+                        <div class="space-y-4 text-gray-600 leading-relaxed">
+                            <div><p class="font-semibold"><strong>Paso \( i=0 \):</strong> \( x_0 = 0, y_0 = 1 \)</p></div>
+                            <ul class="list-disc list-inside space-y-1 pl-6 mt-1">
+                                <li>\( k_1 = f(x_0, y_0) = f(0, 1) = 0 + 1 = 1 \)</li>
+                                <li>\( k_2 = f(x_0 + \frac{h}{2}, y_0 + \frac{h}{2}k_1) = f(0 + \frac{0.1}{2}, 1 + \frac{0.1}{2} \cdot 1) = f(0.05, 1.05) = 0.05 + 1.05 = 1.1 \)</li>
+                                <li>\( k_3 = f(x_0 + \frac{h}{2}, y_0 + \frac{h}{2}k_2) = f(0 + \frac{0.1}{2}, 1 + \frac{0.1}{2} \cdot 1.1) = f(0.05, 1 + 0.055) = f(0.05, 1.055) = 0.05 + 1.055 = 1.105 \)</li>
+                                <li>\( k_4 = f(x_0 + h, y_0 + hk_3) = f(0 + 0.1, 1 + 0.1 \cdot 1.105) = f(0.1, 1 + 0.1105) = f(0.1, 1.1105) = 0.1 + 1.1105 = 1.2105 \)</li>
+                                <li class="tex2jax_process">\( y_1 = y_0 + \frac{h}{6}(k_1 + 2k_2 + 2k_3 + k_4) \) <br>
+                                    \( \quad = 1 + \frac{0.1}{6}(1 + 2(1.1) + 2(1.105) + 1.2105) \) <br>
+                                    \( \quad = 1 + \frac{0.1}{6}(1 + 2.2 + 2.21 + 1.2105) \) <br>
+                                    \( \quad = 1 + \frac{0.1}{6}(6.6205) \) <br>
+                                    \( \quad = 1 + 0.1 \cdot 1.1034166... \) <br>
+                                    \( \quad = 1 + 0.11034166... \approx 1.1103417 \)</li>
+                                <li>\( x_1 = x_0 + h = 0 + 0.1 = 0.1 \)</li>
+                            </ul>
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mt-4">La aproximación de \( y(0.1) \) es \( 1.1103417 \).</p>
+                        <p class="text-gray-600 leading-relaxed mt-2">(Solución analítica \( y(x) = 2e^x - x - 1 \). Entonces \( y(0.1) = 2e^{0.1} - 0.1 - 1 \approx 2(1.105170918) - 1.1 \approx 2.210341836 - 1.1 = 1.110341836 \). El método RK4 da un resultado muy cercano.)</p>
+                    </section>
+
+                    <section id="codigo-rk4" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Código de Implementación (Python - RK4) - Ejecutable</h3>
+                        <div class="code-editor-container bg-gray-50 p-4 rounded-lg shadow-inner">
+                            <textarea id="rk4-code-input" class="code-input w-full h-[600px] p-3 border border-gray-300 rounded-md font-mono text-sm" style="resize: none;">import math
+
+def funcion_edo(x, y):
+    # EDO: dy/dx = x + y
+    return x + y
+    # Otro ejemplo: dy/dx = y (solución y=e^x)
+    # return y
+    # Otro ejemplo: dy/dx = -2*x*y**2, y(0)=1 (Solución y = 1 / (1+x^2))
+    # return -2*x*y**2
+
+def analytical_solution(x):
+    # Para dy/dx = x + y, y(0) = 1  => y(x) = 2*math.exp(x) - x - 1
+    return 2 * math.exp(x) - x - 1
+    # Para dy/dx = y, y(0) = 1 => y(x) = math.exp(x)
+    # return math.exp(x)
+    # Para dy/dx = -2*x*y**2, y(0)=1 => y(x) = 1 / (1+x**2)
+    # return 1 / (1 + x**2) if (1 + x**2) != 0 else float('inf')
+
+def rk4_method(f_edo, x0, y0, h, x_final, f_analytical=None):
+    x_values = [x0]
+    y_values = [y0]
+    y_analytical_values = []
+    if f_analytical:
+        y_analytical_values.append(f_analytical(x0))
+
+    x_current = x0
+    y_current = y0
+    num_steps = int(round((x_final - x0) / h)) # round() for floating point precision issues with h
+
+    html_output = ''
+    html_output += '<div style="text-align: center; font-weight: bold; margin-bottom: 10px;">MÉTODO DE RUNGE-KUTTA DE 4º ORDEN (RK4)</div>'
+    html_output += '<table border="1" style="width:100%; border-collapse: collapse; margin-bottom:15px; font-size: 0.80em;">' # Smaller font for more columns
+    html_output += '<thead><tr>'
+    headers = ["Iter (i)", "xi", "yi (RK4)", "k1", "k2", "k3", "k4", "yi+1"]
+    if f_analytical:
+        headers.append("y_analitica(xi)")
+        headers.append("Error Relativo (%)")
+    for header_text in headers:
+        html_output += f'<th style="padding: 3px; text-align:center;">{header_text}</th>'
+    html_output += '</tr></thead><tbody>'
+
+    for i in range(num_steps):
+        k1 = f_edo(x_current, y_current)
+        k2 = f_edo(x_current + 0.5 * h, y_current + 0.5 * h * k1)
+        k3 = f_edo(x_current + 0.5 * h, y_current + 0.5 * h * k2)
+        k4 = f_edo(x_current + h, y_current + h * k3)
+        
+        y_next = y_current + (h / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4)
+        x_next = x_current + h
+
+        html_output += '<tr>'
+        html_output += f'<td style="padding: 3px; text-align:center;">{i}</td>'
+        html_output += f'<td style="padding: 3px; text-align:right; padding-right:5px;">{x_current:.4f}</td>'
+        html_output += f'<td style="padding: 3px; text-align:right; padding-right:5px;">{y_current:.7f}</td>'
+        html_output += f'<td style="padding: 3px; text-align:right; padding-right:5px;">{k1:.7f}</td>'
+        html_output += f'<td style="padding: 3px; text-align:right; padding-right:5px;">{k2:.7f}</td>'
+        html_output += f'<td style="padding: 3px; text-align:right; padding-right:5px;">{k3:.7f}</td>'
+        html_output += f'<td style="padding: 3px; text-align:right; padding-right:5px;">{k4:.7f}</td>'
+        html_output += f'<td style="padding: 3px; text-align:right; padding-right:5px;">{y_next:.7f}</td>'
+
+        if f_analytical:
+            y_an = f_analytical(x_current) # Analytical at current step xi
+            error_rel = abs((y_an - y_current) / y_an) * 100 if y_an != 0 else float('inf')
+            html_output += f'<td style="padding: 3px; text-align:right; padding-right:5px;">{y_an:.7f}</td>'
+            html_output += f'<td style="padding: 3px; text-align:right; padding-right:5px;">{error_rel:.6f}</td>'
+            y_analytical_values.append(f_analytical(x_next)) # For chart: analytical at next step xi+1
+        html_output += '</tr>'
+
+        x_values.append(x_next)
+        y_values.append(y_next)
+        
+        x_current = x_next
+        y_current = y_next
+    
+    # Last row for x_final, y_final
+    html_output += '<tr>'
+    html_output += f'<td style="padding: 3px; text-align:center;">{num_steps}</td>'
+    html_output += f'<td style="padding: 3px; text-align:right; padding-right:5px;">{x_current:.4f}</td>' # This is x_final
+    html_output += f'<td style="padding: 3px; text-align:right; padding-right:5px;">{y_current:.7f}</td>' # This is y_final
+    html_output += f'<td style="padding: 3px; text-align:center;" colspan="5">-</td>' # No k values or y_next for last point
+    if f_analytical:
+        y_an_final = f_analytical(x_current)
+        error_rel_final = abs((y_an_final - y_current) / y_an_final) * 100 if y_an_final != 0 else float('inf')
+        html_output += f'<td style="padding: 3px; text-align:right; padding-right:5px;">{y_an_final:.7f}</td>'
+        html_output += f'<td style="padding: 3px; text-align:right; padding-right:5px;">{error_rel_final:.6f}</td>'
+    html_output += '</tr>'
+    
+    html_output += '</tbody></table>'
+    html_output += f'<div style="text-align: center; color: #E94560; margin-top:10px;">Solución aproximada en x={x_final:.2f}: y={y_values[-1]:.7f}</div>' # Changed color to red
+    if f_analytical:
+        y_an_at_final = f_analytical(x_final)
+        error_abs = abs(y_an_at_final - y_values[-1])
+        html_output += f'<div style="text-align: center; margin-top:5px;">Solución analítica en x={x_final:.2f}: y={y_an_at_final:.7f}</div>'
+        html_output += f'<div style="text-align: center; margin-top:5px;">Error absoluto final: {error_abs:.7e}</div>' # Scientific notation for small errors
+
+    iteration_data = {
+        "x_values": x_values,
+        "y_values": y_values,
+        "y_analytical_values": y_analytical_values if f_analytical else None,
+        "x0": x0, "y0": y0, "h": h, "x_final": x_final,
+        "f_edo_str": "x + y", # Example, could be made dynamic
+        "f_analytical_str": "2*exp(x) - x - 1" if f_analytical else None
+    }
+    
+    try:
+        global js_iteration_data_rk4 
+        js_iteration_data_rk4.clear()
+        for key, value in iteration_data.items():
+            js_iteration_data_rk4[key] = value
+    except (NameError, AttributeError):
+        pass
+
+    return html_output
+
+# Ejemplo de uso
+if __name__ == "__main__":
+    output_buffer = []
+    
+    x0_example = 0.0
+    y0_example = 1.0
+    h_example = 0.1
+    x_final_example = 0.4
+    
+    initial_info_html = '<div style="text-align: center; font-weight: bold; margin-bottom:15px; font-size:1.1em;">MÉTODO DE RUNGE-KUTTA RK4 - SOLUCIÓN DE EDOs</div>'
+    initial_info_html += f'<div style="text-align: center; margin-bottom:5px;">EDO: dy/dx = x + y</div>'
+    initial_info_html += f'<div style="text-align: center; margin-bottom:5px;">Condición inicial: y({x0_example}) = {y0_example}</div>'
+    initial_info_html += f'<div style="text-align: center; margin-bottom:5px;">Paso h: {h_example}, Hasta x_final: {x_final_example}</div>'
+    initial_info_html += f'<div style="text-align: center; margin-bottom:15px;">Sol. Analítica (para comparación): y(x) = 2e^x - x - 1</div>'
+
+    output_buffer.append(initial_info_html)
+    
+    tabla_html = rk4_method(funcion_edo, x0_example, y0_example, h_example, x_final_example, analytical_solution)
+    output_buffer.append(tabla_html)
+    
+    try:
+        global pyodide_html_output 
+        pyodide_html_output = "\\n".join(output_buffer)
+    except NameError:
+        print("Ejecutando localmente, imprimiendo HTML generado:")
+        print("\\n".join(output_buffer))
+                            </textarea>
+                            <button id="run-rk4-code-button" class="run-button mt-4 px-5 py-2.5 bg-custom-red text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-custom-red focus:ring-opacity-50 font-medium text-sm transition-colors duration-150">Ejecutar Código</button>
+
+                            <div class="relative">
+                                <div id="rk4-output-controls-container" class="absolute top-0 right-0 z-10 flex items-center space-x-1 transition-all duration-500 ease-out" style="">
+                                    <button id="rk4-decrease-font-button" title="Disminuir fuente" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs font-semibold flex items-center justify-center" style="min-width: 30px; display: none;">aa</button>
+                                    <button id="rk4-increase-font-button" title="Aumentar fuente" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs font-semibold flex items-center justify-center" style="min-width: 30px; display: none;">AA</button>
+                                    <button id="rk4-fullscreen-output-button" title="Ver en pantalla completa" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs">
+                                        <!-- SVG will be injected by JS -->
+                                    </button>
+                                </div>
+                                <h4 class="mt-5 mb-2 text-lg font-semibold text-gray-700">Salida:</h4>
+                                <pre id="rk4-code-output" class="code-output bg-gray-900 text-white p-4 pt-10 rounded-md min-h-[100px] whitespace-pre-wrap transition-all duration-500 ease-out text-xs leading-relaxed max-h-96 overflow-y-auto font-mono">Presiona "Ejecutar Código" para ver la salida.</pre>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="graficas-rk4" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Gráficas Interactivas</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            La gráfica interactiva mostrará los puntos \( (x_i, y_i) \) calculados por el método RK4. Se puede comparar con la solución analítica si está disponible.
+                            Intenta cambiar el valor de \(h\) en el código Python (por ejemplo, a 0.05 o 0.2) y observa cómo afecta la aproximación. Un \(h\) más pequeño generalmente produce una mayor precisión.
+                        </p>
+                        <div class="interactive-graphics w-full h-96 bg-white p-4 rounded-lg shadow-md">
+                            <canvas id="rk4-method-chart"></canvas>
+                            <p id="chart-loading-message-rk4" class="text-center text-gray-600 italic mt-2">Ejecute el código para generar la gráfica.</p>
+                        </div>
+                    </section>
+
+                    <section id="videos-rk4" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Videos Explicativos</h3>
+                        <div class="video-embed w-full h-96">
+                             <iframe class="w-full h-full rounded-lg shadow-lg" src="https://www.youtube.com/embed/-1aNhFO1TcQ" title="YouTube video player - Métodos de Runge-Kutta (RK4)" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+                        </div>
+                    </section>
+
+                    <section id="conclusion-rk4" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Conclusión</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            El método de Runge-Kutta de cuarto orden (RK4) es una herramienta poderosa y ampliamente utilizada para la solución numérica de EDOs. Ofrece un excelente equilibrio entre precisión (error global \(O(h^4)\)) y costo computacional (cuatro evaluaciones de la función \(f\) por paso). Es auto-iniciable y tiene buenas propiedades de estabilidad para una amplia gama de problemas.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Aunque existen métodos de Runge-Kutta de orden superior, RK4 suele ser suficiente para la mayoría de las aplicaciones prácticas. Para problemas que requieren una precisión extremadamente alta o para sistemas muy rígidos (stiff systems), pueden ser necesarios métodos más especializados o adaptativos (que ajustan \(h\) automáticamente).
+                        </p>
+                        <div class="bg-red-50 border-l-4 border-custom-red p-4 rounded-r-lg">
+                            <p class="font-semibold text-red-700">Aplicaciones Comunes:</p>
+                            <ul class="list-disc list-inside space-y-2 text-gray-600 leading-relaxed pl-4 mt-2">
+                                <li><strong>Física e Ingeniería:</strong> Simulación de sistemas mecánicos (movimiento de proyectiles, osciladores), circuitos eléctricos, dinámica de fluidos, transferencia de calor.</li>
+                                <li><strong>Astronomía:</strong> Cálculo de órbitas planetarias y trayectorias de satélites.</li>
+                                <li><strong>Biología:</strong> Modelado de dinámicas poblacionales (depredador-presa), propagación de enfermedades.</li>
+                                <li><strong>Economía y Finanzas:</strong> Modelos de crecimiento económico, valoración de opciones.</li>
+                            </ul>
+                        </div>
+                    </section>
+
+                    <section id="referencias-rk4" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Referencias</h3>
+                        <ul class="list-disc list-inside space-y-2 text-gray-600 leading-relaxed">
+                            <li>Chapra, S. C., & Canale, R. P. (2015). <em>Numerical Methods for Engineers</em> (7th ed.). McGraw-Hill Education.</li>
+                            <li>Butcher, J. C. (2008). <em>Numerical Methods for Ordinary Differential Equations</em> (2nd ed.). John Wiley & Sons.</li>
+                        </ul>
+                    </section>
+
+                    <section id="cuestionario-rk4" class="scroll-mt-24 mb-10">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Cuestionario: Métodos de Runge-Kutta (RK4)</h3>
+                        <form id="quiz-rk4" class="space-y-6 bg-gray-50 p-6 rounded-lg shadow-inner">
+                            <!-- Pregunta 1 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">1. El método de Runge-Kutta de cuarto orden (RK4) tiene un error de truncamiento global del orden de:</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 1</legend>
+                                    <div class="space-y-2">
+                                        <label for="q1-opt1-rk4" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt1-rk4" name="question-1-rk4" type="radio" value="h" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">\( O(h) \)</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt2-rk4" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt2-rk4" name="question-1-rk4" type="radio" value="h2" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">\( O(h^2) \)</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt3-rk4" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt3-rk4" name="question-1-rk4" type="radio" value="h4" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">\( O(h^4) \)</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-1-rk4-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <!-- Pregunta 2 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">2. ¿Cuántas evaluaciones de la función \( f(x,y) \) se requieren por cada paso en el método RK4 estándar?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 2</legend>
+                                    <div class="space-y-2">
+                                        <label for="q2-opt1-rk4" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt1-rk4" name="question-2-rk4" type="radio" value="una" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Una</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt2-rk4" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt2-rk4" name="question-2-rk4" type="radio" value="dos" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Dos</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt3-rk4" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt3-rk4" name="question-2-rk4" type="radio" value="cuatro" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Cuatro</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-2-rk4-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs rounded-md" style="display: none;"></div>
+                            </div>
+
+                             <!-- Pregunta 3 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">3. En la fórmula de RK4, \( y_{i+1} = y_i + \frac{h}{C}(k_1 + Ak_2 + Bk_3 + k_4) \), ¿cuáles son los valores correctos para A, B y C?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 3</legend>
+                                    <div class="space-y-2">
+                                        <label for="q3-opt1-rk4" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt1-rk4" name="question-3-rk4" type="radio" value="a1b1c2" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">A=1, B=1, C=2</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt2-rk4" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt2-rk4" name="question-3-rk4" type="radio" value="a2b2c6" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">A=2, B=2, C=6</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt3-rk4" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt3-rk4" name="question-3-rk4" type="radio" value="a2b2c4" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">A=2, B=2, C=4</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-3-rk4-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs rounded-md" style="display: none;"></div>
+                            </div>
+
+                             <!-- Pregunta 4 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">4. Comparado con el Método de Euler, el método RK4 generalmente ofrece:</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 4</legend>
+                                    <div class="space-y-2">
+                                        <label for="q4-opt1-rk4" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt1-rk4" name="question-4-rk4" type="radio" value="menor_precision_simple" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Menor precisión pero es más simple.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q4-opt2-rk4" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt2-rk4" name="question-4-rk4" type="radio" value="mayor_precision_mas_calculos" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Mayor precisión pero requiere más cálculos por paso.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q4-opt3-rk4" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt3-rk4" name="question-4-rk4" type="radio" value="precision_similar_mas_estable" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Precisión similar pero es más estable.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-4-rk4-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <button type="submit" class="mt-6 w-full px-6 py-3 bg-custom-red text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-custom-red focus:ring-offset-2 transition-colors duration-150">
+                                Enviar Respuestas
+                            </button>
+                        </form>
+                        <div id="quiz-feedback-rk4" class="quiz-feedback-message mt-4 p-3 rounded-md text-sm" style="display: none;"></div>
+                    </section>
+                </article>
+            </main>
+
+            <!-- Right Sidebar for Progress, Evaluation, Resources -->
+            <aside class="w-full lg:w-1/4 bg-white shadow-xl rounded-lg p-6 self-start sticky top-8 order-3 space-y-6">
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-4">Perfil</h3>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex-shrink-0">
+                           <svg class="w-12 h-12 text-gray-400 bg-gray-100 rounded-full p-1 ring-1 ring-gray-200" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-800 text-md">Estudiante RK</p>
+                            <p class="text-sm text-gray-500">Precisión Numérica</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pb-6 border-b border-gray-200 space-y-3">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide">Progreso en Runge-Kutta RK4</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li class="flex items-center">
+                            <span id="task-read-theory-status-rk4" class="task-status-icon mr-2 text-gray-400">
+                                <!-- Icon dynamically inserted by JS -->
+                            </span>
+                            <span class="text-gray-600">Leer la teoría completa</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-run-code-status-rk4" class="task-status-icon mr-2 text-gray-400">
+                                <!-- Icon dynamically inserted by JS -->
+                            </span>
+                            <span class="text-gray-600">Ejecutar el código Python</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-attempted-status-rk4" class="task-status-icon mr-2 text-gray-400">
+                                <!-- Icon dynamically inserted by JS -->
+                            </span>
+                            <span class="text-gray-600">Intentar el cuestionario</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-passed-status-rk4" class="task-status-icon mr-2 text-gray-400">
+                                <!-- Icon dynamically inserted by JS -->
+                            </span>
+                            <span class="text-gray-600">Aprobar el cuestionario</span>
+                        </li>
+                    </ul>
+                    <div class="flex items-center justify-between mb-1 mt-3">
+                       <span class="text-xs font-medium text-custom-red">Progreso General</span>
+                       <span id="right-sidebar-progress-text-rk4" class="text-xs font-medium text-custom-red right-sidebar-progress-text">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div id="right-sidebar-progress-bar-rk4" class="bg-custom-red h-3 rounded-full right-sidebar-progress-bar transition-all duration-500 ease-in-out" style="width: 0%"></div>
+                    </div>
+                    <button id="completion-rk4-sidebar" class="mt-4 w-full completion-button px-4 py-2 bg-custom-red text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-custom-red focus:ring-offset-2 font-medium text-sm transition-colors duration-150">Marcar Todo Completado</button>
+                </div>
+
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Recursos y Notas</h3>
+                    <p class="text-sm text-gray-600">
+                        <a href="https://archive.org/details/numerical-methods-for-engineers-7th-edit" target="_blank" rel="noopener noreferrer" class="hover:text-custom-red hover:underline">
+                            Métodos Numéricos para Ingenieros 7ma Edición de Chapra
+                        </a>
+                    </p>
+                    <img src="https://images.cdn3.buscalibre.com/fit-in/360x360/97/ff/97ffa61a8adb147e569e12c4f1f797b3.jpg" alt="Portada del libro Métodos Numéricos para Ingenieros de Chapra" class="mt-2 w-full rounded-md shadow-sm">
+                    <!-- Podríamos añadir un botón simple aquí -->
+                    <!-- <button class="mt-2 w-full text-left text-sm text-gray-500 hover:text-gray-700">(+) Añadir nota</button> -->
+                </div>
+
+                <div>
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Siguiente Paso</h3>
+                    <a href="../methods/metodo-euler.html" class="group flex items-center text-sm font-medium text-custom-red hover:text-red-700 transition-colors duration-150">
+                       <span>Explorar Método de Euler</span>
+                       <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform duration-150" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </a>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const PAGE_KEY_RK4 = "metodo-runge-kutta-progress"; 
+        const METHOD_NAME_TITLE_CASE_RK4 = "Métodos de Runge-Kutta (RK4)";
+
+        const TASKS_RK4 = {
+            READ_THEORY: 'read_theory_rk4',
+            RUN_CODE: 'run_code_rk4',
+            QUIZ_ATTEMPTED: 'quiz_attempted_rk4',
+            QUIZ_PASSED: 'quiz_passed_rk4'
+        };
+        const ALL_TASK_KEYS_RK4 = Object.values(TASKS_RK4);
+        const TOTAL_TASKS_RK4 = ALL_TASK_KEYS_RK4.length;
+
+        const ICON_PENDING_RK4 = '<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0-4.418-4.03-8-9-8S3 7.582 3 12c0 1.454.402 2.813 1.098 3.977L3 21l5.023-1.098A8.902 8.902 0 0012 21c4.97 0 9-3.582 9-9z"></path></svg>';
+        const ICON_COMPLETED_RK4 = '<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>';
+        const ICON_IN_PROGRESS_RK4 = '<svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V9.05a.75.75 0 011.307-.588l5.603 3.112z" clip-rule="evenodd"></path></svg>';
+
+        const ICON_CORRECT_ANSWER_RK4 = '✔️';
+        const ICON_INCORRECT_ANSWER_RK4 = '❌';
+        const ICON_THUMB_UP_RK4 = '👍';
+
+        const codeInput_RK4 = document.getElementById('rk4-code-input');
+        const runCodeButton_RK4 = document.getElementById('run-rk4-code-button');
+        const codeOutput_RK4 = document.getElementById('rk4-code-output');
+        const chartLoadingMessage_RK4 = document.getElementById('chart-loading-message-rk4');
+        const rk4MethodChartCanvas_RK4 = document.getElementById('rk4-method-chart');
+
+        const fullscreenButton_RK4 = document.getElementById('rk4-fullscreen-output-button');
+        const outputControlsContainer_RK4 = document.getElementById('rk4-output-controls-container');
+        const decreaseFontButton_RK4 = document.getElementById('rk4-decrease-font-button');
+        const increaseFontButton_RK4 = document.getElementById('rk4-increase-font-button');
+
+        const quizForm_RK4 = document.getElementById('quiz-rk4');
+        const generalQuizFeedbackDiv_RK4 = document.getElementById('quiz-feedback-rk4');
+        const mainCompletionButton_RK4 = document.getElementById('completion-rk4-sidebar');
+
+        const taskStatusIcons_RK4 = {
+            [TASKS_RK4.READ_THEORY]: document.getElementById('task-read-theory-status-rk4'),
+            [TASKS_RK4.RUN_CODE]: document.getElementById('task-run-code-status-rk4'),
+            [TASKS_RK4.QUIZ_ATTEMPTED]: document.getElementById('task-quiz-attempted-status-rk4'),
+            [TASKS_RK4.QUIZ_PASSED]: document.getElementById('task-quiz-passed-status-rk4'),
+        };
+        const overallProgressText_RK4 = document.getElementById('right-sidebar-progress-text-rk4');
+        const overallProgressBar_RK4 = document.getElementById('right-sidebar-progress-bar-rk4');
+
+        let pyodide_RK4 = null;
+        let rk4Chart_RK4 = null;
+        let rk4CodeOutputInitialRect_RK4 = null;
+        let rk4CurrentFontSize_RK4 = 12; 
+        let originalOutputFontSize_RK4 = '';
+
+        const svgIconFullscreen_RK4 = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9M20.25 20.25v-4.5m0 4.5h-4.5m4.5 0L15 15" /></svg>';
+        const svgIconExitFullscreen_RK4 = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9V4.5M15 9h4.5M15 9l5.25-5.25M15 15v4.5M15 15h4.5M15 15l5.25 5.25" /></svg>';
+        if (fullscreenButton_RK4) fullscreenButton_RK4.innerHTML = svgIconFullscreen_RK4;
+
+        // --- Progress Storage Functions ---
+        function getPageProgressFromStorage_RK4() {
+            const defaults = ALL_TASK_KEYS_RK4.reduce((obj, task) => ({ ...obj, [task]: false }), {});
+            defaults.overall_progress = 0;
+            defaults.user_quiz_answers = {};
+            defaults.quiz_current_score = 0;
+            defaults.quiz_feedback_active = false;
+            try {
+                const stored = localStorage.getItem(PAGE_KEY_RK4);
+                if (stored) return { ...defaults, ...JSON.parse(stored) };
+            } catch (e) { console.error("Error reading localStorage for RK4:", e); }
+            return defaults;
+        }
+
+        function savePageProgressToStorage_RK4(progress) {
+            try {
+                localStorage.setItem(PAGE_KEY_RK4, JSON.stringify(progress));
+            } catch (e) { console.error("Error saving to localStorage for RK4:", e); }
+        }
+
+        // --- Task Status Update Functions ---
+        function updateTaskStatusInStorage_RK4(taskName, isCompleted) {
+            let currentProgress = getPageProgressFromStorage_RK4();
+            if (currentProgress[taskName] !== isCompleted) {
+                currentProgress[taskName] = isCompleted;
+                if (taskName === TASKS_RK4.QUIZ_ATTEMPTED && !isCompleted) {
+                    currentProgress[TASKS_RK4.QUIZ_PASSED] = false;
+                    currentProgress.user_quiz_answers = {};
+                    currentProgress.quiz_current_score = 0;
+                    currentProgress.quiz_feedback_active = false;
+                }
+                if (taskName === TASKS_RK4.QUIZ_PASSED && isCompleted) {
+                     currentProgress[TASKS_RK4.QUIZ_ATTEMPTED] = true;
+                }
+                savePageProgressToStorage_RK4(currentProgress);
+                calculateAndUpdateOverallProgress_RK4();
+            }
+        }
+
+        function renderTaskStatus_RK4() {
+            const progress = getPageProgressFromStorage_RK4();
+            ALL_TASK_KEYS_RK4.forEach(taskKey => {
+                const iconElement = taskStatusIcons_RK4[taskKey];
+                if (iconElement) {
+                    let newIconHTML = ICON_PENDING_RK4;
+                    if (progress[taskKey]) {
+                        newIconHTML = ICON_COMPLETED_RK4;
+                    } else if (taskKey === TASKS_RK4.QUIZ_PASSED && progress[TASKS_RK4.QUIZ_ATTEMPTED]) {
+                        newIconHTML = ICON_IN_PROGRESS_RK4;
+                    }
+                    iconElement.innerHTML = newIconHTML;
+                }
+            });
+        }
+        
+        function calculateAndUpdateOverallProgress_RK4() {
+            let progress = getPageProgressFromStorage_RK4();
+            let completedTasks = ALL_TASK_KEYS_RK4.filter(taskKey => progress[taskKey]).length;
+            const percentage = TOTAL_TASKS_RK4 > 0 ? (completedTasks / TOTAL_TASKS_RK4) * 100 : 0;
+            progress.overall_progress = percentage;
+            savePageProgressToStorage_RK4(progress);
+
+            const roundedPercentage = percentage.toFixed(0);
+            const isHundredPercent = roundedPercentage === '100';
+
+            if (overallProgressBar_RK4) {
+                overallProgressBar_RK4.style.width = `${roundedPercentage}%`;
+                overallProgressBar_RK4.classList.toggle('animate-rainbow-border', isHundredPercent);
+                 if (!overallProgressBar_RK4.classList.contains('transition-all')) { 
+                    overallProgressBar_RK4.classList.add('transition-all', 'duration-500', 'ease-in-out');
+                }
+            }
+            if (overallProgressText_RK4) {
+                overallProgressText_RK4.textContent = `${roundedPercentage}%`;
+            }
+            
+            renderTaskStatus_RK4();
+            updateMainCompletionButtonState_RK4();
+        }
+        
+        // --- Main Completion Button Logic ---
+        function handleMarkAllMouseEnter_RK4() {
+             if (mainCompletionButton_RK4 && mainCompletionButton_RK4.dataset.isUndo === "true") {
+                mainCompletionButton_RK4.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+                mainCompletionButton_RK4.classList.add('bg-red-600', 'hover:bg-red-700'); // Changed from green-600
+            }
+        }
+        function handleMarkAllMouseLeave_RK4() {
+            if (mainCompletionButton_RK4 && mainCompletionButton_RK4.dataset.isUndo === "true") {
+                mainCompletionButton_RK4.classList.remove('bg-red-600', 'hover:bg-red-700'); // Changed from green-600
+                mainCompletionButton_RK4.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+            }
+        }
+
+        function updateMainCompletionButtonState_RK4() {
+            if (!mainCompletionButton_RK4) return;
+            const progress = getPageProgressFromStorage_RK4();
+            let allTasksEffectivelyCompleted = ALL_TASK_KEYS_RK4.every(task => progress[task]);
+            
+            mainCompletionButton_RK4.removeEventListener('mouseenter', handleMarkAllMouseEnter_RK4);
+            mainCompletionButton_RK4.removeEventListener('mouseleave', handleMarkAllMouseLeave_RK4);
+            mainCompletionButton_RK4.classList.remove('bg-custom-red', 'hover:bg-custom-red-darker', 'bg-yellow-500', 'hover:bg-yellow-600', 'bg-red-600', 'hover:bg-red-700');
+
+
+            if (allTasksEffectivelyCompleted) {
+                mainCompletionButton_RK4.textContent = 'Deshacer Completado';
+                mainCompletionButton_RK4.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+                mainCompletionButton_RK4.dataset.isUndo = "true";
+                mainCompletionButton_RK4.addEventListener('mouseenter', handleMarkAllMouseEnter_RK4);
+                mainCompletionButton_RK4.addEventListener('mouseleave', handleMarkAllMouseLeave_RK4);
+            } else {
+                mainCompletionButton_RK4.textContent = 'Marcar Todo Completado';
+                mainCompletionButton_RK4.classList.add('bg-custom-red', 'hover:bg-custom-red-darker'); // Themed red
+                mainCompletionButton_RK4.dataset.isUndo = "false";
+            }
+        }
+        
+        function handleCompletionToggle_RK4() {
+            if (!mainCompletionButton_RK4) return;
+            const progress = getPageProgressFromStorage_RK4();
+            let allCurrentlyCompleted = ALL_TASK_KEYS_RK4.every(taskKey => progress[taskKey]);
+            let markAllAs = !allCurrentlyCompleted;
+
+            ALL_TASK_KEYS_RK4.forEach(taskName => {
+                updateTaskStatusInStorage_RK4(taskName, markAllAs); 
+            });
+            
+            let updatedProgress = getPageProgressFromStorage_RK4(); 
+
+            if (markAllAs) {
+                updatedProgress[TASKS_RK4.QUIZ_ATTEMPTED] = true;
+                updatedProgress[TASKS_RK4.QUIZ_PASSED] = true;
+                
+                if (Object.keys(updatedProgress.user_quiz_answers).length === 0 || !updatedProgress.quiz_feedback_active) {
+                    updatedProgress.user_quiz_answers = {};
+                    quizDataRK4.forEach((qData, index) => {
+                        const questionName = `question-${index + 1}-rk4`;
+                        for (const optValueInMap in qData.options) {
+                            if (qData.options[optValueInMap] === true) {
+                                updatedProgress.user_quiz_answers[questionName] = optValueInMap;
+                                break;
+                            }
+                        }
+                    });
+                    updatedProgress.quiz_current_score = quizDataRK4.length;
+                }
+                updatedProgress.quiz_feedback_active = true; 
+                savePageProgressToStorage_RK4(updatedProgress);
+                if(quizForm_RK4) displayQuizFeedback_RK4();
+
+            } else {
+                updatedProgress.user_quiz_answers = {};
+                updatedProgress.quiz_current_score = 0;
+                updatedProgress.quiz_feedback_active = false; 
+                savePageProgressToStorage_RK4(updatedProgress);
+                
+                if (quizForm_RK4) {
+                    quizForm_RK4.reset();
+                    clearAllVisualFeedback_RK4(true);
+                    quizForm_RK4.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                    const submitButton = quizForm_RK4.querySelector('button[type="submit"]');
+                    if (submitButton) {
+                        submitButton.textContent = 'Enviar Respuestas';
+                        submitButton.disabled = false;
+                    }
+                    quizForm_RK4.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                         wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                    });
+                }
+                if (generalQuizFeedbackDiv_RK4) generalQuizFeedbackDiv_RK4.style.display = 'none';
+            }
+            calculateAndUpdateOverallProgress_RK4(); 
+            alert(markAllAs ? 'Todas las tareas marcadas como completadas.' : 'Se ha deshecho el completado de tareas.');
+        }
+
+        // --- Quiz Functionality ---
+        const quizDataRK4 = [
+            {
+                questionId: "question-1-rk4",
+                options: { "h": false, "h2": false, "h4": true },
+                specificFeedback: {
+                    "h": "Incorrecto. \\(O(h)\\) es el orden del error global para el Método de Euler.",
+                    "h2": "Incorrecto. \\(O(h^2)\\) es el orden del error global para métodos como Heun o Runge-Kutta de segundo orden.",
+                    "h4": "¡Correcto! El método RK4 tiene un error de truncamiento global de \\(O(h^4)\\) y un error local de \\(O(h^5)\\)."
+                }
+            },
+            {
+                questionId: "question-2-rk4",
+                options: { "una": false, "dos": false, "cuatro": true },
+                specificFeedback: {
+                    "una": "Incorrecto. El Método de Euler requiere una evaluación por paso.",
+                    "dos": "Incorrecto. Algunos métodos de Runge-Kutta de segundo orden (como Heun o el método del punto medio) requieren dos evaluaciones.",
+                    "cuatro": "¡Correcto! El método RK4 estándar requiere cuatro evaluaciones de \\(f(x,y)\\) para calcular \\(k_1, k_2, k_3, k_4\\)."
+                }
+            },
+            {
+                questionId: "question-3-rk4",
+                options: { "a1b1c2": false, "a2b2c6": true, "a2b2c4": false },
+                specificFeedback: {
+                    "a1b1c2": "Incorrecto. Revise los pesos de los \\(k_i\\) en la fórmula de RK4.",
+                    "a2b2c6": "¡Correcto! La fórmula es \\( y_{i+1} = y_i + \\frac{h}{6}(k_1 + 2k_2 + 2k_3 + k_4) \\). Así, A=2, B=2, C=6.",
+                    "a2b2c4": "Incorrecto. El denominador (C) es 6 en la fórmula estándar de RK4."
+                }
+            },
+            {
+                questionId: "question-4-rk4",
+                options: { "menor_precision_simple": false, "mayor_precision_mas_calculos": true, "precision_similar_mas_estable": false },
+                specificFeedback: {
+                    "menor_precision_simple": "Incorrecto. RK4 es más preciso que Euler, aunque Euler es más simple.",
+                    "mayor_precision_mas_calculos": "¡Correcto! RK4 ofrece significativamente mayor precisión que Euler, pero esto se logra a costa de más cálculos (cuatro evaluaciones de \\(f\\)) por paso.",
+                    "precision_similar_mas_estable": "Incorrecto. RK4 es mucho más preciso que Euler. Ambos son métodos explícitos con regiones de estabilidad, pero la mayor precisión de RK4 es su ventaja principal."
+                }
+            }
+        ];
+
+        function clearAllVisualFeedback_RK4(clearGeneralMessage = false) {
+            if (!quizForm_RK4) return;
+            quizForm_RK4.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                wrapper.classList.remove('correct-answer-rk4', 'incorrect-answer-rk4', 'border-green-500', 'border-red-500', 'ring-1', 'ring-green-500', 'ring-red-500', 'bg-green-50', 'bg-red-50'); // Note: bg-red-50 removed here as it is the theme's checked color
+                wrapper.classList.add('border-gray-300', 'hover:border-gray-400');
+                // Apply red theme to checked state
+                wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                const iconPlaceholder = wrapper.querySelector('.feedback-icon-placeholder span');
+                if (iconPlaceholder) iconPlaceholder.innerHTML = '';
+            });
+            quizForm_RK4.querySelectorAll('.specific-question-feedback').forEach(el => {
+                el.textContent = '';
+                el.style.display = 'none';
+                el.classList.remove('bg-green-50', 'text-green-700', 'border-green-200', 'bg-red-50', 'text-red-700', 'border-red-200');
+
+            });
+            if (clearGeneralMessage && generalQuizFeedbackDiv_RK4) {
+                generalQuizFeedbackDiv_RK4.textContent = '';
+                generalQuizFeedbackDiv_RK4.style.display = 'none';
+                generalQuizFeedbackDiv_RK4.className = 'quiz-feedback-message mt-4 p-3 rounded-md text-sm';
+            }
+        }
+
+        function displayQuizFeedback_RK4() {
+            if (!quizForm_RK4 || !generalQuizFeedbackDiv_RK4) return false;
+            const progress = getPageProgressFromStorage_RK4();
+            const userAnswers = progress.user_quiz_answers || {};
+            const submitButton = quizForm_RK4.querySelector('button[type="submit"]');
+
+            clearAllVisualFeedback_RK4(false); 
+
+            if (!progress.quiz_feedback_active && Object.keys(userAnswers).length === 0) {
+                quizForm_RK4.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                if (submitButton) {
+                    submitButton.textContent = 'Enviar Respuestas';
+                    submitButton.disabled = false;
+                }
+                return false;
+            }
+            
+            let score = 0;
+            let allCorrect = true;
+
+            quizDataRK4.forEach((qData, qIndex) => {
+                const questionName = `question-${qIndex + 1}-rk4`; 
+                const userAnswerValue = userAnswers[questionName]; 
+                const specificFeedbackDiv = document.getElementById(`${qData.questionId}-specific-feedback`);
+                
+                let questionCorrect = false;
+                if (userAnswerValue && qData.options[userAnswerValue] === true) {
+                    questionCorrect = true;
+                }
+
+                const radioInputsForQuestion = quizForm_RK4.querySelectorAll(`input[name="${questionName}"]`);
+                radioInputsForQuestion.forEach(radioInput => {
+                    const wrapper = radioInput.closest('.quiz-option-wrapper');
+                    const iconPlaceholder = wrapper.querySelector('.feedback-icon-placeholder span');
+                    radioInput.disabled = true; 
+                    wrapper.classList.remove('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                    
+                    const isThisOptionCorrect = qData.options[radioInput.value] === true;
+                    const isThisOptionSelectedByUser = radioInput.value === userAnswerValue;
+
+                    if (isThisOptionSelectedByUser) {
+                        radioInput.checked = true; 
+                        if (isThisOptionCorrect) {
+                            wrapper.classList.add('border-green-500', 'bg-green-50', 'ring-1', 'ring-green-500'); // Correct is green
+                            if (iconPlaceholder) iconPlaceholder.textContent = ICON_CORRECT_ANSWER_RK4;
+                        } else {
+                            wrapper.classList.add('border-red-500', 'bg-red-50', 'ring-1', 'ring-red-500'); // Incorrect is red (different from theme red)
+                            if (iconPlaceholder) iconPlaceholder.textContent = ICON_INCORRECT_ANSWER_RK4;
+                        }
+                        if (specificFeedbackDiv && qData.specificFeedback && qData.specificFeedback[radioInput.value]) {
+                            specificFeedbackDiv.innerHTML = qData.specificFeedback[radioInput.value]; 
+                            specificFeedbackDiv.className = 'specific-question-feedback mt-2 p-2.5 text-xs rounded-md'; 
+                            specificFeedbackDiv.classList.add(isThisOptionCorrect ? 'bg-green-50' : 'bg-red-50', isThisOptionCorrect ? 'text-green-700' : 'text-red-700', 'border', isThisOptionCorrect ? 'border-green-200' : 'border-red-200');
+                            specificFeedbackDiv.style.display = 'block';
+                        }
+                    } else { 
+                        if (isThisOptionCorrect) { 
+                            wrapper.classList.add('border-green-500', 'bg-green-50'); // Show correct if user missed
+                            let userGotThisQuestionWrong = userAnswerValue === undefined || qData.options[userAnswerValue] === false;
+                            if (userGotThisQuestionWrong && iconPlaceholder) { 
+                                iconPlaceholder.textContent = ICON_THUMB_UP_RK4; 
+                            }
+                        } else {
+                             wrapper.classList.add('border-gray-300'); 
+                        }
+                    }
+                });
+            });
+            
+            score = 0;
+            allCorrect = true;
+            quizDataRK4.forEach((qData, qIndex) => {
+                const questionName = `question-${qIndex + 1}-rk4`;
+                const userAnswer = userAnswers[questionName];
+                if (userAnswer && qData.options[userAnswer] === true) {
+                    score++;
+                } else {
+                    allCorrect = false;
+                }
+            });
+
+            progress.quiz_current_score = score;
+            progress.quiz_passed = allCorrect;
+            savePageProgressToStorage_RK4(progress);
+
+            generalQuizFeedbackDiv_RK4.style.display = 'block';
+            if (allCorrect) {
+                generalQuizFeedbackDiv_RK4.className = 'quiz-feedback-message mt-4 p-3 rounded-md text-sm bg-green-100 text-green-700 border border-green-300';
+                generalQuizFeedbackDiv_RK4.innerHTML = `<strong>¡Felicidades!</strong> Todas tus respuestas son correctas. (${score}/${quizDataRK4.length})`;
+                if (submitButton) {
+                    submitButton.textContent = 'Cuestionario Aprobado';
+                    submitButton.disabled = true;
+                }
+            } else {
+                generalQuizFeedbackDiv_RK4.className = 'quiz-feedback-message mt-4 p-3 rounded-md text-sm bg-red-100 text-red-700 border border-red-300'; // General feedback for incorrect is red
+                generalQuizFeedbackDiv_RK4.innerHTML = `Has respondido correctamente ${score} de ${quizDataRK4.length} preguntas. Revisa los comentarios e intenta de nuevo.`;
+                if (submitButton) {
+                    submitButton.textContent = 'Intentar de Nuevo';
+                    submitButton.disabled = false; 
+                }
+            }
+            
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                 const elementsToTypeSet = [generalQuizFeedbackDiv_RK4, ...document.querySelectorAll('.specific-question-feedback')];
+                 window.MathJax.typesetPromise(elementsToTypeSet.filter(el => el.style.display !== 'none'))
+                     .catch(err => console.error("MathJax typesetting error in displayQuizFeedback_RK4:", err));
+            }
+            return allCorrect;
+        }
+
+        function handleQuizSubmit_RK4(event) {
+            event.preventDefault();
+            if (!quizForm_RK4 || !generalQuizFeedbackDiv_RK4) return;
+
+            const submitButton = quizForm_RK4.querySelector('button[type="submit"]');
+
+            if (submitButton && submitButton.textContent === 'Intentar de Nuevo') {
+                quizForm_RK4.reset();
+                clearAllVisualFeedback_RK4(true);
+                if(generalQuizFeedbackDiv_RK4) generalQuizFeedbackDiv_RK4.style.display = 'none';
+                
+                let progressToSave = getPageProgressFromStorage_RK4();
+                progressToSave.user_quiz_answers = {};
+                progressToSave.quiz_current_score = 0;
+                progressToSave.quiz_feedback_active = false; 
+                savePageProgressToStorage_RK4(progressToSave);
+                
+                updateTaskStatusInStorage_RK4(TASKS_RK4.QUIZ_PASSED, false); 
+                
+                quizForm_RK4.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                submitButton.textContent = 'Enviar Respuestas';
+                return;
+            }
+
+            const formData = new FormData(quizForm_RK4);
+            let allQuestionsAnswered = true;
+            quizDataRK4.forEach((qData, qIndex) => {
+                const questionName = `question-${qIndex + 1}-rk4`;
+                if (!formData.has(questionName)) {
+                    allQuestionsAnswered = false;
+                }
+            });
+
+            if (!allQuestionsAnswered) {
+                generalQuizFeedbackDiv_RK4.textContent = "Por favor, responde todas las preguntas.";
+                generalQuizFeedbackDiv_RK4.className = 'quiz-feedback-message mt-4 p-3 rounded-md text-sm bg-yellow-100 text-yellow-700 border border-yellow-300';
+                generalQuizFeedbackDiv_RK4.style.display = 'block';
+                return;
+            }
+            
+            updateTaskStatusInStorage_RK4(TASKS_RK4.QUIZ_ATTEMPTED, true);
+            
+            let progress = getPageProgressFromStorage_RK4();
+            progress.user_quiz_answers = {};
+            quizDataRK4.forEach((qData, qIndex) => {
+                 const questionName = `question-${qIndex + 1}-rk4`;
+                 progress.user_quiz_answers[questionName] = formData.get(questionName);
+            });
+            progress.quiz_feedback_active = true; 
+            
+            let score = 0;
+            quizDataRK4.forEach((qData, qIndex) => {
+                const questionName = `question-${qIndex + 1}-rk4`;
+                const userAnswer = progress.user_quiz_answers[questionName];
+                if (userAnswer && qData.options[userAnswer] === true) {
+                    score++;
+                }
+            });
+            const passed = score === quizDataRK4.length;
+            
+            savePageProgressToStorage_RK4(progress); 
+            displayQuizFeedback_RK4();
+            updateTaskStatusInStorage_RK4(TASKS_RK4.QUIZ_PASSED, passed); 
+        }
+
+        // --- Scroll and Theory Reading Detection ---
+        setTimeout(() => {
+            const currentProgress = getPageProgressFromStorage_RK4();
+            if (!currentProgress[TASKS_RK4.READ_THEORY]) {
+                const theorySection = document.getElementById('ejemplo-rk4'); 
+                if (theorySection) {
+                    const observer = new IntersectionObserver((entries) => {
+                        if (entries[0].isIntersecting) {
+                            updateTaskStatusInStorage_RK4(TASKS_RK4.READ_THEORY, true);
+                            observer.disconnect();
+                        }
+                    }, { threshold: 0.1 });
+                    observer.observe(theorySection);
+                }
+            }
+        }, 2000);
+
+        // --- Pyodide Initialization and Code Execution ---
+        async function setupPyodide_RK4() {
+            if (!pyodide_RK4) {
+                if (codeOutput_RK4) codeOutput_RK4.innerHTML = "<p>Cargando Pyodide y entorno...</p>";
+                try {
+                    pyodide_RK4 = await loadPyodide();
+                    await pyodide_RK4.loadPackage("micropip");
+                    pyodide_RK4.globals.set("js_iteration_data_rk4", pyodide_RK4.globals.get("dict")());
+                    pyodide_RK4.globals.set("pyodide_html_output", "");
+
+                    if (codeOutput_RK4) codeOutput_RK4.innerHTML = "<p>Pyodide listo. Presiona 'Ejecutar Código'.</p>";
+                    if (runCodeButton_RK4) runCodeButton_RK4.disabled = false;
+                } catch (error) {
+                    console.error("Error al inicializar Pyodide (RK4):", error);
+                    if (codeOutput_RK4) codeOutput_RK4.innerHTML = "<p>Error al cargar Pyodide. Revisa la consola.</p>";
+                    if (runCodeButton_RK4) runCodeButton_RK4.disabled = true;
+                }
+            }
+        }
+
+        async function runCodeNow_RK4() {
+            if (!pyodide_RK4) {
+                if (codeOutput_RK4) codeOutput_RK4.innerHTML = "<p>Pyodide no está listo. Espera...</p>";
+                await setupPyodide_RK4();
+                if (!pyodide_RK4) return;
+            }
+
+            if (codeOutput_RK4) codeOutput_RK4.innerHTML = "<p>Ejecutando código...</p>";
+            if (chartLoadingMessage_RK4) chartLoadingMessage_RK4.textContent = "Generando datos para la gráfica...";
+            if (rk4MethodChartCanvas_RK4) rk4MethodChartCanvas_RK4.style.display = 'none';
+
+            pyodide_RK4.setStdout({}); 
+            pyodide_RK4.setStderr({});
+            pyodide_RK4.globals.set("pyodide_html_output", "");
+            pyodide_RK4.globals.set("js_iteration_data_rk4", pyodide_RK4.globals.get("dict")());
+
+            try {
+                const pythonCode = codeInput_RK4 ? codeInput_RK4.value : '';
+                await pyodide_RK4.runPythonAsync(pythonCode);
+                
+                const htmlResult = pyodide_RK4.globals.get("pyodide_html_output");
+                if (codeOutput_RK4) {
+                    codeOutput_RK4.innerHTML = htmlResult || "<p>Ejecución completada. No se generó salida HTML.</p>";
+                }
+                
+                const iterationDataPyProxy = pyodide_RK4.globals.get("js_iteration_data_rk4");
+                const iterationDataJS = iterationDataPyProxy ? iterationDataPyProxy.toJs({ dict_converter: Object.fromEntries }) : null;
+                
+                if (iterationDataJS && iterationDataJS.x_values && iterationDataJS.x_values.length > 0) {
+                    updateChart_RK4(iterationDataJS);
+                    if (chartLoadingMessage_RK4) chartLoadingMessage_RK4.style.display = 'none';
+                    if (rk4MethodChartCanvas_RK4) rk4MethodChartCanvas_RK4.style.display = 'block';
+                } else {
+                    if (chartLoadingMessage_RK4) {
+                        chartLoadingMessage_RK4.textContent = "No se generaron datos para la gráfica o la variable 'js_iteration_data_rk4' no se pobló correctamente.";
+                        chartLoadingMessage_RK4.style.display = 'block';
+                    }
+                    if (rk4Chart_RK4) rk4Chart_RK4.destroy();
+                }
+                updateTaskStatusInStorage_RK4(TASKS_RK4.RUN_CODE, true);
+            } catch (error) {
+                console.error("Error al ejecutar el código Python (RK4):", error);
+                if (codeOutput_RK4) {
+                    codeOutput_RK4.innerHTML = `<p>Error en la ejecución: ${error.toString().replace(/\n/g, '<br>')}</p>`;
+                }
+                if (chartLoadingMessage_RK4) chartLoadingMessage_RK4.textContent = "Error al generar datos para la gráfica.";
+            }
+        }
+
+        // --- Chart.js Integration for RK4 ---
+        function updateChart_RK4(iterationData) {
+            if (!rk4MethodChartCanvas_RK4) return;
+            const ctx = rk4MethodChartCanvas_RK4.getContext('2d');
+            if (rk4Chart_RK4) rk4Chart_RK4.destroy();
+
+            if (!iterationData || !iterationData.x_values || iterationData.x_values.length === 0) {
+                if (chartLoadingMessage_RK4) {
+                    chartLoadingMessage_RK4.textContent = "No hay suficientes datos para graficar.";
+                    chartLoadingMessage_RK4.style.display = 'block';
+                } return;
+            }
+
+            const datasets = [];
+            const themeRedColor = 'rgba(233, 69, 96, 1)'; // custom-red from Tailwind config
+            const themeRedBgColor = 'rgba(233, 69, 96, 0.7)';
+
+            // RK4 approximated solution
+            datasets.push({
+                label: `RK4 (h=${iterationData.h})`,
+                data: iterationData.x_values.map((x, i) => ({ x: x, y: iterationData.y_values[i] })),
+                borderColor: themeRedColor, 
+                backgroundColor: themeRedBgColor,
+                fill: false,
+                tension: 0.1, 
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                showLine: true, 
+                type: 'line' 
+            });
+
+            // Analytical solution if available
+            if (iterationData.y_analytical_values && iterationData.y_analytical_values.length > 0) {
+                 datasets.push({
+                    label: `Analítica (${iterationData.f_analytical_str || 'y(x)'})`,
+                    data: iterationData.x_values.map((x, i) => ({ x: x, y: iterationData.y_analytical_values[i] })),
+                    borderColor: 'rgba(22, 163, 74, 1)', // green-600 for contrast with red
+                    borderDash: [5, 5], 
+                    fill: false,
+                    tension: 0.1,
+                    pointRadius: 0, 
+                    showLine: true,
+                    type: 'line'
+                });
+            }
+            
+            rk4Chart_RK4 = new Chart(ctx, {
+                data: { datasets: datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: { display: true, text: `Método RK4: ${iterationData.f_edo_str || 'dy/dx = f(x,y)'}`, font: { size: 16 } },
+                        legend: { position: 'top' },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => {
+                                    let label = context.dataset.label || '';
+                                    if (label) label += ': ';
+                                    label += `(x: ${context.parsed.x.toFixed(4)}, y: ${context.parsed.y.toFixed(7)})`;
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { type: 'linear', position: 'bottom', title: { display: true, text: 'x' } },
+                        y: { type: 'linear', position: 'left', title: { display: true, text: 'y(x)' }, 
+                             grid: { drawOnChartArea: true, zeroLineColor: 'rgba(0,0,0,1)', zeroLineWidth: 1 }
+                        }
+                    },
+                    interaction: {
+                        mode: 'index', 
+                        intersect: false,
+                    },
+                }
+            });
+            if (chartLoadingMessage_RK4) chartLoadingMessage_RK4.style.display = 'none';
+        }
+
+
+        // --- Fullscreen and Font Controls for Code Output ---
+        function toggleFullscreen_RK4() {
+            if (!codeOutput_RK4 || !fullscreenButton_RK4 || !outputControlsContainer_RK4) return;
+            const isFullscreen = codeOutput_RK4.classList.contains('rk4-output-fullscreen');
+            if (isFullscreen) { 
+                outputControlsContainer_RK4.style.opacity = '0'; 
+                if(decreaseFontButton_RK4) decreaseFontButton_RK4.style.display = 'none';
+                if(increaseFontButton_RK4) increaseFontButton_RK4.style.display = 'none';
+                if (rk4CodeOutputInitialRect_RK4) {
+                    const finalRect = codeOutput_RK4.getBoundingClientRect();
+                    const scaleX = rk4CodeOutputInitialRect_RK4.width / finalRect.width;
+                    const scaleY = rk4CodeOutputInitialRect_RK4.height / finalRect.height;
+                    const deltaX = (rk4CodeOutputInitialRect_RK4.left + rk4CodeOutputInitialRect_RK4.width / 2) - (finalRect.left + finalRect.width / 2);
+                    const deltaY = (rk4CodeOutputInitialRect_RK4.top + rk4CodeOutputInitialRect_RK4.height / 2) - (finalRect.top + finalRect.height / 2);
+                    codeOutput_RK4.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+                }
+                setTimeout(() => {
+                    codeOutput_RK4.style.transition = 'none';
+                    codeOutput_RK4.classList.remove('rk4-output-fullscreen');
+                    document.body.classList.remove('rk4-body-fullscreen-active');
+                    outputControlsContainer_RK4.classList.remove('rk4-output-controls-container-fixed');
+                    outputControlsContainer_RK4.style.transition = 'none'; outputControlsContainer_RK4.style.opacity = '1';
+                    outputControlsContainer_RK4.offsetHeight; outputControlsContainer_RK4.style.transition = '';
+                    codeOutput_RK4.style.transform = ''; if (originalOutputFontSize_RK4) codeOutput_RK4.style.fontSize = originalOutputFontSize_RK4;
+                    codeOutput_RK4.offsetHeight; codeOutput_RK4.style.transition = '';
+                    fullscreenButton_RK4.innerHTML = svgIconFullscreen_RK4; fullscreenButton_RK4.title = "Ver en pantalla completa";
+                    rk4CodeOutputInitialRect_RK4 = null;
+                }, 500);
+            } else { 
+                originalOutputFontSize_RK4 = window.getComputedStyle(codeOutput_RK4).fontSize;
+                rk4CodeOutputInitialRect_RK4 = codeOutput_RK4.getBoundingClientRect();
+                outputControlsContainer_RK4.style.transition = 'none'; outputControlsContainer_RK4.style.opacity = '0';
+                outputControlsContainer_RK4.offsetHeight; outputControlsContainer_RK4.style.transition = '';
+                if(decreaseFontButton_RK4) decreaseFontButton_RK4.style.display = 'none'; if(increaseFontButton_RK4) increaseFontButton_RK4.style.display = 'none';
+                codeOutput_RK4.style.transition = 'none'; codeOutput_RK4.classList.add('rk4-output-fullscreen');
+                document.body.classList.add('rk4-body-fullscreen-active'); outputControlsContainer_RK4.classList.add('rk4-output-controls-container-fixed');
+                const finalRect = codeOutput_RK4.getBoundingClientRect();
+                const scaleX = rk4CodeOutputInitialRect_RK4.width / finalRect.width; const scaleY = rk4CodeOutputInitialRect_RK4.height / finalRect.height;
+                const deltaX = (rk4CodeOutputInitialRect_RK4.left + rk4CodeOutputInitialRect_RK4.width / 2) - (finalRect.left + finalRect.width / 2);
+                const deltaY = (rk4CodeOutputInitialRect_RK4.top + rk4CodeOutputInitialRect_RK4.height / 2) - (finalRect.top + finalRect.height / 2);
+                codeOutput_RK4.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+                codeOutput_RK4.offsetHeight; codeOutput_RK4.style.transition = ''; codeOutput_RK4.style.transform = 'translate(0px, 0px) scale(1)';
+                fullscreenButton_RK4.innerHTML = svgIconExitFullscreen_RK4; fullscreenButton_RK4.title = "Salir de pantalla completa";
+                setTimeout(() => {
+                    outputControlsContainer_RK4.style.opacity = '1';
+                    if(decreaseFontButton_RK4) decreaseFontButton_RK4.style.display = 'flex'; if(increaseFontButton_RK4) increaseFontButton_RK4.style.display = 'flex';
+                }, 500);
+            }
+        }
+        function changeFontSize_RK4(increase) {
+            if (!codeOutput_RK4) return; const minSize = 8; const maxSize = 24; const step = 1;
+            rk4CurrentFontSize_RK4 += (increase ? step : -step);
+            rk4CurrentFontSize_RK4 = Math.max(minSize, Math.min(maxSize, rk4CurrentFontSize_RK4));
+            codeOutput_RK4.style.fontSize = rk4CurrentFontSize_RK4 + 'px';
+            const buttonToAnimate = increase ? increaseFontButton_RK4 : decreaseFontButton_RK4;
+            const animationClass = increase ? 'font-button-flash-blue' : 'font-button-flash-red'; 
+            if (buttonToAnimate) {
+                buttonToAnimate.classList.remove('font-button-flash-blue', 'font-button-flash-red');
+                void buttonToAnimate.offsetWidth; buttonToAnimate.classList.add(animationClass);
+                setTimeout(() => buttonToAnimate.classList.remove(animationClass), 400);
+            }
+        }
+
+        // --- Event Listeners ---
+        if (runCodeButton_RK4) {
+            runCodeButton_RK4.addEventListener('click', runCodeNow_RK4);
+            runCodeButton_RK4.disabled = true;
+        }
+        if (quizForm_RK4) {
+            quizForm_RK4.addEventListener('submit', handleQuizSubmit_RK4);
+        }
+        if (fullscreenButton_RK4) {
+            fullscreenButton_RK4.addEventListener('click', toggleFullscreen_RK4);
+        }
+        if (decreaseFontButton_RK4) {
+            decreaseFontButton_RK4.addEventListener('click', () => changeFontSize_RK4(false));
+        }
+        if (increaseFontButton_RK4) {
+            increaseFontButton_RK4.addEventListener('click', () => changeFontSize_RK4(true));
+        }
+        if (mainCompletionButton_RK4) {
+            mainCompletionButton_RK4.addEventListener('click', handleCompletionToggle_RK4);
+        }
+
+        // --- Initial Setup Calls ---
+        setupPyodide_RK4();
+
+        const initialProgress_RK4 = getPageProgressFromStorage_RK4();
+        if (initialProgress_RK4.quiz_feedback_active || (initialProgress_RK4[TASKS_RK4.QUIZ_ATTEMPTED] && Object.keys(initialProgress_RK4.user_quiz_answers).length > 0) ) {
+            if (quizForm_RK4 && initialProgress_RK4.user_quiz_answers) {
+                 for (const qName in initialProgress_RK4.user_quiz_answers) {
+                    const userAnswer = initialProgress_RK4.user_quiz_answers[qName];
+                    if (userAnswer === null) continue;
+                    try {
+                        const radioToSelect = quizForm_RK4.querySelector(`input[name="${qName}"][value="${CSS.escape(userAnswer)}"]`);
+                        if (radioToSelect) radioToSelect.checked = true;
+                    } catch (e) { console.warn(`Error selecting radio for ${qName} with value ${userAnswer}:`, e); }
+                }
+            }
+            displayQuizFeedback_RK4();
+        } else if (quizForm_RK4) {
+            quizForm_RK4.reset();
+            clearAllVisualFeedback_RK4(true);
+            const submitButton = quizForm_RK4.querySelector('button[type="submit"]');
+            if (submitButton) { submitButton.textContent = 'Enviar Respuestas'; submitButton.disabled = false; }
+            quizForm_RK4.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+            quizForm_RK4.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+            });
+        }
+        
+        calculateAndUpdateOverallProgress_RK4();
+
+        if (window.MathJax && window.MathJax.typesetPromise) {
+            window.MathJax.typesetPromise().catch(err => console.error("MathJax initial typesetting error (RK4):", err));
+        }
+    });
+    </script>
+
+    <script type="module">
+        const { createApp, ref, onMounted, onUnmounted, watch, nextTick } = Vue;
+
+        const LeftSidebar = {
+            props: {
+                pageThemeColor: { type: String, default: 'custom-red' }, 
+                pageActiveTextColor: { type: String, default: 'custom-red' } 
+            },
+            template: `{% raw %}
+                <aside 
+                    :class="[
+                        'bg-gradient-to-b from-red-500 to-red-700', 'shadow-xl', 'rounded-lg', 'p-4',
+                        'flex', 'flex-col',
+                        'transition-all', 'duration-300', 'ease-in-out',
+                        'order-1', 
+                        isCollapsed ? 'w-full lg:w-20' : 'w-full lg:w-64',
+                        'self-start', 
+                        'lg:sticky', 'lg:top-8', 
+                        'lg:max-h-[calc(100vh-4rem)]', 
+                        'overflow-y-auto'
+                    ]"
+                    aria-label="Sidebar de navegación del método">
+                    <div :class="['flex justify-between items-center mb-4 pb-3', 'border-b border-' + pageThemeColor.split('-')[1] + '-400']">
+                        <h3 v-show="!isCollapsed" class="text-lg font-semibold text-white select-none">Contenido del Método</h3>
+                        <button @click="toggleCollapse" :class="['p-1.5 ml-2 text-white rounded focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-75', 'hover:bg-' + pageThemeColor.split('-')[1] + '-700']" :aria-label="isCollapsed ? 'Expandir menú' : 'Colapsar menú'">
+                            <svg v-if="!isCollapsed" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5" />
+                            </svg>
+                            <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5m-6-15l7.5 7.5-7.5 7.5" />
+                            </svg>
+                        </button>
+                    </div>
+                    <nav v-show="!isCollapsed">
+                        <ul class="space-y-1">
+                            <li v-for="item in navItems" :key="item.id">
+                                <a :href="item.href"
+                                   @click.prevent="smoothScroll(item.href)"
+                                   :class="[
+                                       'nav-link block px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 flex items-center',
+                                       isActive(item.id) ? 'bg-white font-semibold shadow-sm text-' + pageActiveTextColor : 'text-red-100 hover:text-white hover:bg-' + pageThemeColor.split('-')[1] + '-700'
+                                   ]">
+                                    <span v-html="item.iconSVG" class="mr-3 translate-y-px"></span>
+                                    <span>{{ item.text }}</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                    <nav v-show="isCollapsed" class="mt-4">
+                         <ul class="space-y-1">
+                            <li v-for="item in navItems" :key="item.id + '-collapsed'">
+                                <a :href="item.href"
+                                   @click.prevent="smoothScroll(item.href)"
+                                   :title="item.text"
+                                   :aria-label="item.text"
+                                   :class="[
+                                       'nav-link-collapsed block py-2 pl-2.5 pr-1.5 rounded-md transition-colors duration-150 flex justify-center items-center',
+                                       isActive(item.id) ? 'bg-white shadow-sm text-' + pageActiveTextColor : 'text-red-100 hover:text-white hover:bg-' + pageThemeColor.split('-')[1] + '-700'
+                                   ]">
+                                    <span v-html="item.iconSVG" class="w-6 h-6 translate-y-px"></span>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                </aside>
+            {% endraw %}`,
+            setup(props) {
+                const isCollapsed = ref(false);
+                const activeSectionId = ref(null);
+                const navItems = ref([ 
+                    { id: 'teoria-rk4', text: 'Fundamento Teórico', href: '#teoria-rk4', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>' },
+                    { id: 'algoritmo-rk4', text: 'Pasos del Algoritmo', href: '#algoritmo-rk4', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" /></svg>' },
+                    { id: 'ejemplo-rk4', text: 'Ejemplo Detallado', href: '#ejemplo-rk4', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>' },
+                    { id: 'codigo-rk4', text: 'Implementación (Python)', href: '#codigo-rk4', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" /></svg>' },
+                    { id: 'graficas-rk4', text: 'Gráficas Interactivas', href: '#graficas-rk4', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>' },
+                    { id: 'videos-rk4', text: 'Videos Explicativos', href: '#videos-rk4', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.75.75 0 010 1.656l-5.603 3.113A.75.75 0 019 15.95V9.05a.75.75 0 011.307-.588l5.603 3.112z" /></svg>' },
+                    { id: 'conclusion-rk4', text: 'Conclusión', href: '#conclusion-rk4', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' },
+                    { id: 'referencias-rk4', text: 'Referencias', href: '#referencias-rk4', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 3.75V16.5L12 14.25L7.5 16.5V3.75m9 0H18A2.25 2.25 0 0120.25 6v12A2.25 2.25 0 0118 20.25H6A2.25 2.25 0 013.75 18V6A2.25 2.25 0 016 3.75h1.5m9 0h-9" /></svg>' },
+                    { id: 'cuestionario-rk4', text: 'Cuestionario', href: '#cuestionario-rk4', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' }
+                ]);
+                let sections = [];
+
+                const toggleCollapse = () => { isCollapsed.value = !isCollapsed.value; };
+                const isActive = (id) => activeSectionId.value === id;
+                const smoothScroll = (targetHref) => {
+                    const targetId = targetHref.substring(1);
+                    const targetElement = document.getElementById(targetId);
+                    if (targetElement) {
+                        targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }
+                };
+                const handleScroll = () => {
+                    if (!sections || sections.length === 0) return;
+                    const scrollMarginTopValue = parseInt(getComputedStyle(sections[0]).scrollMarginTop) || 96;
+                    let newActiveSectionId = null;
+                    for (let i = 0; i < sections.length; i++) {
+                        const section = sections[i];
+                        const sectionTopBoundary = section.offsetTop - scrollMarginTopValue;
+                        const sectionBottomBoundary = sectionTopBoundary + section.offsetHeight;
+                        if (window.scrollY >= sectionTopBoundary && window.scrollY < sectionBottomBoundary) {
+                            newActiveSectionId = section.id; break;
+                        }
+                    }
+                    if (newActiveSectionId === null && sections.length > 0) {
+                        for (let i = sections.length - 1; i >= 0; i--) {
+                            if ((sections[i].offsetTop - scrollMarginTopValue) <= window.scrollY + 5) {
+                                newActiveSectionId = sections[i].id; break;
+                            }
+                        }
+                    }
+                     if (newActiveSectionId === null && sections.length > 0 && window.scrollY < (sections[0].offsetTop - scrollMarginTopValue)) {
+                        newActiveSectionId = sections[0].id;
+                     }
+                    if (activeSectionId.value !== newActiveSectionId) activeSectionId.value = newActiveSectionId;
+                };
+
+                onMounted(() => {
+                    nextTick(() => {
+                        sections = Array.from(document.querySelectorAll('main article section[id]'));
+                        handleScroll(); 
+                        window.addEventListener('scroll', handleScroll, { passive: true });
+                    });
+                });
+                onUnmounted(() => { window.removeEventListener('scroll', handleScroll); });
+
+                return { isCollapsed, toggleCollapse, navItems, isActive, smoothScroll, activeSectionId };
+            }
+        };
+
+        const app = createApp({
+            components: { LeftSidebar },
+            setup() {
+                onMounted(() => {
+                    if (window.MathJax && window.MathJax.typesetPromise) {
+                        nextTick(() => {
+                            window.MathJax.typesetPromise().catch(err => console.error("MathJax typesetting error on Vue app mount:", err));
+                        });
+                    }
+                });
+                return {};
+            }
+        });
+        app.config.compilerOptions.isCustomElement = tag => tag.startsWith('mjx-');
+        app.mount('#app');
+    </script>
+</body>
+</html>

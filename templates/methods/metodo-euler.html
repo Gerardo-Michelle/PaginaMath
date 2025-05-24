@@ -1,0 +1,1538 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Método de Euler - Métodos Numéricos</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'custom-blue': '#242A38', // Header original color
+                        'custom-red': '#E94560', // Main theme color for Euler (now red)
+                        'custom-red-darker': '#D43F56', // A slightly darker red for hovers if needed
+                        'custom-gray-bg': '#F3F4F6',
+                        'sidebar-text': '#4B5563', // General sidebar text
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Configuración de MathJax -->
+    <script>
+        window.MathJax = {
+            tex: {
+                packages: {'[+]': ['input/mml', 'output/chtml']}
+            },
+            chtml: {
+                matchFontHeight: false
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <!-- Pyodide y Chart.js -->
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        /* Rainbow border animation (can be shared) */
+        @keyframes animatedRainbowBorder {
+            0% { background-position: 0% center; }
+            100% { background-position: 200% center; }
+        }
+        .animate-rainbow-border::before {
+            content: ''; position: absolute; z-index: -1; top: -2px; left: -2px; right: -2px; bottom: -2px;
+            border-radius: 9999px; /* pill shape */
+            background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #007bff, #8a2be2, #ff00ff, #ff0000);
+            background-size: 200% 100%;
+            animation: animatedRainbowBorder 3s linear infinite;
+        }
+        .animate-rainbow-border { position: relative; z-index: 0; }
+
+        /* Styles for fullscreen code output - Euler */
+        .euler-output-fullscreen {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 9990 !important;
+            background-color: #111827 !important; /* bg-gray-900 */
+            padding: 20px !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+            overflow-y: auto !important;
+            max-height: 100vh !important;
+        }
+        .euler-body-fullscreen-active {
+            overflow: hidden !important;
+        }
+        .euler-output-controls-container-fixed {
+            position: fixed !important;
+            top: 15px !important;
+            right: 15px !important;
+            z-index: 9999 !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 0.25rem !important; /* space-x-1 */
+        }
+
+        /* Flash animations for font buttons - Euler */
+        .euler-font-button-flash-red {
+            animation: euler-flash-red 0.4s ease-out;
+        }
+        @keyframes euler-flash-red {
+            0% { background-color: #EF4444; } /* red-500 */
+            100% { background-color: #374151; } /* gray-700, original button color */
+        }
+        .euler-font-button-flash-blue {
+            animation: euler-flash-blue 0.4s ease-out;
+        }
+        @keyframes euler-flash-blue {
+            0% { background-color: #3B82F6; } /* blue-500 */
+            100% { background-color: #374151; } /* gray-700, original button color */
+        }
+        /* Tailwind CSS "has" polyfill for Firefox or older browsers if needed, but modern browsers support :has() */
+        .quiz-option-wrapper:has(input:checked) {
+            /* These styles will be applied via Tailwind's :has variant for better compatibility */
+        }
+    </style>
+</head>
+<body class="bg-custom-gray-bg text-gray-700 font-sans antialiased">
+    <div id="app">
+        <header class="bg-custom-blue text-white shadow-md">
+            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                <h1 class="text-xl font-semibold"><a href="../index.html" class="hover:text-gray-300">Métodos Numéricos</a></h1>
+                <nav><a href="../index.html#method-cards-container" class="text-sm px-4 py-2 rounded-md hover:bg-gray-700 transition-colors duration-150">Volver a Métodos</a></nav>
+            </div>
+        </header>
+
+        <div class="container mx-auto mt-8 mb-8 flex flex-col lg:flex-row lg:space-x-8 px-4">
+            <left-sidebar page-theme-color="custom-red" page-active-text-color="custom-red"></left-sidebar>
+
+            <main class="w-full flex-1 min-w-0 bg-white shadow-xl rounded-lg p-6 md:p-8 order-2 mb-6 lg:mb-0">
+                <article class="method-content">
+                    <h2 class="text-3xl font-bold mb-6 text-gray-800 border-b border-gray-200 pb-4">Método de Euler</h2>
+
+                    <section id="teoria" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Fundamento Teórico</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            El Método de Euler es un procedimiento numérico de primer orden para resolver ecuaciones diferenciales ordinarias (EDOs) con un valor inicial dado. Es el método explícito más básico para la integración numérica de EDOs. La idea es aproximar la solución de la EDO encontrando una secuencia de puntos \( (x_i, y_i) \) donde \( y_i \) es una aproximación de \( y(x_i) \).
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">Dada una EDO de la forma:</p>
+                        <p class="text-gray-600 leading-relaxed mb-4" style="text-align:center;"><em>\[ \frac{dy}{dx} = f(x, y) \]</em></p>
+                        <p class="text-gray-600 leading-relaxed mb-4">con una condición inicial:</p>
+                        <p class="text-gray-600 leading-relaxed mb-4" style="text-align:center;"><em>\[ y(x_0) = y_0 \]</em></p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            El método de Euler utiliza la aproximación de la derivada por diferencias finitas hacia adelante:
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4" style="text-align:center;"><em>\[ \frac{y(x_{i+1}) - y(x_i)}{h} \approx f(x_i, y(x_i)) \]</em></p>
+                        <p class="text-gray-600 leading-relaxed mb-4">donde \( h \) es el tamaño del paso (\( h = x_{i+1} - x_i \)).</p>
+                        <p class="text-gray-600 leading-relaxed mb-4">Despejando \( y(x_{i+1}) \), obtenemos la fórmula recursiva del Método de Euler:</p>
+                        <p class="text-gray-600 leading-relaxed mb-4" style="text-align:center;"><em>\[ y_{i+1} = y_i + h \cdot f(x_i, y_i) \]</em></p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Comenzando con \( (x_0, y_0) \), podemos generar una secuencia de aproximaciones \( y_1, y_2, \ldots, y_n \) en los puntos \( x_1, x_2, \ldots, x_n \), donde \( x_i = x_0 + i \cdot h \).
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            El error de truncamiento local del método de Euler es proporcional al cuadrado del tamaño del paso (\( O(h^2) \)), y el error de truncamiento global es proporcional al tamaño del paso (\( O(h) \)). Esto significa que para obtener una buena precisión, se requiere un tamaño de paso \( h \) muy pequeño, lo que puede hacer el método computacionalmente costoso.
+                        </p>
+                    </section>
+
+                    <section id="algoritmo" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Pasos del Algoritmo</h3>
+                        <ol class="list-decimal list-inside space-y-3 pl-4 text-gray-600 leading-relaxed">
+                            <li>Definir la función \( f(x, y) \) que representa la EDO (\( dy/dx = f(x,y) \)).</li>
+                            <li>Especificar la condición inicial \( (x_0, y_0) \).</li>
+                            <li>Definir el punto \( x_f \) hasta el cual se desea encontrar la solución.</li>
+                            <li>Elegir el número de pasos \( N \) o el tamaño del paso \( h \). Si se elige \( N \), entonces \( h = (x_f - x_0) / N \). Si se elige \( h \), entonces \( N = (x_f - x_0) / h \).</li>
+                            <li>Inicializar \( x = x_0 \) e \( y = y_0 \).</li>
+                            <li>Para \( i \) desde 0 hasta \( N-1 \):
+                                <ol type="a" class="list-[lower-alpha] list-inside space-y-1 pl-6 mt-2">
+                                    <li>Calcular la pendiente: \( \text{pendiente} = f(x_i, y_i) \).</li>
+                                    <li>Calcular el siguiente valor de \( y \): \( y_{i+1} = y_i + h \cdot \text{pendiente} \).</li>
+                                    <li>Actualizar \( x \): \( x_{i+1} = x_i + h \).</li>
+                                    <li>Guardar o imprimir \( (x_{i+1}, y_{i+1}) \).</li>
+                                </ol>
+                            </li>
+                            <li>El valor \( y_N \) es la aproximación de \( y(x_f) \).</li>
+                        </ol>
+                    </section>
+
+                    <section id="ejemplo" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Ejemplo Paso a Paso</h3>
+                        <p class="text-gray-600 leading-relaxed mb-3">Resolver la EDO \( \frac{dy}{dx} = x + y \) con la condición inicial \( y(0) = 1 \). Encontrar \( y(0.4) \) usando el método de Euler con \( h = 0.1 \).</p>
+                        <p class="text-gray-600 leading-relaxed mb-3">Aquí, \( f(x, y) = x + y \), \( x_0 = 0 \), \( y_0 = 1 \), \( h = 0.1 \).</p>
+                        <p class="text-gray-600 leading-relaxed mb-3">Queremos encontrar \( y \) hasta \( x = 0.4 \), lo que significa 4 pasos.</p>
+
+                        <div class="space-y-4 text-gray-600 leading-relaxed">
+                            <div>
+                                <p class="font-semibold"><strong>Paso 0:</strong></p>
+                                <ul class="list-disc list-inside pl-6 mt-1"><li>\( x_0 = 0 \), \( y_0 = 1 \)</li></ul>
+                            </div>
+                            <div>
+                                <p class="font-semibold"><strong>Paso 1 (i=0):</strong></p>
+                                <ul class="list-disc list-inside space-y-1 pl-6 mt-1">
+                                    <li>\( x_0 = 0, y_0 = 1 \)</li>
+                                    <li>Pendiente \( f(x_0, y_0) = f(0, 1) = 0 + 1 = 1 \)</li>
+                                    <li>\( y_1 = y_0 + h \cdot f(x_0, y_0) = 1 + 0.1 \cdot 1 = 1 + 0.1 = 1.1 \)</li>
+                                    <li>\( x_1 = x_0 + h = 0 + 0.1 = 0.1 \)</li>
+                                    <li>Tenemos \( (x_1, y_1) = (0.1, 1.1) \)</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <p class="font-semibold"><strong>Paso 2 (i=1):</strong></p>
+                                <ul class="list-disc list-inside space-y-1 pl-6 mt-1">
+                                    <li>\( x_1 = 0.1, y_1 = 1.1 \)</li>
+                                    <li>Pendiente \( f(x_1, y_1) = f(0.1, 1.1) = 0.1 + 1.1 = 1.2 \)</li>
+                                    <li>\( y_2 = y_1 + h \cdot f(x_1, y_1) = 1.1 + 0.1 \cdot 1.2 = 1.1 + 0.12 = 1.22 \)</li>
+                                    <li>\( x_2 = x_1 + h = 0.1 + 0.1 = 0.2 \)</li>
+                                    <li>Tenemos \( (x_2, y_2) = (0.2, 1.22) \)</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <p class="font-semibold"><strong>Paso 3 (i=2):</strong></p>
+                                <ul class="list-disc list-inside space-y-1 pl-6 mt-1">
+                                    <li>\( x_2 = 0.2, y_2 = 1.22 \)</li>
+                                    <li>Pendiente \( f(x_2, y_2) = f(0.2, 1.22) = 0.2 + 1.22 = 1.42 \)</li>
+                                    <li>\( y_3 = y_2 + h \cdot f(x_2, y_2) = 1.22 + 0.1 \cdot 1.42 = 1.22 + 0.142 = 1.362 \)</li>
+                                    <li>\( x_3 = x_2 + h = 0.2 + 0.1 = 0.3 \)</li>
+                                    <li>Tenemos \( (x_3, y_3) = (0.3, 1.362) \)</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <p class="font-semibold"><strong>Paso 4 (i=3):</strong></p>
+                                <ul class="list-disc list-inside space-y-1 pl-6 mt-1">
+                                    <li>\( x_3 = 0.3, y_3 = 1.362 \)</li>
+                                    <li>Pendiente \( f(x_3, y_3) = f(0.3, 1.362) = 0.3 + 1.362 = 1.662 \)</li>
+                                    <li>\( y_4 = y_3 + h \cdot f(x_3, y_3) = 1.362 + 0.1 \cdot 1.662 = 1.362 + 0.1662 = 1.5282 \)</li>
+                                    <li>\( x_4 = x_3 + h = 0.3 + 0.1 = 0.4 \)</li>
+                                    <li>Tenemos \( (x_4, y_4) = (0.4, 1.5282) \)</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mt-4">La aproximación de \( y(0.4) \) es \( 1.5282 \).</p>
+                        <p class="text-gray-600 leading-relaxed mt-2">(La solución analítica es \( y(x) = 2e^x - x - 1 \). Entonces \( y(0.4) = 2e^{0.4} - 0.4 - 1 \approx 2(1.49182) - 1.4 \approx 2.98364 - 1.4 = 1.58364 \). El error es \( |1.58364 - 1.5282| \approx 0.05544 \)).</p>
+                    </section>
+
+                    <section id="codigo" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Código de Implementación (Python) - Ejecutable</h3>
+                        <div class="code-editor-container bg-gray-50 p-4 rounded-lg shadow-inner">
+                            <textarea id="euler-code-input" class="code-input w-full h-[600px] p-3 border border-gray-300 rounded-md font-mono text-sm" style="resize: none;">import math
+
+def funcion_edo(x, y):
+    # EDO: dy/dx = x + y
+    return x + y
+    # Otro ejemplo: dy/dx = y (solución y=e^x)
+    # return y
+    # Otro ejemplo: dy/dx = -2*x*y**2, y(0)=1 (Solución y = 1 / (1+x^2))
+    # return -2*x*y**2
+
+def analytical_solution(x):
+    # Para dy/dx = x + y, y(0) = 1  => y(x) = 2*math.exp(x) - x - 1
+    return 2 * math.exp(x) - x - 1
+    # Para dy/dx = y, y(0) = 1 => y(x) = math.exp(x)
+    # return math.exp(x)
+    # Para dy/dx = -2*x*y**2, y(0)=1 => y(x) = 1 / (1+x**2)
+    # return 1 / (1 + x**2) if (1 + x**2) != 0 else float('inf')
+
+def euler_method(f_edo, x0, y0, h, x_final, f_analytical=None):
+    x_values = [x0]
+    y_values = [y0]
+    y_analytical_values = []
+    if f_analytical:
+        y_analytical_values.append(f_analytical(x0))
+
+    x_current = x0
+    y_current = y0
+    num_steps = int(round((x_final - x0) / h)) # round() for floating point precision issues with h
+
+    html_output = ''
+    html_output += '<div style="text-align: center; font-weight: bold; margin-bottom: 10px;">MÉTODO DE EULER</div>'
+    html_output += '<table border="1" style="width:100%; border-collapse: collapse; margin-bottom:15px; font-size: 0.85em;">'
+    html_output += '<thead><tr>'
+    headers = ["Iter (i)", "xi", "yi (Euler)", "f(xi, yi)", "h*f(xi,yi)", "yi+1"]
+    if f_analytical:
+        headers.append("y_analitica(xi)")
+        headers.append("Error Relativo (%)")
+    for header_text in headers:
+        html_output += f'<th style="padding: 4px; text-align:center;">{header_text}</th>'
+    html_output += '</tr></thead><tbody>'
+
+    for i in range(num_steps):
+        slope = f_edo(x_current, y_current)
+        y_next = y_current + h * slope
+        x_next = x_current + h
+
+        html_output += '<tr>'
+        html_output += f'<td style="padding: 4px; text-align:center;">{i}</td>'
+        html_output += f'<td style="padding: 4px; text-align:right; padding-right:5px;">{x_current:.4f}</td>'
+        html_output += f'<td style="padding: 4px; text-align:right; padding-right:5px;">{y_current:.6f}</td>'
+        html_output += f'<td style="padding: 4px; text-align:right; padding-right:5px;">{slope:.6f}</td>'
+        html_output += f'<td style="padding: 4px; text-align:right; padding-right:5px;">{h * slope:.6f}</td>'
+        html_output += f'<td style="padding: 4px; text-align:right; padding-right:5px;">{y_next:.6f}</td>'
+
+        if f_analytical:
+            y_an = f_analytical(x_current) # Analytical at current step xi
+            error_rel = abs((y_an - y_current) / y_an) * 100 if y_an != 0 else float('inf')
+            html_output += f'<td style="padding: 4px; text-align:right; padding-right:5px;">{y_an:.6f}</td>'
+            html_output += f'<td style="padding: 4px; text-align:right; padding-right:5px;">{error_rel:.4f}</td>'
+            y_analytical_values.append(f_analytical(x_next)) # For chart: analytical at next step xi+1
+
+        html_output += '</tr>'
+
+        x_values.append(x_next)
+        y_values.append(y_next)
+        
+        x_current = x_next
+        y_current = y_next
+    
+    # Last row for x_final, y_final
+    html_output += '<tr>'
+    html_output += f'<td style="padding: 4px; text-align:center;">{num_steps}</td>'
+    html_output += f'<td style="padding: 4px; text-align:right; padding-right:5px;">{x_current:.4f}</td>' # This is x_final
+    html_output += f'<td style="padding: 4px; text-align:right; padding-right:5px;">{y_current:.6f}</td>' # This is y_final
+    html_output += f'<td style="padding: 4px; text-align:center;">-</td>' # No slope calc for last point
+    html_output += f'<td style="padding: 4px; text-align:center;">-</td>' # No h*slope calc
+    html_output += f'<td style="padding: 4px; text-align:center;">-</td>' # No y_next calc
+    if f_analytical:
+        y_an_final = f_analytical(x_current)
+        error_rel_final = abs((y_an_final - y_current) / y_an_final) * 100 if y_an_final != 0 else float('inf')
+        html_output += f'<td style="padding: 4px; text-align:right; padding-right:5px;">{y_an_final:.6f}</td>'
+        html_output += f'<td style="padding: 4px; text-align:right; padding-right:5px;">{error_rel_final:.4f}</td>'
+    html_output += '</tr>'
+    
+    html_output += '</tbody></table>'
+    html_output += f'<div style="text-align: center; color: green; margin-top:10px;">Solución aproximada en x={x_final:.2f}: y={y_values[-1]:.6f}</div>'
+    if f_analytical:
+        y_an_at_final = f_analytical(x_final)
+        error_abs = abs(y_an_at_final - y_values[-1])
+        html_output += f'<div style="text-align: center; margin-top:5px;">Solución analítica en x={x_final:.2f}: y={y_an_at_final:.6f}</div>'
+        html_output += f'<div style="text-align: center; margin-top:5px;">Error absoluto final: {error_abs:.6f}</div>'
+
+    iteration_data = {
+        "x_values": x_values,
+        "y_values": y_values,
+        "y_analytical_values": y_analytical_values if f_analytical else None,
+        "x0": x0, "y0": y0, "h": h, "x_final": x_final,
+        "f_edo_str": "x + y", # Example, could be made dynamic if needed
+        "f_analytical_str": "2*exp(x) - x - 1" if f_analytical else None # Make sure this matches the analytical_solution function used
+    }
+    
+    # Pass data to JavaScript via a global Pyodide object
+    try:
+        global js_iteration_data_euler # this must be pre-defined in JS for Pyodide
+        # Pyodide can't directly assign to a JS object, so we convert dict to py object
+        js_iteration_data_euler.clear() # Clear previous data if any
+        for key, value in iteration_data.items():
+            js_iteration_data_euler[key] = value
+    except (NameError, AttributeError) as e:
+        # print(f"Debug: Error accessing js_iteration_data_euler: {e}")
+        pass # Fail silently if not in Pyodide/JS context for this global
+
+    return html_output
+
+# Ejemplo de uso
+if __name__ == "__main__":
+    output_buffer = []
+    
+    # Parámetros del ejemplo
+    x0_example = 0.0
+    y0_example = 1.0
+    h_example = 0.1
+    x_final_example = 0.4
+    
+    initial_info_html = '<div style="text-align: center; font-weight: bold; margin-bottom:15px; font-size:1.1em;">MÉTODO DE EULER - SOLUCIÓN DE EDOs</div>'
+    initial_info_html += f'<div style="text-align: center; margin-bottom:5px;">EDO: dy/dx = x + y</div>'
+    initial_info_html += f'<div style="text-align: center; margin-bottom:5px;">Condición inicial: y({x0_example}) = {y0_example}</div>'
+    initial_info_html += f'<div style="text-align: center; margin-bottom:5px;">Paso h: {h_example}, Hasta x_final: {x_final_example}</div>'
+    initial_info_html += f'<div style="text-align: center; margin-bottom:15px;">Sol. Analítica (para comparación): y(x) = 2e^x - x - 1</div>'
+
+    output_buffer.append(initial_info_html)
+    
+    tabla_html = euler_method(funcion_edo, x0_example, y0_example, h_example, x_final_example, analytical_solution)
+    output_buffer.append(tabla_html)
+    
+    try:
+        global pyodide_html_output # This global variable is set for JS to pick up
+        pyodide_html_output = "\\n".join(output_buffer)
+    except NameError:
+        # Fallback for local execution (not in Pyodide)
+        print("Ejecutando localmente, imprimiendo HTML generado:")
+        print("\\n".join(output_buffer))
+                            </textarea>
+                            <button id="run-euler-code-button" class="run-button mt-4 px-5 py-2.5 bg-custom-red text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-custom-red focus:ring-opacity-50 font-medium text-sm transition-colors duration-150">Ejecutar Código</button>
+
+                            <div class="relative">
+                                <div id="euler-output-controls-container" class="absolute top-0 right-0 z-10 flex items-center space-x-1 transition-all duration-500 ease-out" style="">
+                                    <button id="euler-decrease-font-button" title="Disminuir fuente" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs font-semibold flex items-center justify-center" style="min-width: 30px; display: none;">aa</button>
+                                    <button id="euler-increase-font-button" title="Aumentar fuente" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs font-semibold flex items-center justify-center" style="min-width: 30px; display: none;">AA</button>
+                                    <button id="euler-fullscreen-output-button" title="Ver en pantalla completa" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs">
+                                        <!-- SVG will be injected by JS -->
+                                    </button>
+                                </div>
+                                <h4 class="mt-5 mb-2 text-lg font-semibold text-gray-700">Salida:</h4>
+                                <pre id="euler-code-output" class="code-output bg-gray-900 text-white p-4 pt-10 rounded-md min-h-[100px] whitespace-pre-wrap transition-all duration-500 ease-out text-xs leading-relaxed max-h-96 overflow-y-auto font-mono">Presiona "Ejecutar Código" para ver la salida.</pre>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="graficas" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Gráficas Interactivas</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            La gráfica interactiva mostrará los puntos \( (x_i, y_i) \) calculados por el método de Euler y cómo se conectan para aproximar la solución de la EDO. Si está disponible, también se mostrará la solución analítica para comparar la precisión.
+                            Intenta cambiar el valor de \(h\) en el código Python (por ejemplo, a 0.05 o 0.2) y observa cómo afecta la aproximación.
+                        </p>
+                        <div class="interactive-graphics w-full h-96 bg-white p-4 rounded-lg shadow-md">
+                            <canvas id="euler-method-chart"></canvas>
+                            <p id="chart-loading-message-euler" class="text-center text-gray-600 italic mt-2">Ejecute el código para generar la gráfica.</p>
+                        </div>
+                    </section>
+
+                    <section id="videos" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Videos Explicativos</h3>
+                        <div class="video-embed w-full h-96">
+                             <iframe class="w-full h-full rounded-lg shadow-lg" src="https://www.youtube.com/embed/trlBFQXGS7A" title="YouTube video player - Método de Euler" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+                        </div>
+                    </section>
+
+                    <section id="conclusion" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Conclusión</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            El Método de Euler es el más simple de los métodos numéricos para resolver EDOs. Su simplicidad lo hace fácil de entender e implementar. Sin embargo, su precisión es limitada (error global \(O(h)\)), lo que significa que se necesitan pasos \(h\) muy pequeños para obtener resultados precisos, lo que puede llevar a un alto costo computacional y acumulación de errores de redondeo.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            A pesar de sus limitaciones, el Método de Euler sirve como base para comprender métodos más avanzados y precisos (como los métodos de Runge-Kutta). Puede ser adecuado para obtener una aproximación rápida o cuando la precisión no es crítica.
+                        </p>
+                        <div class="bg-red-50 border-l-4 border-custom-red p-4 rounded-r-lg">
+                            <p class="font-semibold text-red-700">Aplicaciones Comunes:</p>
+                            <ul class="list-disc list-inside space-y-2 text-gray-600 leading-relaxed pl-4 mt-2">
+                                <li>Modelado simple de sistemas dinámicos en física, ingeniería, biología, economía, etc., donde se describen cambios a través de ecuaciones diferenciales.</li>
+                                <li>Simulaciones básicas de crecimiento poblacional, decaimiento radiactivo, circuitos RC simples, movimiento de objetos bajo fuerzas simples.</li>
+                                <li>Como punto de partida o herramienta pedagógica para introducir conceptos de integración numérica de EDOs.</li>
+                                <li>En algunos casos, puede usarse como predictor en métodos predictor-corrector más complejos.</li>
+                            </ul>
+                        </div>
+                    </section>
+
+                    <section id="referencias" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Referencias</h3>
+                        <ul class="list-disc list-inside space-y-2 text-gray-600 leading-relaxed">
+                            <li>Chapra, S. C., & Canale, R. P. (2015). <em>Numerical Methods for Engineers</em> (7th ed.). McGraw-Hill Education.</li>
+                        </ul>
+                    </section>
+
+                    <section id="cuestionario" class="scroll-mt-24 mb-10">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Cuestionario: Método de Euler</h3>
+                        <form id="quiz-euler" class="space-y-6 bg-gray-50 p-6 rounded-lg shadow-inner">
+                            <!-- Pregunta 1 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">1. El Método de Euler es un método de qué orden para resolver EDOs?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 1</legend>
+                                    <div class="space-y-2">
+                                        <label for="q1-opt1-euler" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt1-euler" name="question-1-euler" type="radio" value="primer_orden" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Primer orden</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt2-euler" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt2-euler" name="question-1-euler" type="radio" value="segundo_orden" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Segundo orden</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt3-euler" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt3-euler" name="question-1-euler" type="radio" value="tercer_orden" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Tercer orden</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-1-euler-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <!-- Pregunta 2 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">2. La fórmula principal del Método de Euler para \( y_{i+1} \) es:</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 2</legend>
+                                    <div class="space-y-2">
+                                        <label for="q2-opt1-euler" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt1-euler" name="question-2-euler" type="radio" value="formula_a" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">\( y_i + h \cdot f(x_{i+1}, y_i) \)</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt2-euler" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt2-euler" name="question-2-euler" type="radio" value="formula_b" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">\( y_i + h \cdot f(x_i, y_i) \)</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt3-euler" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt3-euler" name="question-2-euler" type="radio" value="formula_c" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">\( y_i + (h/2) \cdot (f(x_i, y_i) + f(x_{i+1}, y_i + h \cdot f(x_i, y_i))) \)</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-2-euler-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs rounded-md" style="display: none;"></div>
+                            </div>
+
+                             <!-- Pregunta 3 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">3. Si se reduce a la mitad el tamaño del paso \( h \) en el Método de Euler, ¿cómo se espera que cambie el error global (aproximadamente)?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 3</legend>
+                                    <div class="space-y-2">
+                                        <label for="q3-opt1-euler" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt1-euler" name="question-3-euler" type="radio" value="reduce_mitad" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Se reduce a la mitad.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt2-euler" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt2-euler" name="question-3-euler" type="radio" value="reduce_cuarta" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Se reduce a una cuarta parte.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt3-euler" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt3-euler" name="question-3-euler" type="radio" value="no_cambia" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">No cambia significativamente.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-3-euler-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs rounded-md" style="display: none;"></div>
+                            </div>
+
+                             <!-- Pregunta 4 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">4. ¿Cuál es una de las principales desventajas del Método de Euler?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 4</legend>
+                                    <div class="space-y-2">
+                                        <label for="q4-opt1-euler" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt1-euler" name="question-4-euler" type="radio" value="complejo_implementar" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Es muy complejo de implementar.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q4-opt2-euler" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt2-euler" name="question-4-euler" type="radio" value="requiere_analitica" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Requiere conocer la solución analítica.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q4-opt3-euler" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt3-euler" name="question-4-euler" type="radio" value="baja_precision" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Tiene baja precisión y requiere pasos pequeños para ser exacto.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-4-euler-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs rounded-md" style="display: none;"></div>
+                            </div>
+
+
+                            <button type="submit" class="mt-6 w-full px-6 py-3 bg-custom-red text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-custom-red focus:ring-offset-2 transition-colors duration-150">
+                                Enviar Respuestas
+                            </button>
+                        </form>
+                        <div id="quiz-feedback-euler" class="quiz-feedback-message mt-4 p-3 rounded-md text-sm" style="display: none;"></div>
+                    </section>
+                </article>
+            </main>
+
+            <!-- Right Sidebar for Progress, Evaluation, Resources -->
+            <aside class="w-full lg:w-1/4 bg-white shadow-xl rounded-lg p-6 self-start sticky top-8 order-3 space-y-6">
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-4">Perfil</h3>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex-shrink-0">
+                           <svg class="w-12 h-12 text-gray-400 bg-gray-100 rounded-full p-1 ring-1 ring-gray-200" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-800 text-md">Estudiante Euleriano</p>
+                            <p class="text-sm text-gray-500">Explorador Numérico</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pb-6 border-b border-gray-200 space-y-3">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide">Progreso en Método de Euler</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li class="flex items-center">
+                            <span id="task-read-theory-status-euler" class="task-status-icon mr-2 text-gray-400">
+                                <!-- Icon dynamically inserted by JS -->
+                            </span>
+                            <span class="text-gray-600">Leer la teoría completa</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-run-code-status-euler" class="task-status-icon mr-2 text-gray-400">
+                                <!-- Icon dynamically inserted by JS -->
+                            </span>
+                            <span class="text-gray-600">Ejecutar el código Python</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-attempted-status-euler" class="task-status-icon mr-2 text-gray-400">
+                                <!-- Icon dynamically inserted by JS -->
+                            </span>
+                            <span class="text-gray-600">Intentar el cuestionario</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-passed-status-euler" class="task-status-icon mr-2 text-gray-400">
+                                <!-- Icon dynamically inserted by JS -->
+                            </span>
+                            <span class="text-gray-600">Aprobar el cuestionario</span>
+                        </li>
+                    </ul>
+                    <div class="flex items-center justify-between mb-1 mt-3">
+                       <span class="text-xs font-medium text-custom-red">Progreso General</span>
+                       <span id="right-sidebar-progress-text-euler" class="text-xs font-medium text-custom-red right-sidebar-progress-text">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div id="right-sidebar-progress-bar-euler" class="bg-custom-red h-3 rounded-full right-sidebar-progress-bar transition-all duration-500 ease-in-out" style="width: 0%"></div>
+                    </div>
+                    <button id="completion-euler-sidebar" class="mt-4 w-full completion-button px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 font-medium text-sm transition-colors duration-150">Marcar Todo Completado</button>
+                </div>
+
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Recursos y Notas</h3>
+                    <p class="text-sm text-gray-600">
+                        <a href="https://archive.org/details/numerical-methods-for-engineers-7th-edit" target="_blank" rel="noopener noreferrer" class="hover:text-custom-red hover:underline">
+                            Métodos Numéricos para Ingenieros 7ma Edición de Chapra
+                        </a>
+                    </p>
+                    <img src="https://images.cdn3.buscalibre.com/fit-in/360x360/97/ff/97ffa61a8adb147e569e12c4f1f797b3.jpg" alt="Portada del libro Métodos Numéricos para Ingenieros de Chapra" class="mt-2 w-full rounded-md shadow-sm">
+                    <!-- Podríamos añadir un botón simple aquí -->
+                    <!-- <button class="mt-2 w-full text-left text-sm text-gray-500 hover:text-gray-700">(+) Añadir nota</button> -->
+                </div>
+
+                <div>
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Siguiente Paso</h3>
+                    <a href="../methods/runge-kutta.html" class="group flex items-center text-sm font-medium text-custom-red hover:text-red-700 transition-colors duration-150"> <!-- Asumiendo runge-kutta.html exists -->
+                       <span>Explorar Métodos de Runge-Kutta</span>
+                       <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform duration-150" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </a>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const PAGE_KEY_EULER = "metodo-euler-progress"; // Unique key for this page's localStorage
+        const METHOD_NAME_TITLE_CASE_EULER = "Método de Euler";
+
+        const TASKS_EULER = {
+            READ_THEORY: 'read_theory_euler',
+            RUN_CODE: 'run_code_euler',
+            QUIZ_ATTEMPTED: 'quiz_attempted_euler',
+            QUIZ_PASSED: 'quiz_passed_euler'
+        };
+        const ALL_TASK_KEYS_EULER = Object.values(TASKS_EULER);
+        const TOTAL_TASKS_EULER = ALL_TASK_KEYS_EULER.length;
+
+        const ICON_PENDING_EULER = '<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0-4.418-4.03-8-9-8S3 7.582 3 12c0 1.454.402 2.813 1.098 3.977L3 21l5.023-1.098A8.902 8.902 0 0012 21c4.97 0 9-3.582 9-9z"></path></svg>';
+        const ICON_COMPLETED_EULER = '<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>';
+        const ICON_IN_PROGRESS_EULER = '<svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V9.05a.75.75 0 011.307-.588l5.603 3.112z" clip-rule="evenodd"></path></svg>';
+
+        const ICON_CORRECT_ANSWER_EULER = '✔️';
+        const ICON_INCORRECT_ANSWER_EULER = '❌';
+        const ICON_THUMB_UP_EULER = '👍';
+
+        const codeInput_EULER = document.getElementById('euler-code-input');
+        const runCodeButton_EULER = document.getElementById('run-euler-code-button');
+        const codeOutput_EULER = document.getElementById('euler-code-output');
+        const chartLoadingMessage_EULER = document.getElementById('chart-loading-message-euler');
+        const eulerMethodChartCanvas_EULER = document.getElementById('euler-method-chart');
+
+        const fullscreenButton_EULER = document.getElementById('euler-fullscreen-output-button');
+        const outputControlsContainer_EULER = document.getElementById('euler-output-controls-container');
+        const decreaseFontButton_EULER = document.getElementById('euler-decrease-font-button');
+        const increaseFontButton_EULER = document.getElementById('euler-increase-font-button');
+
+        const quizForm_EULER = document.getElementById('quiz-euler');
+        const generalQuizFeedbackDiv_EULER = document.getElementById('quiz-feedback-euler');
+        const mainCompletionButton_EULER = document.getElementById('completion-euler-sidebar');
+
+        const taskStatusIcons_EULER = {
+            [TASKS_EULER.READ_THEORY]: document.getElementById('task-read-theory-status-euler'),
+            [TASKS_EULER.RUN_CODE]: document.getElementById('task-run-code-status-euler'),
+            [TASKS_EULER.QUIZ_ATTEMPTED]: document.getElementById('task-quiz-attempted-status-euler'),
+            [TASKS_EULER.QUIZ_PASSED]: document.getElementById('task-quiz-passed-status-euler'),
+        };
+        const overallProgressText_EULER = document.getElementById('right-sidebar-progress-text-euler');
+        const overallProgressBar_EULER = document.getElementById('right-sidebar-progress-bar-euler');
+
+        let pyodide_EULER = null;
+        let eulerChart_EULER = null;
+        let eulerCodeOutputInitialRect_EULER = null;
+        let eulerCurrentFontSize_EULER = 12;
+        let originalOutputFontSize_EULER = '';
+
+        const svgIconFullscreen_EULER = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9M20.25 20.25v-4.5m0 4.5h-4.5m4.5 0L15 15" /></svg>';
+        const svgIconExitFullscreen_EULER = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9V4.5M15 9h4.5M15 9l5.25-5.25M15 15v4.5M15 15h4.5M15 15l5.25 5.25" /></svg>';
+        if (fullscreenButton_EULER) fullscreenButton_EULER.innerHTML = svgIconFullscreen_EULER;
+
+        // --- Progress Storage Functions ---
+        function getPageProgressFromStorage_EULER() {
+            const defaults = ALL_TASK_KEYS_EULER.reduce((obj, task) => ({ ...obj, [task]: false }), {});
+            defaults.overall_progress = 0;
+            defaults.user_quiz_answers = {};
+            defaults.quiz_current_score = 0;
+            defaults.quiz_feedback_active = false;
+            try {
+                const stored = localStorage.getItem(PAGE_KEY_EULER);
+                if (stored) return { ...defaults, ...JSON.parse(stored) };
+            } catch (e) { console.error("Error reading localStorage for Euler:", e); }
+            return defaults;
+        }
+
+        function savePageProgressToStorage_EULER(progress) {
+            try {
+                localStorage.setItem(PAGE_KEY_EULER, JSON.stringify(progress));
+            } catch (e) { console.error("Error saving to localStorage for Euler:", e); }
+        }
+
+        // --- Task Status Update Functions ---
+        function updateTaskStatusInStorage_EULER(taskName, isCompleted) {
+            let currentProgress = getPageProgressFromStorage_EULER();
+            if (currentProgress[taskName] !== isCompleted) {
+                currentProgress[taskName] = isCompleted;
+                if (taskName === TASKS_EULER.QUIZ_ATTEMPTED && !isCompleted) {
+                    currentProgress[TASKS_EULER.QUIZ_PASSED] = false;
+                    currentProgress.user_quiz_answers = {};
+                    currentProgress.quiz_current_score = 0;
+                    currentProgress.quiz_feedback_active = false;
+                }
+                if (taskName === TASKS_EULER.QUIZ_PASSED && isCompleted) {
+                     currentProgress[TASKS_EULER.QUIZ_ATTEMPTED] = true;
+                }
+                savePageProgressToStorage_EULER(currentProgress);
+                calculateAndUpdateOverallProgress_EULER();
+            }
+        }
+
+        function renderTaskStatus_EULER() {
+            const progress = getPageProgressFromStorage_EULER();
+            ALL_TASK_KEYS_EULER.forEach(taskKey => {
+                const iconElement = taskStatusIcons_EULER[taskKey];
+                if (iconElement) {
+                    let newIconHTML = ICON_PENDING_EULER;
+                    if (progress[taskKey]) {
+                        newIconHTML = ICON_COMPLETED_EULER;
+                    } else if (taskKey === TASKS_EULER.QUIZ_PASSED && progress[TASKS_EULER.QUIZ_ATTEMPTED]) {
+                        newIconHTML = ICON_IN_PROGRESS_EULER;
+                    }
+                    iconElement.innerHTML = newIconHTML;
+                }
+            });
+        }
+        
+        function calculateAndUpdateOverallProgress_EULER() {
+            let progress = getPageProgressFromStorage_EULER();
+            let completedTasks = ALL_TASK_KEYS_EULER.filter(taskKey => progress[taskKey]).length;
+            const percentage = TOTAL_TASKS_EULER > 0 ? (completedTasks / TOTAL_TASKS_EULER) * 100 : 0;
+            progress.overall_progress = percentage;
+            savePageProgressToStorage_EULER(progress);
+
+            const roundedPercentage = percentage.toFixed(0);
+            const isHundredPercent = roundedPercentage === '100';
+
+            if (overallProgressBar_EULER) {
+                overallProgressBar_EULER.style.width = `${roundedPercentage}%`;
+                overallProgressBar_EULER.classList.toggle('animate-rainbow-border', isHundredPercent);
+                 if (!overallProgressBar_EULER.classList.contains('transition-all')) { // Ensure smooth animation
+                    overallProgressBar_EULER.classList.add('transition-all', 'duration-500', 'ease-in-out');
+                }
+            }
+            if (overallProgressText_EULER) {
+                overallProgressText_EULER.textContent = `${roundedPercentage}%`;
+            }
+            
+            renderTaskStatus_EULER();
+            updateMainCompletionButtonState_EULER();
+        }
+        
+        // --- Main Completion Button Logic ---
+        function handleMarkAllMouseEnter_EULER() {
+             if (mainCompletionButton_EULER && mainCompletionButton_EULER.dataset.isUndo === "true") {
+                mainCompletionButton_EULER.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+                mainCompletionButton_EULER.classList.add('bg-red-600', 'hover:bg-red-700');
+            }
+        }
+        function handleMarkAllMouseLeave_EULER() {
+            if (mainCompletionButton_EULER && mainCompletionButton_EULER.dataset.isUndo === "true") {
+                mainCompletionButton_EULER.classList.remove('bg-red-600', 'hover:bg-red-700');
+                mainCompletionButton_EULER.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+            }
+        }
+
+        function updateMainCompletionButtonState_EULER() {
+            if (!mainCompletionButton_EULER) return;
+            const progress = getPageProgressFromStorage_EULER();
+            let allTasksEffectivelyCompleted = ALL_TASK_KEYS_EULER.every(task => progress[task]);
+            
+            mainCompletionButton_EULER.removeEventListener('mouseenter', handleMarkAllMouseEnter_EULER);
+            mainCompletionButton_EULER.removeEventListener('mouseleave', handleMarkAllMouseLeave_EULER);
+            mainCompletionButton_EULER.classList.remove('bg-green-600', 'hover:bg-green-700', 'bg-yellow-500', 'hover:bg-yellow-600', 'bg-red-600', 'hover:bg-red-700');
+
+            if (allTasksEffectivelyCompleted) {
+                mainCompletionButton_EULER.textContent = 'Deshacer Completado';
+                mainCompletionButton_EULER.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+                mainCompletionButton_EULER.dataset.isUndo = "true";
+                mainCompletionButton_EULER.addEventListener('mouseenter', handleMarkAllMouseEnter_EULER);
+                mainCompletionButton_EULER.addEventListener('mouseleave', handleMarkAllMouseLeave_EULER);
+            } else {
+                mainCompletionButton_EULER.textContent = 'Marcar Todo Completado';
+                mainCompletionButton_EULER.classList.add('bg-green-600', 'hover:bg-green-700');
+                mainCompletionButton_EULER.dataset.isUndo = "false";
+            }
+        }
+        
+        function handleCompletionToggle_EULER() {
+            if (!mainCompletionButton_EULER) return;
+            const progress = getPageProgressFromStorage_EULER();
+            let allCurrentlyCompleted = ALL_TASK_KEYS_EULER.every(taskKey => progress[taskKey]);
+            let markAllAs = !allCurrentlyCompleted;
+
+            ALL_TASK_KEYS_EULER.forEach(taskName => {
+                updateTaskStatusInStorage_EULER(taskName, markAllAs); 
+            });
+            
+            let updatedProgress = getPageProgressFromStorage_EULER(); 
+
+            if (markAllAs) {
+                updatedProgress[TASKS_EULER.QUIZ_ATTEMPTED] = true;
+                updatedProgress[TASKS_EULER.QUIZ_PASSED] = true;
+                
+                if (Object.keys(updatedProgress.user_quiz_answers).length === 0 || !updatedProgress.quiz_feedback_active) {
+                    updatedProgress.user_quiz_answers = {};
+                    quizDataEuler.forEach((qData, index) => {
+                        const questionName = `question-${index + 1}-euler`;
+                        for (const optValueInMap in qData.options) {
+                            if (qData.options[optValueInMap] === true) {
+                                updatedProgress.user_quiz_answers[questionName] = optValueInMap;
+                                break;
+                            }
+                        }
+                    });
+                    updatedProgress.quiz_current_score = quizDataEuler.length;
+                }
+                updatedProgress.quiz_feedback_active = true; 
+                savePageProgressToStorage_EULER(updatedProgress);
+                if(quizForm_EULER) displayQuizFeedback_EULER();
+
+            } else {
+                updatedProgress.user_quiz_answers = {};
+                updatedProgress.quiz_current_score = 0;
+                updatedProgress.quiz_feedback_active = false; 
+                savePageProgressToStorage_EULER(updatedProgress);
+                
+                if (quizForm_EULER) {
+                    quizForm_EULER.reset();
+                    clearAllVisualFeedback_EULER(true);
+                    quizForm_EULER.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                    const submitButton = quizForm_EULER.querySelector('button[type="submit"]');
+                    if (submitButton) {
+                        submitButton.textContent = 'Enviar Respuestas';
+                        submitButton.disabled = false;
+                    }
+                    quizForm_EULER.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                         wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                    });
+                }
+                if (generalQuizFeedbackDiv_EULER) generalQuizFeedbackDiv_EULER.style.display = 'none';
+            }
+            calculateAndUpdateOverallProgress_EULER(); 
+            alert(markAllAs ? 'Todas las tareas marcadas como completadas.' : 'Se ha deshecho el completado de tareas.');
+        }
+
+        // --- Quiz Functionality ---
+        const quizDataEuler = [
+            {
+                questionId: "question-1-euler",
+                options: { "primer_orden": true, "segundo_orden": false, "tercer_orden": false },
+                specificFeedback: {
+                    "primer_orden": "¡Correcto! El método de Euler es un método de primer orden, lo que significa que su error global es proporcional a \(h\).",
+                    "segundo_orden": "Incorrecto. Los métodos de segundo orden (como Heun o Runge-Kutta de 2º orden) tienen un error global proporcional a \(h^2\).",
+                    "tercer_orden": "Incorrecto. El método de Euler es el más simple y fundamental, clasificado como de primer orden."
+                }
+            },
+            {
+                questionId: "question-2-euler",
+                options: { "formula_a": false, "formula_b": true, "formula_c": false },
+                specificFeedback: {
+                    "formula_a": "Incorrecto. Esta fórmula utiliza \(f(x_{i+1}, y_i)\), que no es la forma estándar del método de Euler explícito.",
+                    "formula_b": "¡Correcto! Esta es la fórmula recursiva del método de Euler, donde la pendiente se evalúa en el punto actual \((x_i, y_i)\).",
+                    "formula_c": "Incorrecto. Esta fórmula se asemeja al método de Heun (o Euler modificado), que es un método de segundo orden."
+                }
+            },
+            {
+                questionId: "question-3-euler",
+                options: { "reduce_mitad": true, "reduce_cuarta": false, "no_cambia": false },
+                specificFeedback: {
+                    "reduce_mitad": "¡Correcto! Dado que el error global del método de Euler es \(O(h)\), reducir \(h\) a la mitad debería reducir el error global aproximadamente a la mitad.",
+                    "reduce_cuarta": "Incorrecto. Una reducción a la cuarta parte del error se esperaría en un método de segundo orden, donde el error global es \(O(h^2)\).",
+                    "no_cambia": "Incorrecto. El tamaño del paso \(h\) tiene un impacto directo en la precisión del método de Euler."
+                }
+            },
+            {
+                questionId: "question-4-euler",
+                options: { "complejo_implementar": false, "requiere_analitica": false, "baja_precision": true },
+                specificFeedback: {
+                    "complejo_implementar": "Incorrecto. De hecho, una de sus ventajas es su simplicidad de implementación.",
+                    "requiere_analitica": "Incorrecto. Los métodos numéricos como Euler se utilizan precisamente cuando la solución analítica no es conocida o es difícil de obtener.",
+                    "baja_precision": "¡Correcto! Su precisión de primer orden significa que a menudo se requieren pasos \(h\) muy pequeños para obtener una buena exactitud, lo que puede ser computacionalmente costoso."
+                }
+            }
+        ];
+
+        function clearAllVisualFeedback_EULER(clearGeneralMessage = false) {
+            if (!quizForm_EULER) return;
+            quizForm_EULER.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                wrapper.classList.remove('correct-answer-euler', 'incorrect-answer-euler', 'border-green-500', 'border-red-500', 'ring-1', 'ring-green-500', 'ring-red-500', 'bg-green-50', 'bg-red-50');
+                wrapper.classList.add('border-gray-300', 'hover:border-gray-400');
+                // Apply red theme to checked state
+                wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                const iconPlaceholder = wrapper.querySelector('.feedback-icon-placeholder span');
+                if (iconPlaceholder) iconPlaceholder.innerHTML = '';
+            });
+            quizForm_EULER.querySelectorAll('.specific-question-feedback').forEach(el => {
+                el.textContent = '';
+                el.style.display = 'none';
+                // Reset specific feedback styling (color based on correctness, not theme)
+                el.classList.remove('bg-green-50', 'text-green-700', 'border-green-200', 'bg-red-50', 'text-red-700', 'border-red-200');
+
+            });
+            if (clearGeneralMessage && generalQuizFeedbackDiv_EULER) {
+                generalQuizFeedbackDiv_EULER.textContent = '';
+                generalQuizFeedbackDiv_EULER.style.display = 'none';
+                generalQuizFeedbackDiv_EULER.className = 'quiz-feedback-message mt-4 p-3 rounded-md text-sm';
+            }
+        }
+
+        function displayQuizFeedback_EULER() {
+            if (!quizForm_EULER || !generalQuizFeedbackDiv_EULER) return false;
+            const progress = getPageProgressFromStorage_EULER();
+            const userAnswers = progress.user_quiz_answers || {};
+            const submitButton = quizForm_EULER.querySelector('button[type="submit"]');
+
+            clearAllVisualFeedback_EULER(false); 
+
+            if (!progress.quiz_feedback_active && Object.keys(userAnswers).length === 0) {
+                quizForm_EULER.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                if (submitButton) {
+                    submitButton.textContent = 'Enviar Respuestas';
+                    submitButton.disabled = false;
+                }
+                return false;
+            }
+            
+            let score = 0;
+            let allCorrect = true;
+
+            quizDataEuler.forEach((qData, qIndex) => {
+                const questionName = `question-${qIndex + 1}-euler`; 
+                const userAnswerValue = userAnswers[questionName]; 
+                const specificFeedbackDiv = document.getElementById(`${qData.questionId}-specific-feedback`);
+                
+                let questionCorrect = false;
+                if (userAnswerValue && qData.options[userAnswerValue] === true) {
+                    questionCorrect = true;
+                }
+
+                const radioInputsForQuestion = quizForm_EULER.querySelectorAll(`input[name="${questionName}"]`);
+                radioInputsForQuestion.forEach(radioInput => {
+                    const wrapper = radioInput.closest('.quiz-option-wrapper');
+                    const iconPlaceholder = wrapper.querySelector('.feedback-icon-placeholder span');
+                    radioInput.disabled = true; 
+                    // Remove theme-based checked style before applying correctness style
+                    wrapper.classList.remove('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                    
+                    const isThisOptionCorrect = qData.options[radioInput.value] === true;
+                    const isThisOptionSelectedByUser = radioInput.value === userAnswerValue;
+
+                    if (isThisOptionSelectedByUser) {
+                        radioInput.checked = true; 
+                        if (isThisOptionCorrect) {
+                            wrapper.classList.add('border-green-500', 'bg-green-50', 'ring-1', 'ring-green-500');
+                            if (iconPlaceholder) iconPlaceholder.textContent = ICON_CORRECT_ANSWER_EULER;
+                        } else {
+                            wrapper.classList.add('border-red-500', 'bg-red-50', 'ring-1', 'ring-red-500');
+                            if (iconPlaceholder) iconPlaceholder.textContent = ICON_INCORRECT_ANSWER_EULER;
+                        }
+                        if (specificFeedbackDiv && qData.specificFeedback && qData.specificFeedback[radioInput.value]) {
+                            specificFeedbackDiv.innerHTML = qData.specificFeedback[radioInput.value]; 
+                            specificFeedbackDiv.className = 'specific-question-feedback mt-2 p-2.5 text-xs rounded-md'; // Reset classes
+                            // Apply correctness-based styling
+                            specificFeedbackDiv.classList.add(isThisOptionCorrect ? 'bg-green-50' : 'bg-red-50', isThisOptionCorrect ? 'text-green-700' : 'text-red-700', 'border', isThisOptionCorrect ? 'border-green-200' : 'border-red-200');
+                            specificFeedbackDiv.style.display = 'block';
+                        }
+                    } else { 
+                        if (isThisOptionCorrect) { 
+                            wrapper.classList.add('border-green-500', 'bg-green-50');
+                            let userGotThisQuestionWrong = userAnswerValue === undefined || qData.options[userAnswerValue] === false;
+                            if (userGotThisQuestionWrong && iconPlaceholder) { 
+                                iconPlaceholder.textContent = ICON_THUMB_UP_EULER; 
+                            }
+                        } else {
+                             wrapper.classList.add('border-gray-300'); 
+                        }
+                    }
+                });
+            });
+            
+            score = 0;
+            allCorrect = true;
+            quizDataEuler.forEach((qData, qIndex) => {
+                const questionName = `question-${qIndex + 1}-euler`;
+                const userAnswer = userAnswers[questionName];
+                if (userAnswer && qData.options[userAnswer] === true) {
+                    score++;
+                } else {
+                    allCorrect = false;
+                }
+            });
+
+            progress.quiz_current_score = score;
+            progress.quiz_passed = allCorrect;
+            savePageProgressToStorage_EULER(progress);
+
+            generalQuizFeedbackDiv_EULER.style.display = 'block';
+            if (allCorrect) {
+                generalQuizFeedbackDiv_EULER.className = 'quiz-feedback-message mt-4 p-3 rounded-md text-sm bg-green-100 text-green-700 border border-green-300';
+                generalQuizFeedbackDiv_EULER.innerHTML = `<strong>¡Felicidades!</strong> Todas tus respuestas son correctas. (${score}/${quizDataEuler.length})`;
+                if (submitButton) {
+                    submitButton.textContent = 'Cuestionario Aprobado';
+                    submitButton.disabled = true;
+                }
+            } else {
+                generalQuizFeedbackDiv_EULER.className = 'quiz-feedback-message mt-4 p-3 rounded-md text-sm bg-red-100 text-red-700 border border-red-300';
+                generalQuizFeedbackDiv_EULER.innerHTML = `Has respondido correctamente ${score} de ${quizDataEuler.length} preguntas. Revisa los comentarios e intenta de nuevo.`;
+                if (submitButton) {
+                    submitButton.textContent = 'Intentar de Nuevo';
+                    submitButton.disabled = false; 
+                }
+            }
+            
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                 const elementsToTypeSet = [generalQuizFeedbackDiv_EULER, ...document.querySelectorAll('.specific-question-feedback')];
+                 window.MathJax.typesetPromise(elementsToTypeSet.filter(el => el.style.display !== 'none'))
+                     .catch(err => console.error("MathJax typesetting error in displayQuizFeedback_EULER:", err));
+            }
+            return allCorrect;
+        }
+
+        function handleQuizSubmit_EULER(event) {
+            event.preventDefault();
+            if (!quizForm_EULER || !generalQuizFeedbackDiv_EULER) return;
+
+            const submitButton = quizForm_EULER.querySelector('button[type="submit"]');
+
+            if (submitButton && submitButton.textContent === 'Intentar de Nuevo') {
+                quizForm_EULER.reset();
+                clearAllVisualFeedback_EULER(true);
+                if(generalQuizFeedbackDiv_EULER) generalQuizFeedbackDiv_EULER.style.display = 'none';
+                
+                let progressToSave = getPageProgressFromStorage_EULER();
+                progressToSave.user_quiz_answers = {};
+                progressToSave.quiz_current_score = 0;
+                progressToSave.quiz_feedback_active = false; 
+                savePageProgressToStorage_EULER(progressToSave);
+                
+                updateTaskStatusInStorage_EULER(TASKS_EULER.QUIZ_PASSED, false); 
+                
+                quizForm_EULER.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                submitButton.textContent = 'Enviar Respuestas';
+                return;
+            }
+
+            const formData = new FormData(quizForm_EULER);
+            let allQuestionsAnswered = true;
+            quizDataEuler.forEach((qData, qIndex) => {
+                const questionName = `question-${qIndex + 1}-euler`;
+                if (!formData.has(questionName)) {
+                    allQuestionsAnswered = false;
+                }
+            });
+
+            if (!allQuestionsAnswered) {
+                generalQuizFeedbackDiv_EULER.textContent = "Por favor, responde todas las preguntas.";
+                generalQuizFeedbackDiv_EULER.className = 'quiz-feedback-message mt-4 p-3 rounded-md text-sm bg-yellow-100 text-yellow-700 border border-yellow-300';
+                generalQuizFeedbackDiv_EULER.style.display = 'block';
+                return;
+            }
+            
+            updateTaskStatusInStorage_EULER(TASKS_EULER.QUIZ_ATTEMPTED, true);
+            
+            let progress = getPageProgressFromStorage_EULER();
+            progress.user_quiz_answers = {};
+            quizDataEuler.forEach((qData, qIndex) => {
+                 const questionName = `question-${qIndex + 1}-euler`;
+                 progress.user_quiz_answers[questionName] = formData.get(questionName);
+            });
+            progress.quiz_feedback_active = true; 
+            
+            let score = 0;
+            quizDataEuler.forEach((qData, qIndex) => {
+                const questionName = `question-${qIndex + 1}-euler`;
+                const userAnswer = progress.user_quiz_answers[questionName];
+                if (userAnswer && qData.options[userAnswer] === true) {
+                    score++;
+                }
+            });
+            const passed = score === quizDataEuler.length;
+            
+            savePageProgressToStorage_EULER(progress); 
+            displayQuizFeedback_EULER();
+            updateTaskStatusInStorage_EULER(TASKS_EULER.QUIZ_PASSED, passed); 
+        }
+
+        // --- Scroll and Theory Reading Detection ---
+        setTimeout(() => {
+            const currentProgress = getPageProgressFromStorage_EULER();
+            if (!currentProgress[TASKS_EULER.READ_THEORY]) {
+                const theorySection = document.getElementById('ejemplo'); // Trigger on seeing example
+                if (theorySection) {
+                    const observer = new IntersectionObserver((entries) => {
+                        if (entries[0].isIntersecting) {
+                            updateTaskStatusInStorage_EULER(TASKS_EULER.READ_THEORY, true);
+                            observer.disconnect();
+                        }
+                    }, { threshold: 0.1 });
+                    observer.observe(theorySection);
+                }
+            }
+        }, 2000);
+
+        // --- Pyodide Initialization and Code Execution ---
+        async function setupPyodide_EULER() {
+            if (!pyodide_EULER) {
+                if (codeOutput_EULER) codeOutput_EULER.innerHTML = "<p>Cargando Pyodide y entorno...</p>";
+                try {
+                    pyodide_EULER = await loadPyodide();
+                    await pyodide_EULER.loadPackage("micropip");
+                    // Create a Pyodide dictionary to be populated by Python
+                    pyodide_EULER.globals.set("js_iteration_data_euler", pyodide_EULER.globals.get("dict")());
+                    pyodide_EULER.globals.set("pyodide_html_output", "");
+
+                    if (codeOutput_EULER) codeOutput_EULER.innerHTML = "<p>Pyodide listo. Presiona 'Ejecutar Código'.</p>";
+                    if (runCodeButton_EULER) runCodeButton_EULER.disabled = false;
+                } catch (error) {
+                    console.error("Error al inicializar Pyodide (Euler):", error);
+                    if (codeOutput_EULER) codeOutput_EULER.innerHTML = "<p>Error al cargar Pyodide. Revisa la consola.</p>";
+                    if (runCodeButton_EULER) runCodeButton_EULER.disabled = true;
+                }
+            }
+        }
+
+        async function runCodeNow_EULER() {
+            if (!pyodide_EULER) {
+                if (codeOutput_EULER) codeOutput_EULER.innerHTML = "<p>Pyodide no está listo. Espera...</p>";
+                await setupPyodide_EULER();
+                if (!pyodide_EULER) return;
+            }
+
+            if (codeOutput_EULER) codeOutput_EULER.innerHTML = "<p>Ejecutando código...</p>";
+            if (chartLoadingMessage_EULER) chartLoadingMessage_EULER.textContent = "Generando datos para la gráfica...";
+            if (eulerMethodChartCanvas_EULER) eulerMethodChartCanvas_EULER.style.display = 'none';
+
+            pyodide_EULER.setStdout({}); 
+            pyodide_EULER.setStderr({});
+            pyodide_EULER.globals.set("pyodide_html_output", "");
+            // Re-initialize js_iteration_data_euler as an empty Pyodide dict before each run
+            pyodide_EULER.globals.set("js_iteration_data_euler", pyodide_EULER.globals.get("dict")());
+
+
+            try {
+                const pythonCode = codeInput_EULER ? codeInput_EULER.value : '';
+                await pyodide_EULER.runPythonAsync(pythonCode);
+                
+                const htmlResult = pyodide_EULER.globals.get("pyodide_html_output");
+                if (codeOutput_EULER) {
+                    codeOutput_EULER.innerHTML = htmlResult || "<p>Ejecución completada. No se generó salida HTML.</p>";
+                }
+                
+                const iterationDataPyProxy = pyodide_EULER.globals.get("js_iteration_data_euler");
+                const iterationDataJS = iterationDataPyProxy ? iterationDataPyProxy.toJs({ dict_converter: Object.fromEntries }) : null;
+                
+                if (iterationDataJS && iterationDataJS.x_values && iterationDataJS.x_values.length > 0) {
+                    updateChart_EULER(iterationDataJS);
+                    if (chartLoadingMessage_EULER) chartLoadingMessage_EULER.style.display = 'none';
+                    if (eulerMethodChartCanvas_EULER) eulerMethodChartCanvas_EULER.style.display = 'block';
+                } else {
+                    if (chartLoadingMessage_EULER) {
+                        chartLoadingMessage_EULER.textContent = "No se generaron datos para la gráfica o la variable 'js_iteration_data_euler' no se pobló correctamente.";
+                        chartLoadingMessage_EULER.style.display = 'block';
+                    }
+                    if (eulerChart_EULER) eulerChart_EULER.destroy();
+                }
+                updateTaskStatusInStorage_EULER(TASKS_EULER.RUN_CODE, true);
+            } catch (error) {
+                console.error("Error al ejecutar el código Python (Euler):", error);
+                if (codeOutput_EULER) {
+                    codeOutput_EULER.innerHTML = `<p>Error en la ejecución: ${error.toString().replace(/\n/g, '<br>')}</p>`;
+                }
+                if (chartLoadingMessage_EULER) chartLoadingMessage_EULER.textContent = "Error al generar datos para la gráfica.";
+            }
+        }
+
+        // --- Chart.js Integration for Euler ---
+        function updateChart_EULER(iterationData) {
+            if (!eulerMethodChartCanvas_EULER) return;
+            const ctx = eulerMethodChartCanvas_EULER.getContext('2d');
+            if (eulerChart_EULER) eulerChart_EULER.destroy();
+
+            if (!iterationData || !iterationData.x_values || iterationData.x_values.length === 0) {
+                if (chartLoadingMessage_EULER) {
+                    chartLoadingMessage_EULER.textContent = "No hay suficientes datos para graficar.";
+                    chartLoadingMessage_EULER.style.display = 'block';
+                } return;
+            }
+
+            const datasets = [];
+            const themeRedColor = 'rgba(233, 69, 96, 1)'; // custom-red from Tailwind config
+            const themeRedBgColor = 'rgba(233, 69, 96, 0.7)';
+
+            // Euler approximated solution
+            datasets.push({
+                label: `Euler (h=${iterationData.h})`,
+                data: iterationData.x_values.map((x, i) => ({ x: x, y: iterationData.y_values[i] })),
+                borderColor: themeRedColor, 
+                backgroundColor: themeRedBgColor,
+                fill: false,
+                tension: 0.1, 
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                showLine: true, 
+                type: 'line' 
+            });
+
+            // Analytical solution if available
+            if (iterationData.y_analytical_values && iterationData.y_analytical_values.length > 0) {
+                 datasets.push({
+                    label: `Analítica (${iterationData.f_analytical_str || 'y(x)'})`,
+                    data: iterationData.x_values.map((x, i) => ({ x: x, y: iterationData.y_analytical_values[i] })),
+                    borderColor: 'rgba(22, 163, 74, 1)', // green-600
+                    borderDash: [5, 5], 
+                    fill: false,
+                    tension: 0.1,
+                    pointRadius: 0, 
+                    showLine: true,
+                    type: 'line'
+                });
+            }
+            
+            eulerChart_EULER = new Chart(ctx, {
+                data: { datasets: datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: { display: true, text: `Método de Euler: ${iterationData.f_edo_str || 'dy/dx = f(x,y)'}`, font: { size: 16 } },
+                        legend: { position: 'top' },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => {
+                                    let label = context.dataset.label || '';
+                                    if (label) label += ': ';
+                                    label += `(x: ${context.parsed.x.toFixed(4)}, y: ${context.parsed.y.toFixed(6)})`;
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { type: 'linear', position: 'bottom', title: { display: true, text: 'x' } },
+                        y: { type: 'linear', position: 'left', title: { display: true, text: 'y(x)' }, 
+                             grid: { drawOnChartArea: true, zeroLineColor: 'rgba(0,0,0,1)', zeroLineWidth: 1 }
+                        }
+                    },
+                    interaction: {
+                        mode: 'index', 
+                        intersect: false,
+                    },
+                }
+            });
+            if (chartLoadingMessage_EULER) chartLoadingMessage_EULER.style.display = 'none';
+        }
+
+
+        // --- Fullscreen and Font Controls for Code Output ---
+        function toggleFullscreen_EULER() {
+            if (!codeOutput_EULER || !fullscreenButton_EULER || !outputControlsContainer_EULER) return;
+            const isFullscreen = codeOutput_EULER.classList.contains('euler-output-fullscreen');
+            if (isFullscreen) { 
+                outputControlsContainer_EULER.style.opacity = '0'; 
+                if(decreaseFontButton_EULER) decreaseFontButton_EULER.style.display = 'none';
+                if(increaseFontButton_EULER) increaseFontButton_EULER.style.display = 'none';
+                if (eulerCodeOutputInitialRect_EULER) {
+                    const finalRect = codeOutput_EULER.getBoundingClientRect();
+                    const scaleX = eulerCodeOutputInitialRect_EULER.width / finalRect.width;
+                    const scaleY = eulerCodeOutputInitialRect_EULER.height / finalRect.height;
+                    const deltaX = (eulerCodeOutputInitialRect_EULER.left + eulerCodeOutputInitialRect_EULER.width / 2) - (finalRect.left + finalRect.width / 2);
+                    const deltaY = (eulerCodeOutputInitialRect_EULER.top + eulerCodeOutputInitialRect_EULER.height / 2) - (finalRect.top + finalRect.height / 2);
+                    codeOutput_EULER.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+                }
+                setTimeout(() => {
+                    codeOutput_EULER.style.transition = 'none';
+                    codeOutput_EULER.classList.remove('euler-output-fullscreen');
+                    document.body.classList.remove('euler-body-fullscreen-active');
+                    outputControlsContainer_EULER.classList.remove('euler-output-controls-container-fixed');
+                    outputControlsContainer_EULER.style.transition = 'none'; outputControlsContainer_EULER.style.opacity = '1';
+                    outputControlsContainer_EULER.offsetHeight; outputControlsContainer_EULER.style.transition = '';
+                    codeOutput_EULER.style.transform = ''; if (originalOutputFontSize_EULER) codeOutput_EULER.style.fontSize = originalOutputFontSize_EULER;
+                    codeOutput_EULER.offsetHeight; codeOutput_EULER.style.transition = '';
+                    fullscreenButton_EULER.innerHTML = svgIconFullscreen_EULER; fullscreenButton_EULER.title = "Ver en pantalla completa";
+                    eulerCodeOutputInitialRect_EULER = null;
+                }, 500);
+            } else { 
+                originalOutputFontSize_EULER = window.getComputedStyle(codeOutput_EULER).fontSize;
+                eulerCodeOutputInitialRect_EULER = codeOutput_EULER.getBoundingClientRect();
+                outputControlsContainer_EULER.style.transition = 'none'; outputControlsContainer_EULER.style.opacity = '0';
+                outputControlsContainer_EULER.offsetHeight; outputControlsContainer_EULER.style.transition = '';
+                if(decreaseFontButton_EULER) decreaseFontButton_EULER.style.display = 'none'; if(increaseFontButton_EULER) increaseFontButton_EULER.style.display = 'none';
+                codeOutput_EULER.style.transition = 'none'; codeOutput_EULER.classList.add('euler-output-fullscreen');
+                document.body.classList.add('euler-body-fullscreen-active'); outputControlsContainer_EULER.classList.add('euler-output-controls-container-fixed');
+                const finalRect = codeOutput_EULER.getBoundingClientRect();
+                const scaleX = eulerCodeOutputInitialRect_EULER.width / finalRect.width; const scaleY = eulerCodeOutputInitialRect_EULER.height / finalRect.height;
+                const deltaX = (eulerCodeOutputInitialRect_EULER.left + eulerCodeOutputInitialRect_EULER.width / 2) - (finalRect.left + finalRect.width / 2);
+                const deltaY = (eulerCodeOutputInitialRect_EULER.top + eulerCodeOutputInitialRect_EULER.height / 2) - (finalRect.top + finalRect.height / 2);
+                codeOutput_EULER.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+                codeOutput_EULER.offsetHeight; codeOutput_EULER.style.transition = ''; codeOutput_EULER.style.transform = 'translate(0px, 0px) scale(1)';
+                fullscreenButton_EULER.innerHTML = svgIconExitFullscreen_EULER; fullscreenButton_EULER.title = "Salir de pantalla completa";
+                setTimeout(() => {
+                    outputControlsContainer_EULER.style.opacity = '1';
+                    if(decreaseFontButton_EULER) decreaseFontButton_EULER.style.display = 'flex'; if(increaseFontButton_EULER) increaseFontButton_EULER.style.display = 'flex';
+                }, 500);
+            }
+        }
+        function changeFontSize_EULER(increase) {
+            if (!codeOutput_EULER) return; const minSize = 8; const maxSize = 24; const step = 1;
+            eulerCurrentFontSize_EULER += (increase ? step : -step);
+            eulerCurrentFontSize_EULER = Math.max(minSize, Math.min(maxSize, eulerCurrentFontSize_EULER));
+            codeOutput_EULER.style.fontSize = eulerCurrentFontSize_EULER + 'px';
+            const buttonToAnimate = increase ? increaseFontButton_EULER : decreaseFontButton_EULER;
+            const animationClass = increase ? 'euler-font-button-flash-blue' : 'euler-font-button-flash-red';
+            if (buttonToAnimate) {
+                buttonToAnimate.classList.remove('euler-font-button-flash-blue', 'euler-font-button-flash-red');
+                void buttonToAnimate.offsetWidth; buttonToAnimate.classList.add(animationClass);
+                setTimeout(() => buttonToAnimate.classList.remove(animationClass), 400);
+            }
+        }
+
+        // --- Event Listeners ---
+        if (runCodeButton_EULER) {
+            runCodeButton_EULER.addEventListener('click', runCodeNow_EULER);
+            runCodeButton_EULER.disabled = true;
+        }
+        if (quizForm_EULER) {
+            quizForm_EULER.addEventListener('submit', handleQuizSubmit_EULER);
+        }
+        if (fullscreenButton_EULER) {
+            fullscreenButton_EULER.addEventListener('click', toggleFullscreen_EULER);
+        }
+        if (decreaseFontButton_EULER) {
+            decreaseFontButton_EULER.addEventListener('click', () => changeFontSize_EULER(false));
+        }
+        if (increaseFontButton_EULER) {
+            increaseFontButton_EULER.addEventListener('click', () => changeFontSize_EULER(true));
+        }
+        if (mainCompletionButton_EULER) {
+            mainCompletionButton_EULER.addEventListener('click', handleCompletionToggle_EULER);
+        }
+
+        // --- Initial Setup Calls ---
+        setupPyodide_EULER();
+
+        const initialProgress_EULER = getPageProgressFromStorage_EULER();
+        if (initialProgress_EULER.quiz_feedback_active || (initialProgress_EULER[TASKS_EULER.QUIZ_ATTEMPTED] && Object.keys(initialProgress_EULER.user_quiz_answers).length > 0) ) {
+            if (quizForm_EULER && initialProgress_EULER.user_quiz_answers) {
+                 for (const qName in initialProgress_EULER.user_quiz_answers) {
+                    const userAnswer = initialProgress_EULER.user_quiz_answers[qName];
+                    if (userAnswer === null) continue;
+                    try {
+                        const radioToSelect = quizForm_EULER.querySelector(`input[name="${qName}"][value="${CSS.escape(userAnswer)}"]`);
+                        if (radioToSelect) radioToSelect.checked = true;
+                    } catch (e) { console.warn(`Error selecting radio for ${qName} with value ${userAnswer}:`, e); }
+                }
+            }
+            displayQuizFeedback_EULER();
+        } else if (quizForm_EULER) {
+            quizForm_EULER.reset();
+            clearAllVisualFeedback_EULER(true);
+            const submitButton = quizForm_EULER.querySelector('button[type="submit"]');
+            if (submitButton) { submitButton.textContent = 'Enviar Respuestas'; submitButton.disabled = false; }
+            quizForm_EULER.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+            quizForm_EULER.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+            });
+        }
+        
+        calculateAndUpdateOverallProgress_EULER();
+
+        if (window.MathJax && window.MathJax.typesetPromise) {
+            window.MathJax.typesetPromise().catch(err => console.error("MathJax initial typesetting error (Euler):", err));
+        }
+    });
+    </script>
+
+    <script type="module">
+        const { createApp, ref, onMounted, onUnmounted, watch, nextTick } = Vue;
+
+        const LeftSidebar = { // Definición del componente LeftSidebar para Vue
+            // props: ['currentSection', 'completedSections', 'methodKey', 'methodName'], // Ejemplo de props si fueran necesarias
+            template: `{% raw %}
+                <aside 
+                    :class="[
+                        'bg-gradient-to-b from-red-500 to-red-700', 'shadow-xl', 'rounded-lg', 'p-4',
+                        'flex', 'flex-col',
+                        'transition-all', 'duration-300', 'ease-in-out',
+                        'order-1', 
+                        isCollapsed ? 'w-full lg:w-20' : 'w-full lg:w-64',
+                        'self-start', 
+                        'lg:sticky', 'lg:top-8', 
+                        'lg:max-h-[calc(100vh-4rem)]', 
+                        'overflow-y-auto'
+                    ]"
+                    aria-label="Sidebar de navegación del método">
+                    <div :class="['flex justify-between items-center mb-4 pb-3', 'border-b border-red-400']">  <!-- Color de borde rojo -->
+                        <h3 v-show="!isCollapsed" class="text-lg font-semibold text-white select-none">Contenido del Método</h3>
+                        <button @click="toggleCollapse" :class="['p-1.5 ml-2 text-white rounded focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-75', 'hover:bg-red-700']" :aria-label="isCollapsed ? 'Expandir menú' : 'Colapsar menú'">
+                            <svg v-if="!isCollapsed" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5" />
+                            </svg>
+                            <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5m-6-15l7.5 7.5-7.5 7.5" />
+                            </svg>
+                        </button>
+                    </div>
+                    <nav v-show="!isCollapsed">
+                        <ul class="space-y-1">
+                            <li v-for="item in navItems" :key="item.id">
+                                <a :href="item.href"
+                                   @click.prevent="smoothScroll(item.href)"
+                                   :class="[
+                                       'nav-link block px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 flex items-center',
+                                       isActive(item.id) ? 'bg-white shadow-sm font-semibold text-custom-red' : 'text-red-100 hover:text-white hover:bg-red-700' // Usar colores rojos directamente
+                                   ]">
+                                    <span v-html="item.iconSVG" class="mr-3 translate-y-px"></span>
+                                    <span>{{ item.text }}</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                    <nav v-show="isCollapsed" class="mt-4">
+                         <ul class="space-y-1">
+                            <li v-for="item in navItems" :key="item.id + '-collapsed'">
+                                <a :href="item.href"
+                                   @click.prevent="smoothScroll(item.href)"
+                                   :title="item.text"
+                                   :aria-label="item.text"
+                                   :class="[
+                                       'nav-link-collapsed block py-2 pl-2.5 pr-1.5 rounded-md transition-colors duration-150 flex justify-center items-center',
+                                       isActive(item.id) ? 'bg-white shadow-sm text-custom-red' : 'text-red-100 hover:text-white hover:bg-red-700' // Usar colores rojos directamente
+                                   ]">
+                                    <span v-html="item.iconSVG" class="w-6 h-6 translate-y-px"></span>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                </aside>
+            {% endraw %}`,
+            setup(props) { // No necesita pasar pageThemeColor o pageActiveTextColor si los colores son fijos en el template
+                const isCollapsed = ref(false);
+                const activeSectionId = ref(null); 
+                // const pageThemeColor = ref('custom-red'); // No es necesario si se usa directamente en template
+                // const pageActiveTextColor = ref('custom-red'); // No es necesario si se usa directamente en template
+
+                const navItems = ref([
+                    { id: 'teoria', text: 'Fundamento Teórico', href: '#teoria', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>' },
+                    { id: 'algoritmo', text: 'Pasos del Algoritmo', href: '#algoritmo', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" /></svg>' },
+                    { id: 'ejemplo', text: 'Ejemplo Detallado', href: '#ejemplo', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>' },
+                    { id: 'codigo', text: 'Implementación (Python)', href: '#codigo', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" /></svg>' },
+                    { id: 'graficas', text: 'Gráficas Interactivas', href: '#graficas', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>' },
+                    { id: 'videos', text: 'Videos Explicativos', href: '#videos', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.75.75 0 010 1.656l-5.603 3.113A.75.75 0 019 15.95V9.05a.75.75 0 011.307-.588l5.603 3.112z" /></svg>' },
+                    { id: 'conclusion', text: 'Conclusión', href: '#conclusion', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' },
+                    { id: 'referencias', text: 'Referencias', href: '#referencias', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 3.75V16.5L12 14.25L7.5 16.5V3.75m9 0H18A2.25 2.25 0 0120.25 6v12A2.25 2.25 0 0118 20.25H6A2.25 2.25 0 013.75 18V6A2.25 2.25 0 016 3.75h1.5m9 0h-9" /></svg>' },
+                    { id: 'cuestionario', text: 'Cuestionario', href: '#cuestionario', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' }
+                ]);
+                let sections = [];
+
+                const toggleCollapse = () => { isCollapsed.value = !isCollapsed.value; };
+                const isActive = (id) => activeSectionId.value === id;
+                const smoothScroll = (targetHref) => {
+                    const targetId = targetHref.substring(1);
+                    const targetElement = document.getElementById(targetId);
+                    if (targetElement) {
+                        targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }
+                };
+                const handleScroll = () => {
+                    if (!sections || sections.length === 0) return;
+                    const scrollMarginTopValue = parseInt(getComputedStyle(sections[0]).scrollMarginTop) || 96;
+                    let newActiveSectionId = null;
+                    for (let i = 0; i < sections.length; i++) {
+                        const section = sections[i];
+                        const sectionTopBoundary = section.offsetTop - scrollMarginTopValue;
+                        const sectionBottomBoundary = sectionTopBoundary + section.offsetHeight;
+                        if (window.scrollY >= sectionTopBoundary && window.scrollY < sectionBottomBoundary) {
+                            newActiveSectionId = section.id; break;
+                        }
+                    }
+                    if (newActiveSectionId === null && sections.length > 0) {
+                        for (let i = sections.length - 1; i >= 0; i--) {
+                            if ((sections[i].offsetTop - scrollMarginTopValue) <= window.scrollY + 5) {
+                                newActiveSectionId = sections[i].id; break;
+                            }
+                        }
+                    }
+                     if (newActiveSectionId === null && sections.length > 0 && window.scrollY < (sections[0].offsetTop - scrollMarginTopValue)) {
+                        newActiveSectionId = sections[0].id;
+                     }
+                    if (activeSectionId.value !== newActiveSectionId) activeSectionId.value = newActiveSectionId;
+                };
+
+                onMounted(() => {
+                    nextTick(() => {
+                        sections = Array.from(document.querySelectorAll('main article section[id]'));
+                        handleScroll(); 
+                        window.addEventListener('scroll', handleScroll, { passive: true });
+                    });
+                });
+                onUnmounted(() => { window.removeEventListener('scroll', handleScroll); });
+
+                return { isCollapsed, toggleCollapse, navItems, isActive, smoothScroll, activeSectionId };
+            }
+        };
+
+        const app = createApp({
+            components: { LeftSidebar },
+            setup() {
+                onMounted(() => {
+                    if (window.MathJax && window.MathJax.typesetPromise) {
+                        nextTick(() => {
+                            window.MathJax.typesetPromise().catch(err => console.error("MathJax typesetting error on Vue app mount:", err));
+                        });
+                    }
+                });
+                return {};
+            }
+        });
+        app.config.compilerOptions.isCustomElement = tag => tag.startsWith('mjx-');
+        app.mount('#app');
+    </script>
+</body>
+</html>

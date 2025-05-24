@@ -1,0 +1,215 @@
+/* Paleta de colores profesional */
+:root {
+    --primary-color: #2c3e50; /* Azul oscuro */
+    --secondary-color: #3498db; /* Azul brillante */
+    --accent-color: #e74c3c; /* Rojo coral */
+    --background-color: #ecf0f1; /* Gris claro */
+    --text-color: #34495e; /* Gris oscuro */
+    --card-background: #ffffff;
+    --card-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    background-color: var(--background-color);
+    color: var(--text-color);
+}
+
+header {
+    background-color: var(--primary-color);
+    color: var(--background-color);
+    padding: 1rem 0;
+    text-align: center;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 2.5rem;
+}
+
+nav ul {
+    list-style-type: none;
+    padding: 0;
+    text-align: center;
+    background-color: var(--secondary-color);
+    margin: 0;
+}
+
+nav ul li {
+    display: inline;
+    margin-right: 20px;
+}
+
+nav ul li a {
+    color: var(--background-color);
+    text-decoration: none;
+    font-size: 1.1rem;
+    padding: 0.5rem 1rem;
+    display: inline-block;
+}
+
+nav ul li a:hover,
+nav ul li a.active-nav-link {
+    background-color: var(--accent-color);
+    border-radius: 5px;
+}
+
+main {
+    padding: 20px;
+    border: 1px dashed var(--secondary-color);
+    border-radius: 5px;
+}
+
+#method-cards-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+}
+
+.method-card {
+    background-color: var(--card-background);
+    border-radius: 8px;
+    box-shadow: var(--card-shadow);
+    padding: 20px;
+    width: 300px;
+    text-align: center;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.method-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.method-card h3 {
+    color: var(--primary-color);
+    margin-top: 0;
+}
+
+.method-card p {
+    font-size: 0.9rem;
+    color: var(--text-color);
+}
+
+.method-card a {
+    display: inline-block;
+    margin-top: 15px;
+    padding: 10px 15px;
+    background-color: var(--secondary-color);
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    transition: background-color 0.3s ease;
+}
+
+.method-card a:hover {
+    background-color: var(--accent-color);
+}
+
+footer {
+    text-align: center;
+    padding: 20px;
+    background-color: var(--primary-color);
+    color: var(--background-color);
+    margin-top: 30px;
+}
+
+/* Estilos para las páginas de métodos individuales */
+.method-content {
+    background-color: var(--card-background);
+    padding: 30px;
+    margin: 20px auto;
+    border-radius: 8px;
+    box-shadow: var(--card-shadow);
+    max-width: 900px;
+}
+
+.method-content h2 {
+    color: var(--primary-color);
+    border-bottom: 2px solid var(--secondary-color);
+    padding-bottom: 10px;
+}
+
+.method-content section {
+    margin-bottom: 30px;
+}
+
+.method-content h3 {
+    color: var(--secondary-color);
+    margin-top: 25px;
+    margin-bottom: 10px;
+}
+
+.code-block {
+    background-color: #f4f4f4;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 15px;
+    overflow-x: auto;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+.code-block pre {
+    margin: 0;
+}
+
+.interactive-graphics, .video-embed {
+    text-align: center;
+    margin: 20px 0;
+    padding: 15px;
+    border: 1px dashed var(--secondary-color);
+    border-radius: 5px;
+}
+
+/* Barra de Progreso Global */
+#progress-bar-container {
+    margin: 20px auto;
+    width: 80%;
+    max-width: 900px;
+    background-color: #ddd;
+    border-radius: 5px;
+    padding: 3px;
+}
+
+#global-progress-bar {
+    height: 25px;
+    width: 0%; /* Se actualizará con JS */
+    background-color: var(--secondary-color);
+    border-radius: 3px;
+    text-align: center;
+    line-height: 25px; /* Para centrar texto si se añade dentro */
+    color: white;
+    transition: width 0.5s ease-in-out;
+}
+
+#global-progress-text {
+    text-align: center;
+    margin-top: 5px;
+    font-size: 0.9rem;
+    color: var(--text-color);
+}
+
+/* Botón de completar método */
+.completion-button {
+    background-color: var(--secondary-color);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.3s ease;
+    margin-top: 20px;
+}
+
+.completion-button:hover {
+    background-color: var(--primary-color);
+}
+
+.completion-button.completed {
+    background-color: #27ae60; /* Verde */
+} 

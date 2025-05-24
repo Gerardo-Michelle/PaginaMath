@@ -1,0 +1,1946 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eliminación Gaussiana - Métodos Numéricos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'custom-blue': '#242A38',
+                        'custom-red': '#E94560', // Main theme color for sidebars etc.
+                        'custom-gray-bg': '#F3F4F6',
+                        'sidebar-bg': '#FFFFFF', // Right sidebar background
+                        'sidebar-text': '#4B5563',
+                        'sidebar-hover-bg': '#FEF2F2', // Accent for hover, e.g. in right sidebar
+                    }
+                }
+            }
+        }
+    </script>
+    <script>
+        window.MathJax = {
+            tex: { packages: {'[+]': ['input/mml', 'output/chtml']} },
+            chtml: { matchFontHeight: false },
+            options: { ignoreHtmlClass: 'tex2jax_ignore', processHtmlClass: 'tex2jax_process' }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        @keyframes animatedRainbowBorder { 0% { background-position: 0% center; } 100% { background-position: 200% center; } }
+        .animate-rainbow-border::before {
+            content: ''; position: absolute; z-index: -1; top: -2px; left: -2px; right: -2px; bottom: -2px;
+            border-radius: 9999px;
+            background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #007bff, #8a2be2, #ff00ff, #ff0000);
+            background-size: 200% 100%;
+            animation: animatedRainbowBorder 3s linear infinite;
+        }
+        .animate-rainbow-border { position: relative; z-index: 0; }
+        .correct-answer-eg { border-color: #10B981; background-color: #D1FAE5; }
+        .incorrect-answer-eg { border-color: #EF4444; background-color: #FEE2E2; }
+
+        .eg-output-fullscreen {
+            position: fixed !important; top: 0 !important; left: 0 !important;
+            width: 100vw !important; height: 100vh !important;
+            z-index: 9990 !important; background-color: #111827 !important;
+            padding: 20px !important; margin: 0 !important; border-radius: 0 !important;
+            overflow-y: auto !important; max-height: 100vh !important;
+        }
+        .eg-body-fullscreen-active { overflow: hidden !important; }
+        .eg-output-controls-container-fixed {
+            position: fixed !important; top: 15px !important; right: 15px !important;
+            z-index: 9999 !important; display: flex !important;
+            align-items: center !important; gap: 0.25rem !important;
+        }
+        .eg-font-button-flash-red { animation: eg-flash-red 0.4s ease-out; }
+        @keyframes eg-flash-red { 0% { background-color: #EF4444; } 100% { background-color: #374151; } }
+        .eg-font-button-flash-blue { animation: eg-flash-blue 0.4s ease-out; }
+        @keyframes eg-flash-blue { 0% { background-color: #3B82F6; } 100% { background-color: #374151; } }
+
+        .matrix-table { border-collapse: collapse; margin: 10px auto; font-family: monospace; font-size:0.9em; }
+        .matrix-table th, .matrix-table td { border: 1px solid #555; padding: 6px 10px; text-align: right; }
+        .matrix-table th { background-color: #333; font-weight:normal; }
+        .pivot-element { background-color: #4CAF50 !important; color: white; font-weight: bold; }
+        .matrix-separator { border-right: 2px solid #999 !important; }
+        .step-description { margin-top:15px; margin-bottom:5px; font-style: italic; text-align:center; font-size:0.9em;}
+        .elimination-target-cell { background-color: #FFEBEE !important; /* Light red for cells being zeroed out */ }
+        .backsub-solve-variable { background-color: #E3F2FD !important; /* Light blue for variable being solved */ }
+        .backsub-known-value { background-color: #E8EAF6 !important; /* Light indigo for known values in backsub */ }
+        .source-row-highlight td { background-color: #E3F2FD !important; /* Light blue for source/pivot row in HTML table */ }
+        .target-row-highlight td { background-color: #E8F5E9 !important; /* Light green for target row in HTML table */ }
+
+
+        /* D3 Visualization Styles */
+        #eg-d3-svg-container .row-group rect {
+            stroke: #b0bec5;
+            stroke-width: 1px;
+            fill: white;
+            shape-rendering: crispEdges;
+        }
+        #eg-d3-svg-container .row-group text {
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+            text-anchor: middle;
+            dominant-baseline: central;
+            fill: #263238;
+            font-size: 0.85em;
+            pointer-events: none;
+        }
+        #eg-d3-svg-container .pivot-highlight rect { /* Pivot element during forward elimination */
+            fill: #FFF59D !important; 
+            stroke: #FBC02D !important;
+        }
+        #eg-d3-svg-container .source-row-highlight rect { /* Pivot row during forward elimination */
+            fill: #90CAF9 !important; 
+        }
+        #eg-d3-svg-container .target-row-highlight rect { /* Row being modified during forward elimination */
+            fill: #A5D6A7 !important; 
+        }
+        #eg-d3-svg-container .eliminate-highlight rect { /* Specific element being zeroed out */
+            fill: #EF9A9A !important; 
+            stroke: #E57373 !important;
+        }
+        #eg-d3-svg-container .problem-row-highlight rect { /* Inconsistent system row */
+             fill: #FFCDD2 !important;
+        }
+        #eg-d3-svg-container .dependent-row-highlight rect { /* Row of zeros indicating dependency */
+            fill: #FFFDE7 !important;
+        }
+        #eg-d3-svg-container .pivot-search-highlight rect { /* Column being searched for pivot */
+            fill: #CFD8DC !important; 
+        }
+        #eg-d3-svg-container .matrix-column-separator {
+            stroke: #78909c;
+            stroke-width: 1.5px;
+            stroke-dasharray: 3 2;
+        }
+        /* Back substitution specific highlights */
+        #eg-d3-svg-container .backsub-equation-highlight rect { /* Entire row/equation used in current backsub step */
+            fill: #C5CAE9 !important; /* Light indigo */
+        }
+        #eg-d3-svg-container .backsub-solving-var-highlight rect { /* Variable being solved for (diagonal element) */
+            fill: #81D4FA !important; /* Light blue, brighter */
+        }
+         #eg-d3-svg-container .backsub-known-var-highlight rect { /* Known variables in current equation */
+            fill: #A5D6A7 !important; /* Light green (re-using target-row for knowns) */
+        }
+    </style>
+</head>
+<body class="bg-custom-gray-bg text-gray-700 font-sans antialiased">
+    <div id="app-eg">
+        <header class="bg-custom-blue text-white shadow-md">
+            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                <h1 class="text-xl font-semibold"><a href="../index.html" class="hover:text-gray-300">Métodos Numéricos</a></h1>
+                <nav><a href="../index.html#method-cards-container" class="text-sm px-4 py-2 rounded-md hover:bg-gray-700 transition-colors duration-150">Volver a Métodos</a></nav>
+            </div>
+        </header>
+
+        <div class="container mx-auto mt-8 mb-8 flex flex-col lg:flex-row lg:space-x-8 px-4">
+            <left-sidebar-eg></left-sidebar-eg>
+            <main class="w-full flex-1 min-w-0 bg-white shadow-xl rounded-lg p-6 md:p-8 order-2 mb-6 lg:mb-0">
+                <article class="method-content">
+                    <h2 class="text-3xl font-bold mb-6 text-gray-800 border-b border-gray-200 pb-4">Eliminación Gaussiana</h2>
+                    
+                    <section id="teoria-eg" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Fundamento Teórico (Según Chapra)</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            La Eliminación Gaussiana es un método sistemático y directo para resolver sistemas de ecuaciones algebraicas lineales de la forma \(Ax=b\). El procedimiento consta de dos etapas principales:
+                        </p>
+                        <ol class="list-decimal list-inside space-y-2 pl-4 text-gray-600 mb-4">
+                            <li>
+                                <strong>Eliminación hacia adelante:</strong> En esta etapa, se reduce el conjunto de ecuaciones a un sistema triangular superior. Se utilizan operaciones elementales de fila para eliminar sistemáticamente las incógnitas de las ecuaciones. Las operaciones elementales de fila incluyen:
+                                <ul class="list-disc list-inside space-y-1 pl-6 mt-2">
+                                    <li>Intercambiar dos filas.</li>
+                                    <li>Multiplicar una fila por una constante no nula.</li>
+                                    <li>Sumar un múltiplo de una fila a otra fila.</li>
+                                </ul>
+                                El objetivo es introducir ceros debajo de la diagonal principal de la matriz de coeficientes \(A\). Chapra destaca la importancia del <strong>pivoteo parcial</strong> durante esta fase. Antes de eliminar incógnitas en una columna, se busca el elemento con el mayor valor absoluto en esa columna (desde la fila actual del pivote hacia abajo). Si este elemento no está en la fila del pivote, se intercambian las filas para que el elemento de mayor magnitud sea el pivote. Esto ayuda a minimizar los errores de redondeo y a evitar la división por cero o números muy pequeños.
+                            </li>
+                            <li>
+                                <strong>Sustitución hacia atrás:</strong> Una vez que el sistema se ha transformado a la forma triangular superior (por ejemplo, \(Ux=b'\), donde \(U\) es la matriz triangular superior y \(b'\) es el vector de términos independientes modificado), las incógnitas se pueden determinar resolviendo las ecuaciones de abajo hacia arriba. La última ecuación se resuelve para la última incógnita, este valor se sustituye en la penúltima ecuación para resolver la penúltima incógnita, y así sucesivamente.
+                            </li>
+                        </ol>
+                    </section>
+
+                    <section id="algoritmo-eg" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Pasos del Algoritmo (Según Chapra)</h3>
+                        <p class="text-gray-600 leading-relaxed mb-2">Para un sistema de \(n\) ecuaciones lineales \(Ax=b\):</p>
+                        <ol class="list-decimal list-inside space-y-3 pl-4 text-gray-600 leading-relaxed">
+                            <li><strong>Formar la matriz aumentada:</strong> Combinar la matriz de coeficientes \(A\) y el vector de términos independientes \(b\) para formar la matriz aumentada \([A|b]\).</li>
+                            <li>
+                                <strong>Eliminación hacia adelante:</strong>
+                                <p class="mt-1">Para \(k = 0, 1, \dots, n-2\) (columna actual para pivoteo y eliminación):</p>
+                                <ol type="a" class="list-[lower-alpha] list-inside space-y-2 pl-6 mt-2">
+                                    <li>
+                                        <strong>Pivoteo Parcial:</strong> Encontrar el índice \(p\) (donde \(k \le p < n\)) tal que \(|A_{pk}|\) sea el máximo valor absoluto en la columna \(k\), desde la fila \(k\) hasta la fila \(n-1\).
+                                    </li>
+                                    <li>
+                                        Si \(|A_{pk}|\) es muy cercano a cero (considerando la tolerancia), la matriz podría ser singular en esta etapa o indicar que no se puede continuar con este pivote. Si todos los candidatos a pivote en la columna son cercanos a cero, el sistema es singular o tiene infinitas soluciones.
+                                    </li>
+                                    <li>
+                                        Si \(p \neq k\), intercambiar la fila \(k\) con la fila \(p\) en la matriz aumentada completa.
+                                    </li>
+                                    <li>
+                                        <strong>Eliminación:</strong> Para \(i = k+1, \dots, n-1\) (filas debajo de la fila pivote \(k\)):
+                                        <ul class="list-disc list-inside space-y-1 pl-6 mt-1">
+                                            <li>Calcular el multiplicador: \(m = A_{ik} / A_{kk}\). (Asegurarse que \(A_{kk}\) no sea cero después del pivoteo).</li>
+                                            <li>Actualizar la fila \(i\): \(R_i \leftarrow R_i - m \cdot R_k\). Esta operación se aplica a todos los elementos de la fila \(i\) en la matriz aumentada (desde la columna \(k\) hasta la columna \(n\), que incluye el término de \(b\)). Después de esto, \(A_{ik}\) debería ser (aproximadamente) cero.</li>
+                                        </ul>
+                                    </li>
+                                </ol>
+                            </li>
+                            <li>
+                                <strong>Sustitución hacia atrás:</strong>
+                                <ol type="a" class="list-[lower-alpha] list-inside space-y-2 pl-6 mt-2">
+                                    <li>Verificar si \(A_{(n-1)(n-1)}\) es cercano a cero. Si es así, y \(A_{(n-1)n}\) (el término constante modificado) también es cercano a cero, hay infinitas soluciones. Si \(A_{(n-1)(n-1)}\) es cero y \(A_{(n-1)n}\) no es cero, el sistema es inconsistente.</li>
+                                    <li>Resolver para la última incógnita: \(x_{n-1} = A_{(n-1)n} / A_{(n-1)(n-1)}\) (usando los elementos de la matriz aumentada transformada, donde \(A_{in}\) representa el elemento en la \(n\)-ésima columna, que es la columna de términos \(b\) aumentados).</li>
+                                    <li>Para \(i = n-2, \dots, 0\) (resolviendo hacia arriba):
+                                        <p class="mt-1 tex2jax_process">\[x_i = \frac{A_{in} - \sum_{j=i+1}^{n-1} A_{ij}x_j}{A_{ii}}\]</p>
+                                        (Nuevamente, verificar que \(A_{ii}\) no sea cero. Si lo es, indica un problema de singularidad/dependencia que debería haberse detectado antes si el pivoteo fue exhaustivo y la matriz es singular).
+                                    </li>
+                                </ol>
+                            </li>
+                        </ol>
+                        <p class="text-gray-600 leading-relaxed mt-2">Nota: El manejo de la matriz singular y la tolerancia para ceros son importantes en implementaciones prácticas.</p>
+                    </section>
+
+                    <section id="ejemplo-eg" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Ejemplo Paso a Paso</h3>
+                        <p class="text-gray-600 leading-relaxed mb-3">Resolver el sistema:</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ \begin{aligned} 2x_1 + x_2 - x_3 &= 8 \\ -3x_1 - x_2 + 2x_3 &= -11 \\ -2x_1 + x_2 + 2x_3 &= -3 \end{aligned} \]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mb-2"><strong>1. Matriz Aumentada Inicial \([A|b]\):</strong></p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ \left[ \begin{array}{ccc|c} 2 & 1 & -1 & 8 \\ -3 & -1 & 2 & -11 \\ -2 & 1 & 2 & -3 \end{array} \right] \]
+                        </div>
+                        
+                        <p class="font-medium text-gray-700 mb-1"><strong>Paso 1: Eliminación hacia adelante (Columna \(k=0\))</strong></p>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1">a) Pivoteo Parcial: En la columna 0, los valores absolutos son \(|2|, |-3|, |-2|\). El máximo es \(|-3|\) en Fila 1 (0-indexed). Intercambiamos Fila 0 con Fila 1.</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ \left[ \begin{array}{ccc|c} -3 & -1 & 2 & -11 \\ 2 & 1 & -1 & 8 \\ -2 & 1 & 2 & -3 \end{array} \right] \]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1">b) Eliminación (Pivote \(A_{00} = -3\)):</p>
+                        <ul class="list-disc list-inside space-y-1 pl-8 text-gray-600 mb-2">
+                            <li>Para Fila 1 (originalmente Fila 0): Multiplicador \(m_{10} = A_{10}/A_{00} = 2/(-3) = -2/3\). <br/> \(R_1 \leftarrow R_1 - (-2/3)R_0\).
+                                <br/> Fila 1 nueva: \([0 \quad 1/3 \quad 1/3 \quad 4/3]\) o \([0 \quad 0.3333 \quad 0.3333 \quad 1.3333]\)
+                            </li>
+                            <li>Para Fila 2 (originalmente Fila 2): Multiplicador \(m_{20} = A_{20}/A_{00} = -2/(-3) = 2/3\). <br/> \(R_2 \leftarrow R_2 - (2/3)R_0\).
+                                <br/> Fila 2 nueva: \([0 \quad 5/3 \quad 2/3 \quad 13/3]\) o \([0 \quad 1.6667 \quad 0.6667 \quad 4.3333]\)
+                            </li>
+                        </ul>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1">Matriz después de la eliminación en Columna 0:</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ \left[ \begin{array}{ccc|c} -3 & -1 & 2 & -11 \\ 0 & 0.3333 & 0.3333 & 1.3333 \\ 0 & 1.6667 & 0.6667 & 4.3333 \end{array} \right] \]
+                        </div>
+
+                        <p class="font-medium text-gray-700 mb-1"><strong>Paso 2: Eliminación hacia adelante (Columna \(k=1\))</strong></p>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1">a) Pivoteo Parcial: En la columna 1 (desde Fila 1 hacia abajo), los valores absolutos son \(|0.3333|, |1.6667|\). El máximo es \(|1.6667|\) en la Fila 2 actual. Intercambiamos Fila 1 con Fila 2.</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ \left[ \begin{array}{ccc|c} -3 & -1 & 2 & -11 \\ 0 & 1.6667 & 0.6667 & 4.3333 \\ 0 & 0.3333 & 0.3333 & 1.3333 \end{array} \right] \]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1">b) Eliminación (Pivote \(A_{11} = 1.6667\)):</p>
+                         <ul class="list-disc list-inside space-y-1 pl-8 text-gray-600 mb-2">
+                            <li>Para Fila 2 (originalmente Fila 1): Multiplicador \(m_{21} = A_{21}/A_{11} = 0.3333 / 1.6667 \approx 0.2\). (Exacto: \((1/3)/(5/3) = 1/5\)).<br/> \(R_2 \leftarrow R_2 - (0.2)R_1\).
+                                <br/>Fila 2 nueva: \([0 \quad 0 \quad 0.3333 - 0.2 \times 0.6667 \quad | \quad 1.3333 - 0.2 \times 4.3333 ]\)
+                                <br/>Fila 2 nueva: \([0 \quad 0 \quad 0.3333 - 0.1333 \quad | \quad 1.3333 - 0.8667 ]\)
+                                <br/>Fila 2 nueva: \([0 \quad 0 \quad 0.2 \quad | \quad 0.4666 ]\) (Usando fracciones: \(1/3 - (1/5)(2/3) = 3/15 = 1/5\). \(4/3 - (1/5)(13/3) = (20-13)/15 = 7/15\). So \(A_{22}=1/5=0.2\), \(A_{23}=7/15 \approx 0.4667\))
+                            </li>
+                        </ul>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1">Matriz triangular superior final (Usando el ejemplo del código original que sí da enteros):</p>
+                        <p class="text-sm text-gray-500 ml-4 mb-2">(Nota: El ejemplo anterior con pivoteo genera fracciones. Para una demostración más clara con enteros al final, se retoma el ejemplo usado en el código original de `eliminacion-gaussiana.html` que llegaba a la solución x=2, y=3, z=-1, aunque su pivoteo manual era diferente).
+                        <br>Matriz Aumentada Inicial para el ejemplo que da enteros:</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ \left[ \begin{array}{ccc|c} 2 & 1 & -1 & 8 \\ -3 & -1 & 2 & -11 \\ -2 & 1 & 2 & -3 \end{array} \right] \]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1">Paso 1 (col \(k=0\)), pivote \(A_{00}=2\) (sin pivoteo para este paso en este ejemplo particular):</p>
+                        <ul class="list-disc list-inside space-y-1 pl-8 text-gray-600 mb-2">
+                            <li>\(R_1 \leftarrow R_1 - (-3/2)R_0 = R_1 + 1.5R_0\). Fila 1 nueva: \([0 \quad 0.5 \quad 0.5 \quad | \quad 1]\)</li>
+                            <li>\(R_2 \leftarrow R_2 - (-2/2)R_0 = R_2 + R_0\). Fila 2 nueva: \([0 \quad 2 \quad 1 \quad | \quad 5]\)</li>
+                        </ul>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1">Matriz intermedia:</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ \left[ \begin{array}{ccc|c} 2 & 1 & -1 & 8 \\ 0 & 0.5 & 0.5 & 1 \\ 0 & 2 & 1 & 5 \end{array} \right] \]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1">Paso 2 (col \(k=1\)):</p>
+                        <ul class="list-disc list-inside space-y-1 pl-8 text-gray-600 mb-2">
+                            <li>Pivoteo: En col 1 (desde Fila 1 actual), \(|A_{21}| = |2| > |A_{11}| = |0.5|\). Intercambiar Fila 1 con Fila 2.
+                            <div class="text-center my-3 text-gray-600 tex2jax_process">
+                            \[ \left[ \begin{array}{ccc|c} 2 & 1 & -1 & 8 \\ 0 & 2 & 1 & 5 \\ 0 & 0.5 & 0.5 & 1 \end{array} \right] \]
+                            </div>
+                            </li>
+                            <li>Eliminación: Pivote \(A_{11}=2\). \(R_2 \leftarrow R_2 - (0.5/2)R_1 = R_2 - 0.25R_1\).
+                            <br/> Fila 2 nueva: \([0 \quad 0 \quad 0.25 \quad | \quad -0.25]\)
+                            </li>
+                        </ul>
+                         <p class="text-gray-600 leading-relaxed ml-4 mb-1">Matriz triangular superior final:</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ \left[ \begin{array}{ccc|c} 2 & 1 & -1 & 8 \\ 0 & 2 & 1 & 5 \\ 0 & 0 & 0.25 & -0.25 \end{array} \right] \]
+                        </div>
+
+                        <p class="font-medium text-gray-700 mb-1"><strong>3. Sustitución hacia atrás:</strong></p>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1">El sistema triangular superior es:</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ \begin{aligned} 2x_1 + x_2 - x_3 &= 8 \\ 2x_2 + x_3 &= 5 \\ 0.25x_3 &= -0.25 \end{aligned} \]
+                        </div>
+                        <ul class="list-disc list-inside space-y-1 pl-8 text-gray-600 mb-2">
+                            <li>De la tercera ecuación: \(0.25x_3 = -0.25 \implies x_3 = -1\).</li>
+                            <li>Sustituyendo \(x_3=-1\) en la segunda ecuación: \(2x_2 + (-1) = 5 \implies 2x_2 = 6 \implies x_2 = 3\).</li>
+                            <li>Sustituyendo \(x_2=3\) y \(x_3=-1\) en la primera ecuación: \(2x_1 + 3 - (-1) = 8 \implies 2x_1 + 4 = 8 \implies 2x_1 = 4 \implies x_1 = 2\).</li>
+                        </ul>
+                        <p class="text-gray-600 leading-relaxed ml-4"><strong>Solución:</strong> \(x_1 = 2, x_2 = 3, x_3 = -1\).</p>
+                    </section>
+
+                    <section id="codigo-eg" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Código de Implementación (Python)</h3>
+                        <p class="text-gray-600 leading-relaxed mb-3">
+                            A continuación se presenta una implementación en Python del método de Eliminación Gaussiana con pivoteo parcial.
+                            La salida de texto mostrará los pasos de la transformación de la matriz aumentada, y la visualización interactiva usará los datos generados.
+                        </p>
+                        <div class="code-editor-container bg-gray-50 p-4 rounded-lg shadow-inner">
+                            <textarea id="eg-code-input" class="code-input w-full h-[600px] p-3 border border-gray-300 rounded-md font-mono text-sm" style="resize: none;">
+import numpy as np
+
+def format_matrix_html(matrix, pivot_coords=None, n_coeffs=None, precision=5, 
+                       highlight_row_ops=None, highlight_backsub=None):
+    # highlight_row_ops = {"source_row_idx": k, "target_row_idx": i}
+    # highlight_backsub = {"eq_row_idx": i, "solving_var_idx": i, "known_vars_indices": list_of_j_indices}
+    html = '<table class="matrix-table">'
+    for r_idx, row in enumerate(matrix):
+        html += '<tr>'
+        for c_idx, val in enumerate(row):
+            cell_class_list = []
+            if pivot_coords and r_idx == pivot_coords[0] and c_idx == pivot_coords[1]:
+                cell_class_list.append("pivot-element")
+            
+            if highlight_row_ops:
+                if r_idx == highlight_row_ops["source_row_idx"]:
+                    cell_class_list.append("source-row-highlight") # D3 class will handle this visually
+                if r_idx == highlight_row_ops["target_row_idx"]:
+                    cell_class_list.append("target-row-highlight") # D3 class
+                if r_idx == highlight_row_ops["target_row_idx"] and c_idx == highlight_row_ops.get("elim_col_idx"):
+                     cell_class_list.append("elimination-target-cell")
+
+            if highlight_backsub:
+                if r_idx == highlight_backsub["eq_row_idx"]:
+                    cell_class_list.append("backsub-equation-highlight") # D3 class
+                    if c_idx == highlight_backsub["solving_var_idx"]:
+                        cell_class_list.append("backsub-solve-variable") # D3 class
+                    elif c_idx in highlight_backsub.get("known_vars_indices", []):
+                        cell_class_list.append("backsub-known-value") # D3 class
+
+
+            current_val_display = val
+            # Avoid -0.0000 for display if it's effectively zero
+            if abs(val) < 1e-9 and not ("pivot-element" in cell_class_list): # Don't make pivot 0.0 if it's small
+                 current_val_display = 0.0
+
+            if isinstance(current_val_display, float):
+                formatted_val = f"{current_val_display:.{precision}f}"
+                # if it's all zeros after decimal, make it integer like string
+                if formatted_val.replace("0", "").replace(".", "").replace("-","") == "": # handles "0.00000"
+                    formatted_val = "0.00000" if "." in formatted_val else "0"
+                if formatted_val.endswith('.' + '0' * precision):
+                     formatted_val = str(int(round(current_val_display)))
+            else:
+                formatted_val = str(current_val_display)
+            
+            td_classes = " ".join(cell_class_list)
+            td_class_attr = f'class="{td_classes}"' if td_classes else ''
+            if n_coeffs and c_idx == n_coeffs - 1: # Separator column
+                if td_classes:
+                    td_class_attr = f'class="{td_classes} matrix-separator"'
+                else:
+                    td_class_attr = 'class="matrix-separator"'
+            html += f'<td {td_class_attr}>{formatted_val}</td>'
+        html += '</tr>'
+    html += '</table>'
+    return html
+
+def eliminacion_gaussiana_solve_pyodide(A_matrix_str, b_vector_str, use_pivoting_str="true"):
+    html_log_parts = []
+    visualization_steps = []
+    TOLERANCE = 1e-12 # Tolerance for zero checks
+
+    try:
+        A_list = eval(A_matrix_str)
+        b_list = eval(b_vector_str)
+        A = np.array(A_list, dtype=float)
+        b_vec = np.array(b_list, dtype=float).reshape(-1, 1)
+        use_pivoting = use_pivoting_str.lower() == "true"
+    except Exception as e:
+        error_msg = f'<p style="color: red; text-align:center;">Error parsing input: {e}. Asegúrate que las matrices y vectores estén en formato Python, ej: [[1,2],[3,4]] y [5,6].</p>'
+        return None, error_msg, []
+
+    if A.shape[0] != A.shape[1]:
+        return None, '<p style="color: red; text-align:center;">Error: La matriz A debe ser cuadrada.</p>', []
+    if A.shape[0] != b_vec.shape[0]:
+        return None, '<p style="color: red; text-align:center;">Error: Incompatibilidad de dimensiones entre A y b.</p>', []
+
+    n = len(b_vec)
+    M = np.hstack([A, b_vec.reshape(-1,1)])
+
+    html_log_parts.append('<p class="step-description">Matriz Aumentada Inicial:</p>')
+    html_log_parts.append(format_matrix_html(M, n_coeffs=n))
+    visualization_steps.append({
+        "matrix": M.copy().tolist(), "operation_type": "initial", "description": "Matriz Aumentada Inicial",
+        "num_coeffs": n
+    })
+
+    # Eliminación hacia adelante
+    for k in range(n - 1): # k is the pivot row and pivot column index
+        html_log_parts.append(f'<p class="step-description" style="font-weight:bold;">Fase de Eliminación: Columna {k+1} (pivote en F{k+1})</p>')
+        visualization_steps.append({
+            "matrix": M.copy().tolist(), "operation_type": "pivot_search",
+            "description": f"Eliminación Adelante: Columna {k+1}. Buscando pivote en F{k+1} o inferior.",
+            "current_col_highlight": k, "pivot_candidate_row": k, "num_coeffs": n
+        })
+
+        if use_pivoting:
+            pivot_row_scan_start = k
+            # Find row with max element in current column k, from row k downwards
+            actual_pivot_row_in_submatrix = np.argmax(np.abs(M[pivot_row_scan_start:, k]))
+            pivot_row = pivot_row_scan_start + actual_pivot_row_in_submatrix
+
+            if pivot_row != k:
+                desc_pre_swap = f"Pivote máx. en C{k+1} está en F{pivot_row+1} (valor: {M[pivot_row, k]:.4f}). Intercambiando F{k+1} con F{pivot_row+1}."
+                visualization_steps.append({
+                    "matrix": M.copy().tolist(), "operation_type": "pre_swap", "description": desc_pre_swap,
+                    "rows_to_swap": [k, pivot_row], "pivot_coords_final_location": [k,k], "num_coeffs": n
+                })
+                M_before_swap = M.copy()
+                M[[k, pivot_row]] = M[[pivot_row, k]] # Intercambio de filas
+                desc_swap = f"Intercambio F{k+1} <-> F{pivot_row+1} realizado."
+                html_log_parts.append(f'<p class="step-description">{desc_swap}:</p>')
+                html_log_parts.append(format_matrix_html(M, pivot_coords=(k,k), n_coeffs=n))
+                visualization_steps.append({
+                    "matrix_before_op": M_before_swap.tolist(), "matrix": M.copy().tolist(),
+                    "operation_type": "swap", "description": desc_swap,
+                    "swapped_rows_indices": [k, pivot_row], "pivot_coords": [k,k], "num_coeffs": n
+                })
+        
+        # Verificar singularidad del pivote
+        if abs(M[k, k]) < TOLERANCE:
+            desc_singular_pivot = f"Pivote M[{k+1},{k+1}] es cercano a cero ({M[k,k]:.2e}) después del pivoteo. La matriz puede ser singular."
+            html_log_parts.append(f'<p style="color: red; text-align:center;">{desc_singular_pivot}</p>')
+            visualization_steps.append({
+                "matrix": M.copy().tolist(), "operation_type": "singular_pivot", "description": desc_singular_pivot,
+                "pivot_coords": [k,k], "problem_row_idx": k, "num_coeffs": n
+            })
+            # Check for inconsistent vs dependent for this row.
+            # If all coeffs in this row are zero but RHS is non-zero -> inconsistent
+            is_coeffs_zero = np.all(np.abs(M[k, :n]) < TOLERANCE)
+            if is_coeffs_zero and abs(M[k, n]) > TOLERANCE:
+                desc_inconsistent = f"Sistema inconsistente detectado en F{k+1} durante eliminación: [0...0 | no_cero]."
+                html_log_parts.append(f'<p style="color: red; text-align:center;">{desc_inconsistent}</p>')
+                visualization_steps.append({ "matrix": M.copy().tolist(), "operation_type": "inconsistent", "description": desc_inconsistent, "problem_row_idx": k, "num_coeffs": n})
+                return None, "".join(html_log_parts), visualization_steps
+            # Cannot robustly declare infinite solutions yet, need full triangular form.
+            # For now, if pivot is zero, we might not be able to proceed with standard Gaussian elim.
+            # Let's assume for this basic implementation that if pivot is zero, we try to continue if other elements in column are non-zero, but usually means singular.
+            # If other elements M[i,k] are also zero, loop will skip. If M[i,k] is non-zero but M[k,k] is zero, division by zero.
+            # Robust algorithm would check if all M[i,k] for i>=k are zero. If so, move to next column (rank deficient).
+            # For this example, we'll just warn and see.
+            html_log_parts.append(f'<p style="color: orange; text-align:center;">Advertencia: Pivote en ({k+1},{k+1}) es cero. Se intentará continuar, pero el sistema puede ser singular.</p>')
+            # continue # Or try to handle by skipping this column if all elements below pivot are also zero
+
+        # Eliminación
+        elim_ops_text_parts_fwd = []
+        for i in range(k + 1, n): # i is the row to be modified
+            if abs(M[k,k]) > TOLERANCE: # Pivote no es cero
+                factor = M[i, k] / M[k, k]
+                desc_elim_fwd = f"F{i+1} = F{i+1} - ({factor:.4f}) * F{k+1}"
+                elim_ops_text_parts_fwd.append(desc_elim_fwd)
+
+                visualization_steps.append({
+                    "matrix": M.copy().tolist(), "operation_type": "pre_eliminate_forward",
+                    "description": f"Preparando: {desc_elim_fwd}",
+                    "pivot_coords": [k,k], "source_row_idx": k, "target_row_idx": i,
+                    "element_to_eliminate_coords": [i,k], "factor": factor, "num_coeffs": n
+                })
+                M_before_row_op = M.copy()
+                M[i, k:] = M[i, k:] - factor * M[k, k:]
+                # Ensure M[i,k] is exactly zero if it's very small due to precision
+                if abs(M[i,k]) < TOLERANCE: M[i,k] = 0.0 
+                
+                visualization_steps.append({
+                    "matrix_before_op": M_before_row_op.tolist(), "matrix": M.copy().tolist(),
+                    "operation_type": "eliminate_forward", "description": f"Ejecutado: {desc_elim_fwd}",
+                    "pivot_coords": [k,k], "source_row_idx": k, "target_row_idx": i,
+                    "factor": factor, "num_coeffs": n
+                })
+            # else: if M[k,k] is zero but M[i,k] is not, system is problematic. This should be caught by pivot check.
+        
+        if elim_ops_text_parts_fwd:
+            html_log_parts.append(f'<p class="step-description">Operaciones de eliminación en C{k+1} (usando F{k+1} como pivote):</p>')
+            html_log_parts.append(f'<ul style="font-size:0.8em; text-align:center; list-style-position:inside;"><li>{"<br>".join(elim_ops_text_parts_fwd)}</li></ul>')
+        html_log_parts.append(format_matrix_html(M, pivot_coords=(k,k), n_coeffs=n, 
+                            highlight_row_ops={"source_row_idx":k, "target_row_idx": "all_below", "elim_col_idx": k} if elim_ops_text_parts_fwd else None ))
+
+
+    html_log_parts.append('<p class="step-description" style="font-weight:bold;">Forma Triangular Superior Alcanzada:</p>')
+    html_log_parts.append(format_matrix_html(M, n_coeffs=n))
+    visualization_steps.append({
+        "matrix": M.copy().tolist(), "operation_type": "triangular_form_reached",
+        "description": "Eliminación hacia adelante completada. Matriz en forma triangular superior.",
+        "num_coeffs": n
+    })
+
+    # Verificar singularidad final antes de sustitución
+    if abs(M[n-1, n-1]) < TOLERANCE:
+        if abs(M[n-1, n]) > TOLERANCE: # M[n-1, n] es el término b modificado para la última ecuación (0x_n-1 = C != 0)
+            desc_inconsistent_final = "Sistema inconsistente (última ecuación es 0 = no_cero)."
+            html_log_parts.append(f'<p style="color: red; text-align:center;">{desc_inconsistent_final}</p>')
+            visualization_steps.append({"matrix": M.copy().tolist(), "operation_type": "inconsistent", "description": desc_inconsistent_final, "problem_row_idx": n-1, "num_coeffs": n})
+            return None, "".join(html_log_parts), visualization_steps
+        else: # 0x_n-1 = 0, infinitas soluciones
+            desc_infinite_final = "Matriz singular (último pivote es cero y término b también). Infinitas soluciones."
+            html_log_parts.append(f'<p style="color: orange; text-align:center;">{desc_infinite_final}</p>')
+            visualization_steps.append({"matrix": M.copy().tolist(), "operation_type": "dependent_row", "description": desc_infinite_final, "problem_row_idx": n-1, "num_coeffs": n})
+            return None, "".join(html_log_parts), visualization_steps # Or handle finding solutions
+
+    # Sustitución hacia atrás
+    x = np.zeros(n)
+    html_log_parts.append('<p class="step-description" style="font-weight:bold; margin-top:15px;">Fase de Sustitución Hacia Atrás:</p>')
+    visualization_steps.append({
+        "matrix": M.copy().tolist(), "operation_type": "back_substitution_start",
+        "description": "Iniciando sustitución hacia atrás.", "num_coeffs": n
+    })
+
+    for i in range(n - 1, -1, -1): # i is the current row/variable index
+        sum_ax = 0
+        known_vars_indices_for_vis = []
+        for j in range(i + 1, n): # j iterates over already known variables
+            sum_ax += M[i, j] * x[j]
+            known_vars_indices_for_vis.append(j)
+        
+        if abs(M[i, i]) < TOLERANCE:
+            # This should ideally not happen if checks above were complete and matrix not singular
+            # unless it's a case of infinite solutions not fully caught by M[n-1,n-1] check (e.g. a zero row higher up)
+            desc_error_backsub = f"Error: Pivote M[{i+1},{i+1}] es cero durante sustitución hacia atrás. Sistema podría ser singular o dependiente."
+            html_log_parts.append(f'<p style="color:red; text-align:center;">{desc_error_backsub}</p>')
+            visualization_steps.append({
+                 "matrix": M.copy().tolist(), "operation_type": "zero_pivot_backsub",
+                 "description": desc_error_backsub, "pivot_coords": [i,i], "problem_row_idx": i, "num_coeffs": n
+            })
+            # Check if this row is like 0 = 0 (dependent) or 0 = C (inconsistent)
+            if abs(M[i,n] - sum_ax) > TOLERANCE : # Effectively 0 * x_i = NonZero
+                 desc_inconsistent_backsub = f"Inconsistencia encontrada en F{i+1} durante sustitución hacia atrás."
+                 html_log_parts.append(f'<p style="color:red; text-align:center;">{desc_inconsistent_backsub}</p>')
+                 visualization_steps.append({ "matrix": M.copy().tolist(), "operation_type": "inconsistent", "description": desc_inconsistent_backsub, "problem_row_idx": i, "num_coeffs": n})
+            else: # Effectively 0 * x_i = 0
+                 desc_dependent_backsub = f"Dependencia encontrada en F{i+1} durante sustitución hacia atrás (infinitas soluciones)."
+                 html_log_parts.append(f'<p style="color:orange; text-align:center;">{desc_dependent_backsub}</p>')
+                 visualization_steps.append({ "matrix": M.copy().tolist(), "operation_type": "dependent_row", "description": desc_dependent_backsub, "problem_row_idx": i, "num_coeffs": n})
+            return None, "".join(html_log_parts), visualization_steps # Cannot find unique solution
+
+        x[i] = (M[i, n] - sum_ax) / M[i, i]
+        
+        desc_solve_var = f"Resolver para x[{i+1}]: x[{i+1}] = ({M[i,n]:.4f} - {sum_ax:.4f}) / {M[i,i]:.4f} = {x[i]:.4f}"
+        html_log_parts.append(f'<p class="step-description">{desc_solve_var}</p>')
+        html_log_parts.append(format_matrix_html(M, n_coeffs=n, 
+            highlight_backsub={"eq_row_idx": i, "solving_var_idx": i, "known_vars_indices": known_vars_indices_for_vis}
+        ))
+        visualization_steps.append({
+            "matrix": M.copy().tolist(), "operation_type": "solve_variable_backsub",
+            "description": desc_solve_var,
+            "equation_row_idx": i, "variable_index_solved": i, "solved_value": x[i],
+            "known_values_coords": [[i,j_col] for j_col in known_vars_indices_for_vis], # Coords of known x_j in eq i
+            "num_coeffs": n
+        })
+    
+    final_desc = "Proceso de Eliminación Gaussiana completado."
+    html_log_parts.append(f'<p style="color: green; text-align:center; font-weight:bold; margin-top:15px;">{final_desc}</p>')
+    visualization_steps.append({
+        "matrix": M.copy().tolist(), "operation_type": "final_solution",
+        "description": final_desc + " Solución encontrada.",
+        "solution_vector": x.tolist(), "num_coeffs": n
+    })
+
+    return x, "".join(html_log_parts), visualization_steps
+
+# --- Parámetros Ejemplo ---
+# Este ejemplo es el que se resuelve paso a paso en el HTML original y da enteros.
+default_A_matrix_str_eg = "[[2, 1, -1], [-3, -1, 2], [-2, 1, 2]]"
+default_b_vector_str_eg = "[8, -11, -3]"
+# Para este ejemplo, el pivoteo parcial en la primera columna lo evitaría el código si `use_pivoting` es false.
+# Si `use_pivoting` es true, intercambiará F0 y F1 al inicio.
+# Para coincidir con el ejemplo manual que *no* pivotea en el primer paso pero sí en el segundo,
+# necesitaríamos una opción de pivoteo más granular o ajustar el ejemplo manual para seguir el pivoteo parcial consistentemente.
+# Por ahora, el código usará pivoteo parcial si está habilitado.
+# El ejemplo manual del HTML que da enteros *no* usa pivoteo en k=0, pero *sí* en k=1.
+# Para forzar ese comportamiento, podemos usar `use_pivoting_str="true"` y el código se comportará de acuerdo a las reglas.
+# El ejemplo del texto del HTML que *SÍ* usa pivoteo en k=0 (intercambio F0 y F1) es:
+# default_A_matrix_str_eg = "[[2, 1, -1], [-3, -1, 2], [-2, 1, 2]]" # Original
+# default_b_vector_str_eg = "[8, -11, -3]"
+# After F0 <-> F1: [[-3,-1,2], [2,1,-1], [-2,1,2]] and b: [-11, 8, -3]
+
+default_use_pivoting_eg = "true" # Consistent partial pivoting
+
+# --- Bloque principal para ejecución en Pyodide ---
+if __name__ == "__main__":
+    py_html_buffer_eg = []
+
+    A_str_eg = globals().get("A_matrix_param_eg", default_A_matrix_str_eg)
+    b_str_eg = globals().get("b_vector_param_eg", default_b_vector_str_eg)
+    pivoting_str_eg = globals().get("use_pivoting_param_eg", default_use_pivoting_eg)
+
+    py_html_buffer_eg.append('<div style="text-align: center; font-weight: bold; margin-bottom:15px; font-size:1.1em; padding-top:10px;">MÉTODO DE ELIMINACIÓN GAUSSIANA (Salida de Texto)</div>')
+    try:
+        A_disp_eg = np.array(eval(A_str_eg))
+        b_disp_eg = np.array(eval(b_str_eg))
+        py_html_buffer_eg.append(f'<div style="text-align: center; margin-bottom:5px; font-family:monospace;">Matriz A:<br>{str(A_disp_eg).replace(" ", "&nbsp;")}</div>')
+        py_html_buffer_eg.append(f'<div style="text-align: center; margin-bottom:5px; font-family:monospace;">Vector b:<br>{str(b_disp_eg).replace(" ", "&nbsp;")}</div>')
+        py_html_buffer_eg.append(f'<div style="text-align: center; margin-bottom:15px;">Pivoteo Parcial: {pivoting_str_eg}</div>')
+    except Exception as e:
+        py_html_buffer_eg.append(f'<p style="color:red; text-align:center;">Error al mostrar A y b: {e}</p>')
+
+    solution_eg, log_html_eg, d3_steps_eg = eliminacion_gaussiana_solve_pyodide(A_str_eg, b_str_eg, pivoting_str_eg)
+    py_html_buffer_eg.append(log_html_eg)
+
+    if solution_eg is not None:
+        py_html_buffer_eg.append('<div style="text-align: center; font-weight: bold; margin-top: 20px; margin-bottom: 10px;">RESULTADOS FINALES (Texto)</div>')
+        sol_str_eg = ", ".join([f"{x:.5f}" for x in solution_eg])
+        py_html_buffer_eg.append(f'<div style="text-align:center; padding:5px;">Solución (x): [{sol_str_eg}]</div>')
+        try:
+            A_val_eg = np.array(eval(A_str_eg))
+            b_val_eg = np.array(eval(b_str_eg))
+            Ax_eg = A_val_eg @ solution_eg
+            error_vec_eg = Ax_eg - b_val_eg.flatten()
+            error_norm_eg = np.linalg.norm(error_vec_eg)
+            py_html_buffer_eg.append(f'<div style="text-align:center; font-size:0.85em; padding:5px;">Verificación A*x = {str(Ax_eg.round(5))} (Original b = {str(b_val_eg)})</div>')
+            py_html_buffer_eg.append(f'<div style="text-align:center; font-size:0.85em; padding:5px;">Norma del error ||Ax - b||: {error_norm_eg:.2e}</div>')
+        except Exception as e_verify_eg:
+            py_html_buffer_eg.append(f'<p style="color:orange; text-align:center;">No se pudo verificar la solución: {e_verify_eg}</p>')
+    elif not (log_html_eg or "").strip().endswith("</p>"): # Avoid double message if already handled by specific error
+        py_html_buffer_eg.append('<div style="text-align: center; color: orange; margin-top:10px; padding:5px;">No se encontró una solución única o el método tuvo problemas con los parámetros dados. Revise los pasos.</div>')
+
+    chart_data_package_eg = {
+        "visualization_steps": d3_steps_eg,
+        "solution_vector": solution_eg.tolist() if solution_eg is not None else None,
+    }
+
+    if "pyodide_js" in globals():
+        pyodide_globals_eg = globals()['pyodide_js'].globals
+        pyodide_globals_eg.set("pyodide_eg_html_output", "".join(py_html_buffer_eg))
+        
+        # For chart_data_package_eg, ensure it's a JS object for D3
+        from pyodide.ffi import to_js
+        pyodide_globals_eg.set("pyodide_eg_chart_data_package", to_js(chart_data_package_eg, dict_converter=js.Object.fromEntries))
+    else: # Fallback for local Python testing (won't render in browser this way)
+        global pyodide_eg_html_output, pyodide_eg_chart_data_package
+        pyodide_eg_html_output = "".join(py_html_buffer_eg)
+        pyodide_eg_chart_data_package = chart_data_package_eg
+                            </textarea>
+                            <button id="run-eg-code-button" class="run-button mt-4 px-5 py-2.5 bg-custom-red text-white rounded-md hover:bg-red-700">Ejecutar Código</button>
+                            <div class="relative mt-5">
+                                <h4 class="mb-2 text-lg font-semibold text-gray-700">Salida de Texto:</h4>
+                                <div id="eg-output-controls-container" class="absolute top-0 right-0 z-10 flex items-center space-x-1 transition-all duration-500 ease-out">
+                                    <button id="eg-decrease-font-button" title="Disminuir fuente" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs font-semibold flex items-center justify-center" style="min-width: 30px;">aa</button>
+                                    <button id="eg-increase-font-button" title="Aumentar fuente" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs font-semibold flex items-center justify-center" style="min-width: 30px;">AA</button>
+                                    <button id="eg-fullscreen-output-button" title="Ver en pantalla completa" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15" /></svg>
+                                    </button>
+                                </div>
+                                <pre id="eg-code-output" class="code-output bg-gray-900 text-white p-4 pt-8 rounded-md min-h-[100px] whitespace-pre-wrap text-xs leading-relaxed max-h-96 overflow-y-auto font-mono transition-all duration-500 ease-out">Presiona "Ejecutar Código" para ver la salida de texto detallada.</pre>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="graficas-eg" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Visualización Interactiva de Eliminación Gaussiana</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Observa el proceso de Eliminación Gaussiana paso a paso. La matriz se transforma para alcanzar la forma triangular superior, seguida de la sustitución hacia atrás.
+                            Usa los controles para navegar entre los pasos.
+                        </p>
+                        <div id="eliminacion-gaussiana-d3-visualization" class="bg-gray-100 p-4 rounded-lg shadow-inner">
+                            <div id="eg-d3-controls" class="mb-4 flex flex-wrap items-center justify-center gap-2">
+                                <button id="eg-d3-prev" class="p-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Anterior"></button>
+                                <button id="eg-d3-next" class="p-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Siguiente"></button>
+                                <button id="eg-d3-play" class="p-2.5 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Play"></button>
+                                <input type="range" id="eg-d3-slider" min="0" value="0" class="mx-2 flex-grow max-w-xs align-middle accent-custom-red disabled:opacity-50 disabled:cursor-not-allowed">
+                                <div class="flex items-center text-sm">
+                                    <label for="eg-d3-speed" class="mr-1">Velocidad:</label>
+                                    <input type="range" id="eg-d3-speed" min="100" max="2000" value="700" step="100" class="w-24 align-middle accent-custom-red">
+                                    <span id="eg-d3-speed-value" class="ml-1 w-10 text-right">700ms</span>
+                                </div>
+                            </div>
+                            <div id="eg-d3-operation-description" class="mb-3 text-sm text-center font-mono h-auto min-h-[2em] p-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-md leading-tight">
+                                Ejecute el código para generar la visualización.
+                            </div>
+                            <div class="flex justify-center overflow-x-auto">
+                                <svg id="eg-d3-svg-container" class="border border-gray-300 bg-white rounded shadow-sm"></svg>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="videos-eg" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Videos Explicativos</h3>
+                        <div class="video-embed w-full h-96 mt-6">
+                            <iframe class="w-full h-full rounded-lg shadow-lg" src="https://www.youtube.com/embed/ueNVcLXHLNk" title="YouTube video player - Sistema de Ecuaciones Lineales por Eliminación Gaussiana" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+                        </div>
+                    </section>
+
+                    <section id="conclusion-eg" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Conclusión y Aplicaciones</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            La Eliminación Gaussiana es un algoritmo fundamental y ampliamente utilizado para resolver sistemas de ecuaciones lineales. Su principal ventaja es que es un método directo que, en ausencia de errores de redondeo significativos, proporciona la solución exacta (si existe y es única).
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            La implementación del <strong>pivoteo parcial</strong> es crucial para la estabilidad numérica, especialmente cuando se trabaja con computadoras que tienen precisión finita, ya que ayuda a mitigar la propagación de errores de redondeo.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-2 font-medium"><strong>Aplicaciones Comunes:</strong></p>
+                        <ul class="list-disc list-inside space-y-2 pl-4 text-gray-600 mb-4">
+                            <li>Análisis de circuitos eléctricos.</li>
+                            <li>Resolución de problemas de estática y dinámica en ingeniería mecánica y civil.</li>
+                            <li>Modelado de sistemas económicos.</li>
+                            <li>Base para otros métodos numéricos, como la factorización LU.</li>
+                            <li>Cálculo de determinantes (aunque no directamente, las operaciones de eliminación afectan el determinante de forma predecible).</li>
+                        </ul>
+                        <p class="text-gray-600 leading-relaxed">
+                            A pesar de su robustez, para matrices muy grandes o mal condicionadas, los métodos iterativos podrían ser preferibles o se podrían necesitar técnicas de pivoteo más avanzadas (como pivoteo completo, aunque es computacionalmente más costoso). La complejidad del algoritmo es del orden de \(O(n^3)\) operaciones aritméticas.
+                        </p>
+                    </section>
+
+                    <section id="referencias-eg" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Referencias</h3>
+                        <ul class="list-disc list-inside space-y-2 text-gray-600 leading-relaxed pl-4">
+                            <li>Chapra, S. C., & Canale, R. P. (2015). <em>Métodos numéricos para ingenieros</em> (7ª ed.). McGraw-Hill Interamericana. (Capítulos sobre Eliminación Gaussiana)</li>
+                            <li>Burden, R. L., & Faires, J. D. (2011). <em>Numerical Analysis</em> (9th ed.). Brooks/Cole. (Sección sobre Eliminación Gaussiana y Pivoteo)</li>
+                        </ul>
+                    </section>
+
+                    <section id="cuestionario-eg" class="scroll-mt-24 mb-10">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Cuestionario: Eliminación Gaussiana</h3>
+                        <form id="quiz-eliminacion-gaussiana" class="space-y-6 bg-gray-50 p-6 rounded-lg shadow-inner">
+                            <!-- Pregunta 1 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">1. ¿Cuál es el objetivo principal de la fase de "eliminación hacia adelante" en la Eliminación Gaussiana?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 1</legend>
+                                    <div class="space-y-2">
+                                        <label for="q1-opt1-eg" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt1-eg" name="question-1-eg" type="radio" value="a" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Convertir la matriz de coeficientes \(A\) en la matriz identidad.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt2-eg" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt2-eg" name="question-1-eg" type="radio" value="b" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Convertir la matriz de coeficientes \(A\) en una matriz triangular superior.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt3-eg" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt3-eg" name="question-1-eg" type="radio" value="c" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Calcular directamente el vector solución \(x\).</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt4-eg" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt4-eg" name="question-1-eg" type="radio" value="d" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Calcular el determinante de la matriz \(A\).</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-1-eg-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <!-- Pregunta 2 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">2. La estrategia de pivoteo parcial se utiliza en la Eliminación Gaussiana principalmente para:</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 2</legend>
+                                    <div class="space-y-2">
+                                        <label for="q2-opt1-eg" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt1-eg" name="question-2-eg" type="radio" value="a" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Reducir el número total de operaciones de punto flotante.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt2-eg" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt2-eg" name="question-2-eg" type="radio" value="b" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Asegurar que todos los elementos pivote sean 1.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt3-eg" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt3-eg" name="question-2-eg" type="radio" value="c" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Mejorar la estabilidad numérica del algoritmo y evitar la división por números muy pequeños.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                         <label for="q2-opt4-eg" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt4-eg" name="question-2-eg" type="radio" value="d" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Hacer el algoritmo más fácil de programar.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-2-eg-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <!-- Pregunta 3 -->
+                           <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">3. Después de la fase de eliminación hacia adelante, si un sistema \(Ax=b\) tiene una solución única, la matriz de coeficientes transformada \(U\) es:</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 3</legend>
+                                    <div class="space-y-2">
+                                        <label for="q3-opt1-eg" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt1-eg" name="question-3-eg" type="radio" value="a" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Una matriz diagonal.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt2-eg" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt2-eg" name="question-3-eg" type="radio" value="b" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Una matriz identidad.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt3-eg" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt3-eg" name="question-3-eg" type="radio" value="c" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Una matriz triangular inferior.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt4-eg" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt4-eg" name="question-3-eg" type="radio" value="d" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Una matriz triangular superior con elementos no nulos en la diagonal.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-3-eg-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                             <!-- Pregunta 4 -->
+                             <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">4. ¿Cuál es la complejidad computacional aproximada (en términos de operaciones de punto flotante) de la fase de eliminación hacia adelante de la Eliminación Gaussiana para un sistema \(n \times n\)?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 4</legend>
+                                    <div class="space-y-2">
+                                        <label for="q4-opt1-eg" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt1-eg" name="question-4-eg" type="radio" value="a" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">\(O(n)\)</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q4-opt2-eg" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt2-eg" name="question-4-eg" type="radio" value="b" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">\(O(n^2)\)</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q4-opt3-eg" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt3-eg" name="question-4-eg" type="radio" value="c" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">\(O(n^3)\)</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                         <label for="q4-opt4-eg" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt4-eg" name="question-4-eg" type="radio" value="d" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">\(O(n \log n)\)</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-4-eg-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <button type="submit" class="mt-6 w-full px-6 py-3 bg-custom-red text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors duration-150">
+                                Enviar Respuestas
+                            </button>
+                        </form>
+                        <div id="quiz-feedback-eliminacion-gaussiana" class="quiz-feedback-message mt-4 p-3 rounded-md text-sm" style="display: none;"></div>
+                    </section>
+                </article>
+            </main>
+
+            <aside class="w-full lg:w-1/4 bg-sidebar-bg shadow-xl rounded-lg p-6 self-start sticky top-8 order-3 space-y-6">
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-4">Perfil</h3>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex-shrink-0">
+                           <svg class="w-12 h-12 text-gray-400 bg-gray-100 rounded-full p-1 ring-1 ring-gray-200" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-800 text-md">Estudiante Gauss</p>
+                            <p class="text-sm text-gray-500">Linealmente Independiente</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pb-6 border-b border-gray-200 space-y-3">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide">Progreso en Eliminación Gaussiana</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li class="flex items-center">
+                            <span id="task-read-theory-status-eg" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Leer la teoría completa</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-run-code-status-eg" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Ejecutar el código Python</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-attempted-status-eg" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Intentar el cuestionario</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-passed-status-eg" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Aprobar el cuestionario</span>
+                        </li>
+                    </ul>
+                    <div class="flex items-center justify-between mb-1 mt-3">
+                       <span class="text-xs font-medium text-custom-red">Progreso General</span>
+                       <span id="right-sidebar-progress-text-eg" class="text-xs font-medium text-custom-red right-sidebar-progress-text">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div id="right-sidebar-progress-bar-eg" class="bg-custom-red h-3 rounded-full right-sidebar-progress-bar transition-width duration-500 ease-in-out" style="width: 0%"></div>
+                    </div>
+                    <button id="completion-eliminacion-gaussiana-sidebar" class="mt-4 w-full completion-button px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Marcar Todo Completado</button>
+                </div>
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Recursos y Notas</h3>
+                    <p class="text-sm text-gray-600"><a href="https://archive.org/details/numerical-methods-for-engineers-7th-edit" target="_blank" rel="noopener noreferrer" class="hover:text-custom-red hover:underline">Métodos Numéricos para Ingenieros 7ma Edición de Chapra</a></p>
+                    <img src="https://images.cdn3.buscalibre.com/fit-in/360x360/97/ff/97ffa61a8adb147e569e12c4f1f797b3.jpg" alt="Portada Chapra" class="mt-2 w-full rounded-md shadow-sm">
+                </div>
+                <div>
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Siguiente Paso</h3>
+                    <a href="./gauss-jordan.html" class="group flex items-center text-sm font-medium text-custom-red hover:text-red-700"> <!-- Assuming gauss-jordan.html is in the same directory -->
+                       <span>Explorar Gauss-Jordan</span>
+                       <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </a>
+                </div>
+            </aside>
+        </div>
+
+        <footer class="bg-custom-blue text-gray-300 text-center p-6 mt-12">
+            <p>&copy; 2024 Plataforma Educativa de Métodos Numéricos. <a href="../index.html" class="hover:text-white underline">Volver al inicio</a></p>
+        </footer>
+    </div>
+
+    <!-- EG SCRIPT (Logica JS General de la página, Pyodide, Quiz, D3) -->
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const PAGE_KEY_EG = 'eliminacion-gaussiana';
+        const QUIZ_FORM_ID_EG = 'quiz-eliminacion-gaussiana';
+        const QUIZ_FEEDBACK_ID_EG = 'quiz-feedback-eliminacion-gaussiana';
+        const COMPLETION_BUTTON_ID_EG = 'completion-eliminacion-gaussiana-sidebar';
+        const CODE_INPUT_ID_EG = 'eg-code-input';
+        const CODE_OUTPUT_ID_EG = 'eg-code-output';
+        const RUN_CODE_BUTTON_ID_EG = 'run-eg-code-button';
+        const outputControlsContainer_EG = document.getElementById('eg-output-controls-container');
+        const fullscreenButton_EG = document.getElementById('eg-fullscreen-output-button');
+        const increaseFontButton_EG = document.getElementById('eg-increase-font-button');
+        const decreaseFontButton_EG = document.getElementById('eg-decrease-font-button');
+        let originalOutputFontSize_EG = '';
+        const MIN_FONT_SIZE_PX_EG = 8;
+        const MAX_FONT_SIZE_PX_EG = 28;
+        const FONT_SIZE_STEP_PX_EG = 1;
+        let egCodeOutputInitialRect = null;
+
+        const TASKS_EG = {
+            READ_THEORY: 'read_theory_eg',
+            RUN_CODE: 'run_code_eg',
+            QUIZ_ATTEMPTED: 'quiz_attempted_eg',
+            QUIZ_PASSED: 'quiz_passed_eg'
+        };
+        const ALL_TASK_KEYS_EG = Object.values(TASKS_EG);
+        const TOTAL_TASKS_EG = ALL_TASK_KEYS_EG.length;
+
+        const ICON_PENDING_EG = '<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0-4.418-4.03-8-9-8S3 7.582 3 12c0 1.454.402 2.813 1.098 3.977L3 21l5.023-1.098A8.902 8.902 0 0012 21c4.97 0 9-3.582 9-9z"></path></svg>';
+        const ICON_COMPLETED_EG = '<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>';
+        const ICON_IN_PROGRESS_EG = '<svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V9.05a.75.75 0 011.307-.588l5.603 3.112z" clip-rule="evenodd"></path></svg>';
+        const ICON_CORRECT_ANSWER_EG = '✔️';
+        const ICON_INCORRECT_ANSWER_EG = '❌';
+        const ICON_THUMB_UP_EG = '👍';
+        const quizDataEliminacionGaussiana = {
+            "question-1-eg": {
+                correctAnswer: "b",
+                feedback: {
+                    "a": "Incorrecto. Convertir a la matriz identidad es el objetivo de Gauss-Jordan, no de la eliminación hacia adelante de Gauss.",
+                    "c": "Incorrecto. La solución se obtiene después de la sustitución hacia atrás, no directamente en la eliminación hacia adelante.",
+                    "d": "Incorrecto. Aunque las operaciones afectan el determinante, el objetivo principal es la triangulación."
+                }
+            },
+            "question-2-eg": {
+                correctAnswer: "c",
+                feedback: {
+                    "a": "Incorrecto. El pivoteo puede añadir comparaciones; no se enfoca en reducir operaciones de punto flotante como objetivo primario.",
+                    "b": "Incorrecto. Los pivotes no necesariamente se hacen 1 en Eliminación Gaussiana (eso es más de Gauss-Jordan).",
+                    "d": "Incorrecto. El pivoteo puede añadir complejidad a la programación."
+                }
+            },
+            "question-3-eg": {
+                correctAnswer: "d",
+                feedback: {
+                    "a": "Incorrecto. Una matriz diagonal es un caso especial, pero el objetivo general es triangular superior.",
+                    "b": "Incorrecto. La matriz identidad es el objetivo de Gauss-Jordan.",
+                    "c": "Incorrecto. Se busca una matriz triangular superior."
+                }
+            },
+            "question-4-eg": {
+                correctAnswer: "c",
+                feedback: {
+                    "a": "Incorrecto. Es una complejidad polinómica mayor.",
+                    "b": "Incorrecto. \(O(n^2)\) es la complejidad de la sustitución hacia atrás, pero la eliminación es dominante.",
+                    "d": "Incorrecto. \(O(n \log n)\) es típico de algoritmos de ordenamiento eficientes, no de eliminación de matrices."
+                }
+            }
+        };
+
+        let pyodide_EG = null;
+        const mainCompletionButton_EG = document.getElementById(COMPLETION_BUTTON_ID_EG);
+        const quizForm_EG = document.getElementById(QUIZ_FORM_ID_EG);
+        const generalQuizFeedbackDiv_EG = document.getElementById(QUIZ_FEEDBACK_ID_EG);
+        const codeInput_EG = document.getElementById(CODE_INPUT_ID_EG);
+        const codeOutput_EG = document.getElementById(CODE_OUTPUT_ID_EG);
+        const runCodeButton_EG = document.getElementById(RUN_CODE_BUTTON_ID_EG);
+
+        const taskStatusIcons_EG = {};
+        taskStatusIcons_EG[TASKS_EG.READ_THEORY] = document.getElementById('task-read-theory-status-eg');
+        taskStatusIcons_EG[TASKS_EG.RUN_CODE] = document.getElementById('task-run-code-status-eg');
+        taskStatusIcons_EG[TASKS_EG.QUIZ_ATTEMPTED] = document.getElementById('task-quiz-attempted-status-eg');
+        taskStatusIcons_EG[TASKS_EG.QUIZ_PASSED] = document.getElementById('task-quiz-passed-status-eg');
+        const overallProgressText_EG = document.getElementById('right-sidebar-progress-text-eg');
+        const overallProgressBar_EG = document.getElementById('right-sidebar-progress-bar-eg');
+
+        function getPageProgressFromStorage_EG(pKey) {
+            const defaults = ALL_TASK_KEYS_EG.reduce((obj, task) => ({ ...obj, [task]: false }), {});
+            defaults.overall_progress = 0;
+            defaults.user_quiz_answers = {};
+            defaults.quiz_current_score = 0;
+            defaults.quiz_feedback_active = false;
+            try {
+                const stored = localStorage.getItem(pKey);
+                if (stored) return { ...defaults, ...JSON.parse(stored) };
+            } catch (e) { console.error("Error al leer localStorage para EG:", e); }
+            return defaults;
+        }
+
+        function savePageProgressToStorage_EG(pKey, progress) {
+            try {
+                localStorage.setItem(pKey, JSON.stringify(progress));
+                window.dispatchEvent(new CustomEvent('egPageProgressSaved', { detail: { pageKey: pKey, progress } }));
+            } catch (e) { console.error("Error al guardar en localStorage para EG:", e); }
+        }
+
+        function updateTaskStatusInStorage_EG(taskName, isCompleted) {
+            let currentProgress = getPageProgressFromStorage_EG(PAGE_KEY_EG);
+            if (currentProgress[taskName] !== isCompleted) {
+                currentProgress[taskName] = isCompleted;
+                if (taskName === TASKS_EG.QUIZ_ATTEMPTED && !isCompleted) {
+                    currentProgress[TASKS_EG.QUIZ_PASSED] = false;
+                    currentProgress.user_quiz_answers = {};
+                    currentProgress.quiz_current_score = 0;
+                    currentProgress.quiz_feedback_active = false;
+                }
+                if (taskName === TASKS_EG.QUIZ_PASSED && isCompleted) {
+                     currentProgress[TASKS_EG.QUIZ_ATTEMPTED] = true;
+                }
+                savePageProgressToStorage_EG(PAGE_KEY_EG, currentProgress);
+                calculateAndUpdateOverallProgress_EG();
+            }
+        }
+
+        function renderTaskStatus_EG() {
+            const progress = getPageProgressFromStorage_EG(PAGE_KEY_EG);
+            ALL_TASK_KEYS_EG.forEach(taskKey => {
+                const iconElement = taskStatusIcons_EG[taskKey];
+                if (iconElement) {
+                    let newIconHTML = ICON_PENDING_EG;
+                    if (progress[taskKey]) newIconHTML = ICON_COMPLETED_EG;
+                    else if (taskKey === TASKS_EG.QUIZ_PASSED && progress[TASKS_EG.QUIZ_ATTEMPTED]) newIconHTML = ICON_IN_PROGRESS_EG;
+                    iconElement.innerHTML = newIconHTML;
+                }
+            });
+        }
+
+        function calculateAndUpdateOverallProgress_EG() {
+            let progress = getPageProgressFromStorage_EG(PAGE_KEY_EG);
+            let completedTasks = ALL_TASK_KEYS_EG.filter(taskKey => progress[taskKey]).length;
+            const percentage = TOTAL_TASKS_EG > 0 ? (completedTasks / TOTAL_TASKS_EG) * 100 : 0;
+            progress.overall_progress = percentage;
+            savePageProgressToStorage_EG(PAGE_KEY_EG, progress);
+
+            const isHundredPercent = percentage.toFixed(0) === '100';
+            if (overallProgressBar_EG) {
+                overallProgressBar_EG.style.width = `${percentage.toFixed(0)}%`;
+                overallProgressBar_EG.classList.toggle('animate-rainbow-border', isHundredPercent);
+            }
+            if (overallProgressText_EG) overallProgressText_EG.textContent = `${percentage.toFixed(0)}%`;
+
+            renderTaskStatus_EG();
+            updateMainCompletionButtonState_EG();
+        }
+        
+        function handleMarkAllMouseEnter_EG() {
+            if (mainCompletionButton_EG && mainCompletionButton_EG.dataset.isUndo === "true") {
+                mainCompletionButton_EG.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+                mainCompletionButton_EG.classList.add('bg-red-600', 'hover:bg-red-700');
+            }
+        }
+
+        function handleMarkAllMouseLeave_EG() {
+            if (mainCompletionButton_EG && mainCompletionButton_EG.dataset.isUndo === "true") {
+                mainCompletionButton_EG.classList.remove('bg-red-600', 'hover:bg-red-700');
+                mainCompletionButton_EG.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+            }
+        }
+
+        function updateMainCompletionButtonState_EG() {
+            if (!mainCompletionButton_EG) return;
+            const progress = getPageProgressFromStorage_EG(PAGE_KEY_EG);
+            let allTasksCompleted = ALL_TASK_KEYS_EG.every(task => progress[task]);
+
+            mainCompletionButton_EG.removeEventListener('mouseenter', handleMarkAllMouseEnter_EG);
+            mainCompletionButton_EG.removeEventListener('mouseleave', handleMarkAllMouseLeave_EG);
+            mainCompletionButton_EG.classList.remove('bg-green-600', 'hover:bg-green-700', 'bg-yellow-500', 'hover:bg-yellow-600', 'bg-red-600', 'hover:bg-red-700');
+
+            if (allTasksCompleted) {
+                mainCompletionButton_EG.textContent = 'Deshacer Completado';
+                mainCompletionButton_EG.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+                mainCompletionButton_EG.dataset.isUndo = "true";
+                mainCompletionButton_EG.addEventListener('mouseenter', handleMarkAllMouseEnter_EG);
+                mainCompletionButton_EG.addEventListener('mouseleave', handleMarkAllMouseLeave_EG);
+            } else {
+                mainCompletionButton_EG.textContent = 'Marcar Todo Completado';
+                mainCompletionButton_EG.classList.add('bg-green-600', 'hover:bg-green-700');
+                mainCompletionButton_EG.dataset.isUndo = "false";
+            }
+        }
+
+        function clearAllVisualFeedback_EG(clearGeneralMessage = false) {
+            if (!quizForm_EG) return;
+            quizForm_EG.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                wrapper.classList.remove('correct-answer-eg', 'incorrect-answer-eg', 'border-green-500', 'border-red-500', 'ring-1', 'ring-green-500', 'ring-red-500', 'bg-green-50', 'bg-red-50');
+                wrapper.classList.add('border-gray-300', 'hover:border-gray-400', 'has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                const iconPlaceholder = wrapper.querySelector('.feedback-icon-placeholder span');
+                if (iconPlaceholder) iconPlaceholder.innerHTML = '';
+            });
+            quizForm_EG.querySelectorAll('.specific-question-feedback').forEach(el => {
+                el.textContent = '';
+                el.style.display = 'none';
+            });
+            if (clearGeneralMessage && generalQuizFeedbackDiv_EG) {
+                generalQuizFeedbackDiv_EG.textContent = '';
+                generalQuizFeedbackDiv_EG.style.display = 'none';
+                generalQuizFeedbackDiv_EG.className = 'quiz-feedback-message mt-4 p-3 rounded-md text-sm';
+            }
+        }
+
+        function displayQuizFeedback_EG() {
+            if (!quizForm_EG || !generalQuizFeedbackDiv_EG) return false; // Added a default return
+            const progress = getPageProgressFromStorage_EG(PAGE_KEY_EG);
+            const userAnswers = progress.user_quiz_answers || {};
+            const submitButton = quizForm_EG.querySelector('button[type="submit"]');
+
+            clearAllVisualFeedback_EG(false); 
+
+            if (!progress.quiz_feedback_active && Object.keys(userAnswers).length === 0) {
+                quizForm_EG.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                 if (submitButton) {
+                    submitButton.textContent = 'Enviar Respuestas';
+                    submitButton.disabled = false;
+                }
+                return false; // Quiz not yet attempted, return false for pass status
+            }
+
+            let allCorrect = true;
+            let score = 0;
+
+            for (const questionName in quizDataEliminacionGaussiana) {
+                const userAnswer = userAnswers[questionName];
+                const questionData = quizDataEliminacionGaussiana[questionName];
+                const correctAnswer = questionData.correctAnswer;
+                const specificFeedbackDiv = document.getElementById(`${questionName}-specific-feedback`);
+
+                const radioInputs = quizForm_EG.querySelectorAll(`input[name="${questionName}"]`);
+                radioInputs.forEach(input => {
+                    const wrapper = input.closest('.quiz-option-wrapper');
+                    const iconPlaceholder = wrapper.querySelector('.feedback-icon-placeholder span');
+                    input.disabled = true; // Disable inputs after submission attempt
+                    wrapper.classList.remove('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+
+                    if (input.value === userAnswer) { // This is the user's selected answer
+                        input.checked = true; // Ensure it's visually checked
+                        if (userAnswer === correctAnswer) {
+                            wrapper.classList.add('correct-answer-eg', 'border-green-500', 'ring-1', 'ring-green-500', 'bg-green-50');
+                            if (iconPlaceholder) iconPlaceholder.textContent = ICON_CORRECT_ANSWER_EG;
+                            score++;
+                        } else {
+                            wrapper.classList.add('incorrect-answer-eg', 'border-red-500', 'ring-1', 'ring-red-500', 'bg-red-50');
+                            if (iconPlaceholder) iconPlaceholder.textContent = ICON_INCORRECT_ANSWER_EG;
+                            allCorrect = false;
+                            if (specificFeedbackDiv && questionData.feedback && questionData.feedback[userAnswer]) {
+                                specificFeedbackDiv.textContent = "Incorrecto. " + questionData.feedback[userAnswer];
+                                specificFeedbackDiv.style.display = 'block';
+                            } else if (specificFeedbackDiv) { // Generic incorrect feedback if specific one is missing
+                                specificFeedbackDiv.textContent = "Incorrecto. Respuesta incorrecta.";
+                                specificFeedbackDiv.style.display = 'block';
+                            }
+                        }
+                    } else if (input.value === correctAnswer) { // This is the correct answer, but not selected by user
+                         wrapper.classList.add('correct-answer-eg', 'border-green-500', 'bg-green-50'); // Highlight correct answer
+                         // Optionally, add a thumb up if this was the correct answer and user chose something else
+                         if (userAnswer !== correctAnswer && iconPlaceholder) iconPlaceholder.textContent = ICON_THUMB_UP_EG;
+                    } else { // Other unselected, incorrect answers
+                         wrapper.classList.add('border-gray-300');
+                    }
+                });
+            }
+
+            progress.quiz_current_score = score;
+            // progress[TASKS_EG.QUIZ_PASSED] = allCorrect; // DO NOT update QUIZ_PASSED here
+            savePageProgressToStorage_EG(PAGE_KEY_EG, progress); // Save answers, score, feedback state
+
+
+            generalQuizFeedbackDiv_EG.style.display = 'block';
+            if (allCorrect) {
+                generalQuizFeedbackDiv_EG.className = 'mt-4 p-3 rounded-md text-sm bg-green-100 text-green-700 border border-green-200';
+                generalQuizFeedbackDiv_EG.innerHTML = `<strong>¡Felicidades!</strong> Todas tus respuestas son correctas. (${score}/${Object.keys(quizDataEliminacionGaussiana).length})`;
+                if (submitButton) {
+                    submitButton.textContent = 'Cuestionario Aprobado';
+                    submitButton.disabled = true; // Keep disabled if approved
+                }
+            } else {
+                generalQuizFeedbackDiv_EG.className = 'mt-4 p-3 rounded-md text-sm bg-red-100 text-red-700 border border-red-200';
+                generalQuizFeedbackDiv_EG.innerHTML = `Has respondido correctamente ${score} de ${Object.keys(quizDataEliminacionGaussiana).length} preguntas. Revisa los comentarios e intenta de nuevo.`;
+                if (submitButton) {
+                    submitButton.textContent = 'Intentar de Nuevo';
+                    submitButton.disabled = false; // Enable for retry
+                }
+            }
+            if (window.MathJax && window.MathJax.typesetPromise && quizForm_EG) {
+                window.MathJax.typesetPromise([quizForm_EG]);
+            }
+            return allCorrect; // Return the pass/fail status
+        }
+
+        async function initializePyodide_EG() {
+            if (!window.pyodideInstance_EG_Global) { // Use a specific global for this page
+                if (codeOutput_EG) codeOutput_EG.innerHTML = "<p>Cargando Pyodide y entorno...</p>";
+                try {
+                    window.pyodideInstance_EG_Global = await window.loadPyodide();
+                    await window.pyodideInstance_EG_Global.loadPackage("numpy");
+                    
+                    window.pyodide_eg_globals = window.pyodideInstance_EG_Global.globals; // Store globals specific to this page
+
+                    // Initialize Pyodide global variables specific to this page
+                    window.pyodide_eg_globals.set("pyodide_eg_html_output", "");
+                    // Ensure chart_data_package is initialized as a Pyodide object if needed by Python
+                    window.pyodide_eg_globals.set("pyodide_eg_chart_data_package", window.pyodideInstance_EG_Global.toPy({}));
+
+                    if (codeOutput_EG) codeOutput_EG.innerHTML = "<p>Pyodide listo. Presiona 'Ejecutar Código'.</p>";
+                } catch (error) {
+                    console.error("Error al cargar Pyodide para Eliminación Gaussiana:", error);
+                    if (codeOutput_EG) codeOutput_EG.innerHTML = "<p>Error al cargar Pyodide. Revisa la consola.</p>";
+                    return null;
+                }
+            }
+            if (!window.pyodide_eg_globals && window.pyodideInstance_EG_Global) { // Ensure globals are set if instance exists
+                 window.pyodide_eg_globals = window.pyodideInstance_EG_Global.globals;
+            }
+            return window.pyodideInstance_EG_Global;
+        }
+        
+        async function runCodeNow_EG() {
+            pyodide_EG = await initializePyodide_EG();
+            if (!pyodide_EG || !window.pyodide_eg_globals) {
+                if (codeOutput_EG) codeOutput_EG.innerHTML = "<p>Pyodide no está listo. Intenta recargar.</p>";
+                return;
+            }
+            if (!codeInput_EG || !codeOutput_EG) return;
+
+            const pythonCode = codeInput_EG.value;
+            if (codeOutput_EG) codeOutput_EG.innerHTML = "<p>Ejecutando código...</p>";
+            eg_d3_opDesc.html("Generando datos para la visualización...");
+            eg_d3_svg.selectAll("*").remove();
+
+            try {
+                // Clear/reset Pyodide global variables before new execution
+                window.pyodide_eg_globals.set("pyodide_eg_html_output", "");
+                // Ensure chart_data_package is reset correctly
+                let chartPkgProxy = window.pyodide_eg_globals.get("pyodide_eg_chart_data_package");
+                if (chartPkgProxy && typeof chartPkgProxy.clear === 'function') chartPkgProxy.clear();
+                else window.pyodide_eg_globals.set("pyodide_eg_chart_data_package", pyodide_EG.toPy({}));
+
+
+                await pyodide_EG.loadPackagesFromImports(pythonCode);
+                await pyodide_EG.runPythonAsync(pythonCode);
+
+                const htmlResult = window.pyodide_eg_globals.get("pyodide_eg_html_output");
+                if (codeOutput_EG) {
+                    codeOutput_EG.innerHTML = htmlResult || "<p>Ejecución completada. No se generó salida HTML de texto.</p>";
+                }
+                updateTaskStatusInStorage_EG(TASKS_EG.RUN_CODE, true);
+
+                const d3DataPackageJS = window.pyodide_eg_globals.get("pyodide_eg_chart_data_package").toJs({ dict_converter: Object.fromEntries });
+                initializeEGVisualization(d3DataPackageJS);
+
+            } catch (error) {
+                console.error("Error al ejecutar el código Python (Eliminación Gaussiana):", error);
+                if (codeOutput_EG) {
+                    codeOutput_EG.innerHTML = `<p style="color:red;">Error en la ejecución: ${error.toString().replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p><pre>${error.stack ? error.stack.replace(/</g, "&lt;").replace(/>/g, "&gt;") : ''}</pre>`;
+                }
+                 eg_d3_opDesc.html("Error al generar datos para la visualización.");
+            }
+        }
+
+        // --- D3.js Gaussian Elimination Visualization Logic ---
+        let eg_d3_currentStepIndex = 0;
+        let eg_d3_visualizationData = [];
+        let eg_d3_isPlaying = false;
+        let eg_d3_animationSpeed = 700;
+        let eg_d3_playInterval = null;
+
+        const eg_d3_svg = d3.select("#eg-d3-svg-container");
+        const eg_d3_opDesc = d3.select("#eg-d3-operation-description");
+        const eg_d3_prevButton = d3.select("#eg-d3-prev");
+        const eg_d3_nextButton = d3.select("#eg-d3-next");
+        const eg_d3_playButton = d3.select("#eg-d3-play");
+        const eg_d3_slider = d3.select("#eg-d3-slider");
+        const eg_d3_speedSlider = d3.select("#eg-d3-speed");
+        const eg_d3_speedValueText = d3.select("#eg-d3-speed-value");
+
+        const eg_d3_cellSize = { width: 70, height: 38 };
+        const eg_d3_padding = 4;
+        const eg_d3_numberFormat = d3.format(".3~f"); // Format to 3 significant figures, remove trailing zeros
+
+        const ICON_EG_PREVIOUS = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M15.225 15.077a.75.75 0 01-1.06 0L8.94 9.852a.75.75 0 010-1.06l5.224-5.224a.75.75 0 011.06 1.06L10.532 9.322l4.693 4.695a.75.75 0 010 1.06z"/></svg>';
+        const ICON_EG_NEXT = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M4.775 4.923a.75.75 0 011.06 0l5.224 5.224a.75.75 0 010 1.06l-5.224 5.224a.75.75 0 01-1.06-1.06L9.468 10.678 4.775 5.983a.75.75 0 010-1.06z"/></svg>';
+        const ICON_EG_PLAY = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"/></svg>';
+        const ICON_EG_PAUSE = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M5.75 4.5a.75.75 0 00-.75.75v10.5a.75.75 0 001.5 0V5.25a.75.75 0 00-.75-.75zm8.5 0a.75.75 0 00-.75.75v10.5a.75.75 0 001.5 0V5.25a.75.75 0 00-.75-.75z"/></svg>';
+
+        function initializeEGVisualization(data) {
+            eg_d3_svg.selectAll("*").remove();
+            if (!data || !data.visualization_steps || data.visualization_steps.length === 0) {
+                eg_d3_opDesc.html("No hay datos de visualización. Ejecute el código.");
+                eg_d3_prevButton.property("disabled", true).html(ICON_EG_PREVIOUS).attr("aria-label", "Anterior");
+                eg_d3_nextButton.property("disabled", true).html(ICON_EG_NEXT).attr("aria-label", "Siguiente");
+                eg_d3_slider.property("disabled", true).attr("max",0).property("value",0);
+                eg_d3_playButton.property("disabled", true).html(ICON_EG_PLAY).attr("aria-label", "Play");
+                return;
+            }
+            eg_d3_visualizationData = data.visualization_steps;
+            eg_d3_currentStepIndex = 0;
+            eg_d3_isPlaying = false;
+            if (eg_d3_playInterval) clearInterval(eg_d3_playInterval);
+            
+            eg_d3_prevButton.html(ICON_EG_PREVIOUS).attr("aria-label", "Anterior").property("disabled", false);
+            eg_d3_nextButton.html(ICON_EG_NEXT).attr("aria-label", "Siguiente").property("disabled", false);
+            eg_d3_playButton.html(ICON_EG_PLAY).attr("aria-label", "Play").property("disabled", false);
+            eg_d3_slider.attr("max", eg_d3_visualizationData.length - 1).property("value", 0).property("disabled", false);
+
+            renderEGStep(eg_d3_currentStepIndex, false); // No animation for initial render
+            updateEGControls();
+        }
+
+        function formatNumberForDisplayEG(num) {
+            if (Math.abs(num) < 1e-9) return "0"; // Treat very small numbers as 0
+            const rounded = parseFloat(num.toFixed(4)); // Round to 4 decimal places for display consistency
+            if (Math.abs(rounded - Math.round(rounded)) < 1e-9) return String(Math.round(rounded)); // If it's an integer, display as integer
+            let formatted = eg_d3_numberFormat(rounded); // Use D3 format
+            if (formatted === "-0" || formatted === "-0.0" || formatted === "-0.00" || formatted === "-0.000") return "0"; // Avoid D3's "-0"
+            return formatted;
+        }
+
+        function renderEGStep(stepIndex, animate = true) {
+            if (stepIndex < 0 || stepIndex >= eg_d3_visualizationData.length) return;
+
+            const stepData = eg_d3_visualizationData[stepIndex];
+            // Use matrix_before_op for transitions if available, otherwise current matrix
+            const matrixToDisplay = stepData.matrix_before_op ? stepData.matrix_before_op : stepData.matrix;
+            const matrixAfterOp = stepData.matrix; // Final state for this step
+
+
+            const numRows = matrixToDisplay.length;
+            const numCols = matrixToDisplay[0] ? matrixToDisplay[0].length : 0;
+            if (numRows === 0 || numCols === 0) {
+                 eg_d3_opDesc.html("Matriz vacía o inválida en el paso.");
+                 eg_d3_svg.selectAll("*").remove();
+                 return;
+            }
+            const numCoeffs = stepData.num_coeffs != null ? stepData.num_coeffs : numCols -1; // Number of variables
+
+            eg_d3_opDesc.html(stepData.description || `Paso ${stepIndex + 1}`);
+            eg_d3_slider.property("value", stepIndex);
+
+            const totalWidth = numCols * (eg_d3_cellSize.width + eg_d3_padding) - eg_d3_padding;
+            const totalHeight = numRows * (eg_d3_cellSize.height + eg_d3_padding) - eg_d3_padding;
+            eg_d3_svg.attr("width", Math.max(200, totalWidth)) 
+                       .attr("height", Math.max(50, totalHeight))
+                       .attr("viewBox", `0 0 ${totalWidth} ${totalHeight}`);
+
+            const transitionDuration = animate ? eg_d3_animationSpeed : 0;
+
+            // Data join for rows
+            const rowSelection = eg_d3_svg.selectAll("g.row-group")
+                .data(matrixToDisplay, (d, i) => `row-${i}`); // Key rows by index for object constancy
+            
+            rowSelection.join(
+                enter => enter.append("g")
+                    .attr("class", (d, i) => `row-group row-${i}`)
+                    .attr("data-row-index", (d, i) => i) // Store original index for swap animations
+                    .attr("transform", (d, i) => `translate(0, ${i * (eg_d3_cellSize.height + eg_d3_padding)})`)
+                    .style("opacity", 0) // Start transparent for fade-in
+                    .call(enterRows => enterRows.transition().duration(transitionDuration / 2).style("opacity", 1)),
+                update => update // Handle updates, including row swaps
+                    .call(updateRows => { 
+                        if (animate && stepData.operation_type === 'swap' && stepData.swapped_rows_indices) {
+                            const [idx1, idx2] = stepData.swapped_rows_indices;
+                            // Animate only the swapped rows to their new positions
+                            updateRows.filter((d_row_data, i_original_row_index) => i_original_row_index === idx1 || i_original_row_index === idx2)
+                                .transition().duration(transitionDuration)
+                                .attr("transform", (d_row_data, i_filtered_sel, nodes) => {
+                                    // The data is already in the new order (matrixToDisplay is after swap if matrix_before_op was used)
+                                    // We need to find the *original* position of this data if it was idx1 or idx2
+                                    // This logic is tricky if data itself is reordered.
+                                    // Simpler: if `matrix_before_op` is used, it's the "from" state.
+                                    // `matrix` (or `matrixAfterOp`) is the "to" state. D3's data join uses the new data order.
+                                    // So, we need to map current row index `i_filtered_sel` (which is its *new* position index)
+                                    // to its *old* position if it was part of the swap.
+                                    // The `data-row-index` might be more reliable if it's set correctly based on `matrix_before_op`.
+                                    // Let's assume `matrixToDisplay` is `matrix_before_op` when swapping.
+                                    const originalRowIndexStr = d3.select(nodes[i_filtered_sel]).attr("data-row-index");
+                                    const originalRowIndex = parseInt(originalRowIndexStr); // Index in matrix_before_op
+                                    
+                                    let targetY;
+                                    if (originalRowIndex === idx1) targetY = idx2 * (eg_d3_cellSize.height + eg_d3_padding); // Row originally at idx1 moves to idx2
+                                    else if (originalRowIndex === idx2) targetY = idx1 * (eg_d3_cellSize.height + eg_d3_padding); // Row originally at idx2 moves to idx1
+                                    else targetY = originalRowIndex * (eg_d3_cellSize.height + eg_d3_padding); // Other rows stay (relative to their data)
+                                    return `translate(0, ${targetY})`;
+                                })
+                                .end().then(() => { // After swap animation, re-bind to final matrix and reset transforms
+                                    updateRows.attr("data-row-index", (d,i) => i); // Update data-row-index
+                                });
+                        } else { // For non-swap updates, just ensure correct position
+                            updateRows.transition().duration(transitionDuration / 2) // Faster transition for non-swaps
+                                .attr("transform", (d, i) => `translate(0, ${i * (eg_d3_cellSize.height + eg_d3_padding)})`);
+                        }
+                    }),
+                exit => exit.transition().duration(transitionDuration / 2).style("opacity", 0).remove()
+            );
+
+            // Process cells within each row group
+            eg_d3_svg.selectAll("g.row-group") 
+                .each(function(rowDataFromMatrixToDisplay, rowIndex) { // `rowIndex` is the current data-bound index
+                    const currentRowGroup = d3.select(this);
+
+                    // Create cell data, combining initial and final values for tweening
+                    const cellDataForRow = rowDataFromMatrixToDisplay.map((cellVal, colIndex) => ({
+                        initialValue: cellVal, // Value from matrixToDisplay (current or before_op)
+                        finalValue: matrixAfterOp[rowIndex][colIndex], // Value from matrix (after_op)
+                        rowIndex: rowIndex,
+                        colIndex: colIndex
+                    }));
+
+                    const cellSelection = currentRowGroup.selectAll("g.cell-group")
+                        .data(cellDataForRow, d_cell => `cell-${d_cell.rowIndex}-${d_cell.colIndex}`);
+
+                    cellSelection.join(
+                        enter => enter.append("g")
+                            .attr("class", d_cell => `cell-group cell-${d_cell.rowIndex}-${d_cell.colIndex}`)
+                            .attr("data-row-index", d_cell => d_cell.rowIndex) // For consistency, might not be needed here
+                            .attr("data-col-index", d_cell => d_cell.colIndex)
+                            .attr("transform", d_cell => `translate(${d_cell.colIndex * (eg_d3_cellSize.width + eg_d3_padding)}, 0)`)
+                            .call(cellEnter => {
+                                cellEnter.append("rect")
+                                    .attr("width", eg_d3_cellSize.width)
+                                    .attr("height", eg_d3_cellSize.height)
+                                    .style("fill", "white"); // Initial fill
+                                cellEnter.append("text")
+                                    .attr("x", eg_d3_cellSize.width / 2)
+                                    .attr("y", eg_d3_cellSize.height / 2)
+                                    .text(d_cell => formatNumberForDisplayEG(d_cell.initialValue)); // Display initial value
+                            }),
+                        update => update, // Update selection (already positioned by row)
+                        exit => exit.remove()
+                    )
+                    .call(allCellsInRow => { // Apply transitions and styling to all cells (new and updated)
+                        // Rect styling based on operation type
+                        allCellsInRow.select("rect")
+                            .transition("fill").duration(transitionDuration * 0.4) // Short delay for fill change
+                            .style("fill", "white") // Reset fill first
+                            .attr("class","") // Reset classes
+                            .end().then(() => { // Chain transition for new fill color
+                                allCellsInRow.select("rect")
+                                    .transition("highlight").duration(transitionDuration * 0.6)
+                                    .style("fill", (d_cell) => {
+                                        // Forward Elimination Highlights
+                                        if (stepData.pivot_coords && d_cell.rowIndex === stepData.pivot_coords[0] && d_cell.colIndex === stepData.pivot_coords[1]) return "#FFF59D"; // pivot-highlight
+                                        if (stepData.source_row_idx === d_cell.rowIndex && (stepData.operation_type === 'eliminate_forward' || stepData.operation_type === 'pre_eliminate_forward')) return "#90CAF9"; // source-row-highlight (pivot row)
+                                        if (stepData.target_row_idx === d_cell.rowIndex && (stepData.operation_type === 'eliminate_forward' || stepData.operation_type === 'pre_eliminate_forward')) return "#A5D6A7"; // target-row-highlight
+                                        if (stepData.element_to_eliminate_coords && d_cell.rowIndex === stepData.element_to_eliminate_coords[0] && d_cell.colIndex === stepData.element_to_eliminate_coords[1]) return "#EF9A9A"; // eliminate-highlight
+                                        if (stepData.current_col_highlight === d_cell.colIndex && stepData.operation_type === 'pivot_search') return "#CFD8DC"; // pivot-search-highlight
+
+                                        // Back Substitution Highlights
+                                        if (stepData.operation_type === 'solve_variable_backsub') {
+                                            if (d_cell.rowIndex === stepData.equation_row_idx) { // Current equation row
+                                                if (d_cell.colIndex === stepData.variable_index_solved) return "#81D4FA"; // backsub-solving-var-highlight
+                                                if (stepData.known_values_coords && stepData.known_values_coords.some(coord => coord[0] === d_cell.rowIndex && coord[1] === d_cell.colIndex)) return "#A5D6A7"; // backsub-known-var-highlight
+                                                return "#C5CAE9"; // backsub-equation-highlight (rest of the row)
+                                            }
+                                        }
+                                        // Problematic states
+                                        if (stepData.problem_row_idx === d_cell.rowIndex && (stepData.operation_type === 'inconsistent' || stepData.operation_type === 'singular_pivot' || stepData.operation_type === 'zero_pivot_backsub')) return "#FFCDD2"; // problem-row-highlight
+                                        if (stepData.problem_row_idx === d_cell.rowIndex && stepData.operation_type === 'dependent_row') return "#FFFDE7"; // dependent-row-highlight
+                                        
+                                        return "white"; // Default
+                                    });
+                            });
+
+                        // Text tweening for smooth value changes
+                        allCellsInRow.select("text")
+                            .transition("text").duration(transitionDuration)
+                            .textTween(function(d_cell) { // `this` is the text element
+                                // Try to parse current displayed text, fallback to initialValue if parsing fails
+                                let currentValue;
+                                try {
+                                    currentValue = parseFloat(this.textContent.replace(/[^0-9.-]+/g,""));
+                                    if (isNaN(currentValue)) currentValue = d_cell.initialValue;
+                                } catch (e) { currentValue = d_cell.initialValue; }
+                                
+                                const i = d3.interpolateNumber(currentValue, d_cell.finalValue);
+                                return function(t) { return formatNumberForDisplayEG(i(t)); };
+                            });
+                    });
+                }); 
+
+            // Redraw column separator line
+            eg_d3_svg.selectAll(".matrix-column-separator").remove(); // Remove old one
+            if (numCoeffs < numCols && numCoeffs > 0) { // If there's a b-vector part
+                 const xSeparator = numCoeffs * (eg_d3_cellSize.width + eg_d3_padding) - (eg_d3_padding / 2);
+                 eg_d3_svg.append("line")
+                    .attr("class", "matrix-column-separator")
+                    .attr("x1", xSeparator).attr("x2", xSeparator)
+                    .attr("y1", -eg_d3_padding / 2).attr("y2", totalHeight - eg_d3_padding /2); // Extend slightly beyond cells
+            }
+            updateEGControls();
+        }
+
+
+        function updateEGControls() {
+            eg_d3_prevButton.property("disabled", eg_d3_currentStepIndex <= 0);
+            eg_d3_nextButton.property("disabled", eg_d3_currentStepIndex >= eg_d3_visualizationData.length - 1);
+            eg_d3_slider.property("value", eg_d3_currentStepIndex);
+            eg_d3_playButton.property("disabled", eg_d3_visualizationData.length === 0);
+        }
+        function stopEGPlayback() {
+            eg_d3_isPlaying = false;
+            clearInterval(eg_d3_playInterval);
+            eg_d3_playButton.html(ICON_EG_PLAY).attr("aria-label", "Play");
+        }
+
+        eg_d3_prevButton.on("click", () => {
+            if (eg_d3_isPlaying) stopEGPlayback();
+            if (eg_d3_currentStepIndex > 0) {
+                eg_d3_currentStepIndex--;
+                renderEGStep(eg_d3_currentStepIndex, true);
+            }
+        });
+
+        eg_d3_nextButton.on("click", () => {
+            if (eg_d3_isPlaying) stopEGPlayback();
+            if (eg_d3_currentStepIndex < eg_d3_visualizationData.length - 1) {
+                eg_d3_currentStepIndex++;
+                renderEGStep(eg_d3_currentStepIndex, true);
+            }
+        });
+        eg_d3_playButton.on("click", () => {
+            if (eg_d3_visualizationData.length === 0) return;
+            eg_d3_isPlaying = !eg_d3_isPlaying;
+            if (eg_d3_isPlaying) {
+                eg_d3_playButton.html(ICON_EG_PAUSE).attr("aria-label", "Pause");
+                if (eg_d3_currentStepIndex >= eg_d3_visualizationData.length - 1) {
+                    eg_d3_currentStepIndex = -1; // Start from beginning if at end, next step will be 0
+                }
+                eg_d3_playInterval = setInterval(() => {
+                    if (eg_d3_currentStepIndex < eg_d3_visualizationData.length - 1) {
+                        eg_d3_currentStepIndex++;
+                        renderEGStep(eg_d3_currentStepIndex, true);
+                    } else {
+                        stopEGPlayback();
+                    }
+                }, eg_d3_animationSpeed + 150); // Add a small buffer to animation speed
+            } else {
+                stopEGPlayback(); // This will set the icon to Play and aria-label
+            }
+        });
+
+        eg_d3_slider.on("input", function() {
+            if (eg_d3_isPlaying) stopEGPlayback();
+            eg_d3_currentStepIndex = +this.value;
+            renderEGStep(eg_d3_currentStepIndex, true);
+        });
+
+        eg_d3_speedSlider.on("input", function() {
+            eg_d3_animationSpeed = +this.value;
+            eg_d3_speedValueText.text(`${eg_d3_animationSpeed}ms`);
+            if (eg_d3_isPlaying) { // If playing, restart with new speed
+                stopEGPlayback();
+                eg_d3_playButton.dispatch("click"); // Simulate click to restart
+            }
+        });
+        // Initialize speed display
+        eg_d3_speedValueText.text(`${eg_d3_speedSlider.property("value")}ms`);
+
+
+        if (runCodeButton_EG) runCodeButton_EG.addEventListener('click', runCodeNow_EG);
+
+        if (quizForm_EG) {
+            quizForm_EG.addEventListener('submit', function(event) {
+                event.preventDefault();
+                const currentLocalProgress = getPageProgressFromStorage_EG(PAGE_KEY_EG);
+                const submitButton = quizForm_EG.querySelector('button[type="submit"]');
+
+                // Check if quiz is already passed and not in "Intentar de Nuevo" state
+                if (currentLocalProgress[TASKS_EG.QUIZ_PASSED] && submitButton && submitButton.textContent !== 'Intentar de Nuevo') {
+                     // console.log("Quiz already passed and not retrying. No action.");
+                     return;
+                }
+
+                if (submitButton && submitButton.textContent === 'Intentar de Nuevo') {
+                    quizForm_EG.reset();
+                    clearAllVisualFeedback_EG(true);
+                    if(generalQuizFeedbackDiv_EG) generalQuizFeedbackDiv_EG.style.display = 'none';
+
+                    let progressToSave = getPageProgressFromStorage_EG(PAGE_KEY_EG);
+                    progressToSave.user_quiz_answers = {};
+                    progressToSave.quiz_current_score = 0;
+                    progressToSave.quiz_feedback_active = false; // Reset feedback state
+                    // QUIZ_PASSED will be updated via updateTaskStatusInStorage_EG below
+                    savePageProgressToStorage_EG(PAGE_KEY_EG, progressToSave);
+                    updateTaskStatusInStorage_EG(TASKS_EG.QUIZ_PASSED, false); // Mark as not passed for retry
+
+                    quizForm_EG.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                     quizForm_EG.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => { // re-enable Tailwind's has-[:checked]
+                         wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                    });
+                    submitButton.textContent = 'Enviar Respuestas';
+                    return;
+                }
+
+                const formData = new FormData(quizForm_EG);
+                let allAnswered = true;
+                for (const qName of Object.keys(quizDataEliminacionGaussiana)) { if (!formData.has(qName)) { allAnswered = false; break; } }
+
+                if (!allAnswered) {
+                    if (generalQuizFeedbackDiv_EG) {
+                        generalQuizFeedbackDiv_EG.textContent = "Por favor, responde todas las preguntas.";
+                        generalQuizFeedbackDiv_EG.className = 'mt-4 p-3 rounded-md text-sm bg-yellow-100 text-yellow-700 border border-yellow-200';
+                        generalQuizFeedbackDiv_EG.style.display = 'block';
+                    } return;
+                }
+
+                updateTaskStatusInStorage_EG(TASKS_EG.QUIZ_ATTEMPTED, true);
+
+                let progress = getPageProgressFromStorage_EG(PAGE_KEY_EG); // Fetch fresh progress
+                progress.user_quiz_answers = {}; // Reset or prepare for new answers
+                for (const qName of Object.keys(quizDataEliminacionGaussiana)) { progress.user_quiz_answers[qName] = formData.get(qName); }
+                progress.quiz_feedback_active = true;
+                // Note: We are NOT setting progress[TASKS_EG.QUIZ_PASSED] here directly before saving.
+                // We save user answers and feedback state. displayQuizFeedback_EG will use this.
+                savePageProgressToStorage_EG(PAGE_KEY_EG, progress);
+
+                const quizWasPassed = displayQuizFeedback_EG(); // This displays feedback based on the saved answers/state, and returns pass status
+                updateTaskStatusInStorage_EG(TASKS_EG.QUIZ_PASSED, quizWasPassed); // NOW update the specific QUIZ_PASSED task status
+            });
+        }
+
+        if (mainCompletionButton_EG) {
+             mainCompletionButton_EG.addEventListener('click', () => {
+                const progress = getPageProgressFromStorage_EG(PAGE_KEY_EG);
+                let allCurrentlyCompleted = ALL_TASK_KEYS_EG.every(taskKey => progress[taskKey]);
+                let markAllAs = !allCurrentlyCompleted; // Toggle completion state
+
+                ALL_TASK_KEYS_EG.forEach(taskName => updateTaskStatusInStorage_EG(taskName, markAllAs));
+                
+                // After updating all tasks, fetch the latest progress state
+                let updatedProgress = getPageProgressFromStorage_EG(PAGE_KEY_EG);
+                if (!markAllAs) { // If un-completing all
+                    updatedProgress.user_quiz_answers = {};
+                    updatedProgress.quiz_current_score = 0;
+                    updatedProgress.quiz_feedback_active = false;
+                    if (quizForm_EG) {
+                        quizForm_EG.reset();
+                        quizForm_EG.querySelectorAll('input[type="radio"]').forEach(r => r.disabled = false);
+                        const sb = quizForm_EG.querySelector('button[type="submit"]');
+                        if(sb) sb.textContent = 'Enviar Respuestas';
+                         quizForm_EG.querySelectorAll('.quiz-option-wrapper').forEach(w => w.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red'));
+                    }
+                    clearAllVisualFeedback_EG(true); // Clear quiz visuals
+                } else { // If completing all
+                     updatedProgress[TASKS_EG.QUIZ_ATTEMPTED] = true; // Ensure quiz attempted is true
+                     updatedProgress[TASKS_EG.QUIZ_PASSED] = true;    // Ensure quiz passed is true
+                    // If no answers stored, auto-fill with correct ones for display
+                    if (Object.keys(updatedProgress.user_quiz_answers).length === 0) {
+                        for (const qName in quizDataEliminacionGaussiana) updatedProgress.user_quiz_answers[qName] = quizDataEliminacionGaussiana[qName].correctAnswer;
+                        updatedProgress.quiz_current_score = Object.keys(quizDataEliminacionGaussiana).length;
+                    }
+                    updatedProgress.quiz_feedback_active = true;
+                }
+                savePageProgressToStorage_EG(PAGE_KEY_EG, updatedProgress); // Save changes
+
+                if (quizForm_EG) displayQuizFeedback_EG(); // Refresh quiz display based on new state
+                calculateAndUpdateOverallProgress_EG(); // Recalculate and display overall progress
+
+                if (generalQuizFeedbackDiv_EG && !markAllAs) generalQuizFeedbackDiv_EG.style.display = 'none'; // Hide general feedback if un-completing
+                alert(markAllAs ? 'Todas las tareas marcadas como completadas.' : 'Se ha deshecho el completado.');
+            });
+        }
+
+        const theorySectionObserverTargetNodeEG = document.getElementById('conclusion-eg') || document.getElementById('teoria-eg'); // Observe conclusion or theory
+        if (theorySectionObserverTargetNodeEG) {
+            const observerOptionsEG = { root: null, rootMargin: '0px', threshold: 0.1 }; // Trigger when 10% visible
+            const observerCallbackEG = (entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) updateTaskStatusInStorage_EG(TASKS_EG.READ_THEORY, true);
+                });
+            };
+            const theoryObserver_EG = new IntersectionObserver(observerCallbackEG, observerOptionsEG);
+            theoryObserver_EG.observe(theorySectionObserverTargetNodeEG);
+        }
+        
+        // Remove hash from URL if present, to avoid jump on load with sticky headers
+        if (window.location.hash) history.replaceState(null, '', window.location.pathname + window.location.search);
+
+
+        // Initial page load setup
+        (async () => {
+            pyodide_EG = await initializePyodide_EG(); // Initialize Pyodide early
+            initializeEGVisualization(null); // Initialize D3 vis with null data (shows "execute code" message)
+        })();
+
+        const initialProgress_EG = getPageProgressFromStorage_EG(PAGE_KEY_EG);
+        if (initialProgress_EG.quiz_feedback_active || (initialProgress_EG[TASKS_EG.QUIZ_ATTEMPTED] && Object.keys(initialProgress_EG.user_quiz_answers).length > 0) ) {
+            if (quizForm_EG && initialProgress_EG.user_quiz_answers) {
+                 // Pre-fill quiz form with stored answers
+                 for (const qName in initialProgress_EG.user_quiz_answers) {
+                    const userAnswer = initialProgress_EG.user_quiz_answers[qName];
+                    // Escape special characters in value for querySelector
+                    const escapedUserAnswer = userAnswer.replace(/([\\()\[\]"'])/g, '\\$1');
+                    try {
+                        const radioToSelect = quizForm_EG.querySelector(`input[name="${qName}"][value="${escapedUserAnswer}"]`);
+                        if (radioToSelect) radioToSelect.checked = true;
+                    } catch (e) { console.warn(`Error seleccionando radio EG para ${qName}`, e); }
+                }
+            }
+            displayQuizFeedback_EG(); // Display feedback based on stored answers
+        } else if (quizForm_EG) { // No prior attempt or feedback active, set up fresh quiz
+            const submitButton = quizForm_EG.querySelector('button[type="submit"]');
+            if (submitButton) { submitButton.textContent = 'Enviar Respuestas'; submitButton.disabled = false; }
+            quizForm_EG.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+             quizForm_EG.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red'));
+            if (window.MathJax && window.MathJax.typesetPromise) window.MathJax.typesetPromise([quizForm_EG]);
+        }
+        calculateAndUpdateOverallProgress_EG(); // Update progress bar and icons on load
+
+        // Output controls (fullscreen, font size)
+        if (fullscreenButton_EG && codeOutput_EG && outputControlsContainer_EG) {
+             fullscreenButton_EG.addEventListener('click', () => {
+                const isFullscreen = codeOutput_EG.classList.contains('eg-output-fullscreen');
+                if (isFullscreen) { // Exit fullscreen
+                    outputControlsContainer_EG.style.opacity = '0'; // Hide controls during transition
+                    if(increaseFontButton_EG) increaseFontButton_EG.style.display = 'none';
+                    if(decreaseFontButton_EG) decreaseFontButton_EG.style.display = 'none';
+                    if (egCodeOutputInitialRect) { // Animate back to original position
+                        const finalRect = codeOutput_EG.getBoundingClientRect();
+                        const scaleX = egCodeOutputInitialRect.width / finalRect.width;
+                        const scaleY = egCodeOutputInitialRect.height / finalRect.height;
+                        const deltaX = (egCodeOutputInitialRect.left + egCodeOutputInitialRect.width / 2) - (finalRect.left + finalRect.width / 2);
+                        const deltaY = (egCodeOutputInitialRect.top + egCodeOutputInitialRect.height / 2) - (finalRect.top + finalRect.height / 2);
+                        codeOutput_EG.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+                     }
+                    setTimeout(() => { // After transition
+                        codeOutput_EG.style.transition = 'none'; // Disable transition for instant reset
+                        codeOutput_EG.classList.remove('eg-output-fullscreen');
+                        document.body.classList.remove('eg-body-fullscreen-active');
+                        outputControlsContainer_EG.classList.remove('eg-output-controls-container-fixed');
+                        outputControlsContainer_EG.style.transition = 'none'; outputControlsContainer_EG.style.opacity = '1';
+                        outputControlsContainer_EG.offsetHeight; outputControlsContainer_EG.style.transition = ''; // Re-enable for future
+                        codeOutput_EG.style.transform = '';
+                        if (originalOutputFontSize_EG) codeOutput_EG.style.fontSize = originalOutputFontSize_EG;
+                        codeOutput_EG.offsetHeight; codeOutput_EG.style.transition = ''; // Re-enable transition
+                        fullscreenButton_EG.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15" /></svg>`;
+                        fullscreenButton_EG.title = "Ver en pantalla completa"; egCodeOutputInitialRect = null;
+                    }, 500); // Match CSS transition duration
+                } else { // Enter fullscreen
+                    originalOutputFontSize_EG = window.getComputedStyle(codeOutput_EG).fontSize;
+                    egCodeOutputInitialRect = codeOutput_EG.getBoundingClientRect(); // Store original position
+                    outputControlsContainer_EG.style.transition = 'none'; outputControlsContainer_EG.style.opacity = '0';
+                    outputControlsContainer_EG.offsetHeight; outputControlsContainer_EG.style.transition = '';
+                    codeOutput_EG.style.transition = 'none'; // Disable transition during setup
+                    codeOutput_EG.classList.add('eg-output-fullscreen');
+                    document.body.classList.add('eg-body-fullscreen-active');
+                    outputControlsContainer_EG.classList.add('eg-output-controls-container-fixed');
+                    // Animate from original position to fullscreen
+                    const finalRect = codeOutput_EG.getBoundingClientRect();
+                    const scaleX = egCodeOutputInitialRect.width / finalRect.width;
+                    const scaleY = egCodeOutputInitialRect.height / finalRect.height;
+                    const deltaX = (egCodeOutputInitialRect.left + egCodeOutputInitialRect.width / 2) - (finalRect.left + finalRect.width / 2);
+                    const deltaY = (egCodeOutputInitialRect.top + egCodeOutputInitialRect.height / 2) - (finalRect.top + finalRect.height / 2);
+                    codeOutput_EG.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+                    codeOutput_EG.offsetHeight; // Force reflow
+                    codeOutput_EG.style.transition = ''; // Re-enable transition for animation
+                    codeOutput_EG.style.transform = 'translate(0px, 0px) scale(1)';
+                    fullscreenButton_EG.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9V4.5M15 9h4.5M15 9l5.25-5.25M15 15v4.5M15 15h4.5M15 15l5.25 5.25" /></svg>`;
+                    fullscreenButton_EG.title = "Salir de pantalla completa";
+                    setTimeout(() => { // Show controls after transition
+                        outputControlsContainer_EG.style.opacity = '1';
+                        if(increaseFontButton_EG) increaseFontButton_EG.style.display = 'inline-flex'; // Show font buttons
+                        if(decreaseFontButton_EG) decreaseFontButton_EG.style.display = 'inline-flex';
+                    }, 500);
+                }
+            });
+        }
+        if (increaseFontButton_EG && codeOutput_EG) {
+            increaseFontButton_EG.addEventListener('click', () => {
+                if (codeOutput_EG.classList.contains('eg-output-fullscreen')) { // Only allow font change in fullscreen
+                    let currentSize = parseFloat(window.getComputedStyle(codeOutput_EG).fontSize);
+                    if (currentSize < MAX_FONT_SIZE_PX_EG) {
+                        codeOutput_EG.style.fontSize = (currentSize + FONT_SIZE_STEP_PX_EG) + 'px';
+                        increaseFontButton_EG.classList.add('eg-font-button-flash-blue');
+                        setTimeout(() => { increaseFontButton_EG.classList.remove('eg-font-button-flash-blue'); }, 400);
+                    }
+                }
+            });
+        }
+        if (decreaseFontButton_EG && codeOutput_EG) {
+             decreaseFontButton_EG.addEventListener('click', () => {
+                if (codeOutput_EG.classList.contains('eg-output-fullscreen')) { // Only allow font change in fullscreen
+                    let currentSize = parseFloat(window.getComputedStyle(codeOutput_EG).fontSize);
+                    if (currentSize > MIN_FONT_SIZE_PX_EG) {
+                        codeOutput_EG.style.fontSize = (currentSize - FONT_SIZE_STEP_PX_EG) + 'px';
+                        decreaseFontButton_EG.classList.add('eg-font-button-flash-red');
+                        setTimeout(() => { decreaseFontButton_EG.classList.remove('eg-font-button-flash-red'); }, 400);
+                    }
+                }
+            });
+        }
+        // Initially hide font buttons if not in fullscreen mode
+        if(increaseFontButton_EG) increaseFontButton_EG.style.display = 'none';
+        if(decreaseFontButton_EG) decreaseFontButton_EG.style.display = 'none';
+
+    });
+    </script>
+
+    <!-- Vue App Initialization Script -->
+    <script type="module">
+        const { createApp, ref, onMounted, onUnmounted, watch, nextTick } = Vue;
+        const LeftSidebarEG = { 
+            template: `{% raw %}
+                <aside :class="[
+                    'bg-gradient-to-b from-red-500 to-red-700', 'shadow-xl', 'rounded-lg', 'p-4',
+                    'flex', 'flex-col',
+                    'transition-all', 'duration-300', 'ease-in-out',
+                    'order-1',
+                    isCollapsed ? 'w-full lg:w-20' : 'w-full lg:w-64',
+                    'self-start',
+                    'lg:sticky', 'lg:top-8',
+                    'lg:max-h-[calc(100vh-4rem)]',
+                    'overflow-y-auto'
+                ]">
+                    <div class="flex justify-between items-center mb-4 border-b border-red-400 pb-3">
+                        <h3 v-show="!isCollapsed" class="text-lg font-semibold text-white select-none">Contenido</h3>
+                        <button @click="toggleCollapse" class="p-1.5 ml-2 text-white hover:bg-red-700 rounded focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-75" :aria-label="isCollapsed ? 'Expandir menú' : 'Colapsar menú'">
+                            <svg v-if="!isCollapsed" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5" /></svg>
+                            <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5m-6-15l7.5 7.5-7.5 7.5" /></svg>
+                        </button>
+                    </div>
+                    <nav v-show="!isCollapsed">
+                        <ul class="space-y-1">
+                            <li v-for="item in navItems" :key="item.id">
+                                <a :href="item.href" @click.prevent="smoothScroll(item.href)"
+                                   :class="['nav-link block px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 flex items-center', isActive(item.id) ? 'bg-white text-custom-blue font-semibold shadow-sm' : 'text-red-100 hover:bg-red-700 hover:text-white']">
+                                    <span v-html="item.iconSVG" class="mr-3 translate-y-px"></span>
+                                    <span>{{ item.text }}</span>
+                                </a></li></ul></nav>
+                    <nav v-show="isCollapsed" class="mt-4">
+                         <ul class="space-y-1">
+                            <li v-for="item in navItems" :key="item.id + '-collapsed'">
+                                <a :href="item.href" @click.prevent="smoothScroll(item.href)" :title="item.text" :aria-label="item.text"
+                                   :class="['nav-link-collapsed block py-2 pl-2.5 pr-1.5 rounded-md transition-colors duration-150 flex justify-center items-center', isActive(item.id) ? 'bg-white text-custom-blue shadow-sm' : 'text-red-100 hover:bg-red-700 hover:text-white']">
+                                    <span v-html="item.iconSVG" class="w-6 h-6 translate-y-px"></span>
+                                </a></li></ul></nav></aside>{% endraw %}`,
+            setup() {
+                const isCollapsed = ref(false);
+                const activeSectionId = ref('teoria-eg'); // Default active section
+                const navItems = ref([ // Updated IDs and hrefs
+                    { id: 'teoria-eg', text: 'Fundamento Teórico', href: '#teoria-eg', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>' },
+                    { id: 'algoritmo-eg', text: 'Pasos del Algoritmo', href: '#algoritmo-eg', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" /></svg>' },
+                    { id: 'ejemplo-eg', text: 'Ejemplo Detallado', href: '#ejemplo-eg', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>' },
+                    { id: 'codigo-eg', text: 'Implementación (Python)', href: '#codigo-eg', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" /></svg>' },
+                    { id: 'graficas-eg', text: 'Visualización Interactiva', href: '#graficas-eg', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h12A2.25 2.25 0 0120.25 6v12A2.25 2.25 0 0118 20.25H6A2.25 2.25 0 013.75 18V6zM3.75 12h16.5M12 3.75v16.5" /></svg>' },
+                    { id: 'videos-eg', text: 'Videos Explicativos', href: '#videos-eg', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.75.75 0 010 1.656l-5.603 3.113A.75.75 0 019 15.95V9.05a.75.75 0 011.307-.588l5.603 3.112z" /></svg>' },
+                    { id: 'conclusion-eg', text: 'Conclusión', href: '#conclusion-eg', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' },
+                    { id: 'referencias-eg', text: 'Referencias', href: '#referencias-eg', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 3.75V16.5L12 14.25L7.5 16.5V3.75m9 0H18A2.25 2.25 0 0120.25 6v12A2.25 2.25 0 0118 20.25H6A2.25 2.25 0 013.75 18V6A2.25 2.25 0 016 3.75h1.5m9 0h-9" /></svg>' },
+                    { id: 'cuestionario-eg', text: 'Cuestionario', href: '#cuestionario-eg', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' }
+                ]);
+                let sections = [];
+                const toggleCollapse = () => isCollapsed.value = !isCollapsed.value;
+                const isActive = (id) => activeSectionId.value === id;
+                const smoothScroll = (targetHref) => {
+                    const targetId = targetHref.substring(1);
+                    const targetElement = document.getElementById(targetId);
+                    if (targetElement) {
+                        targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+                        history.pushState(null, null, targetHref); // Update URL without page reload
+                    }
+                };
+                const handleScroll = () => {
+                    if (!sections.length) return;
+                    // Determine scroll margin top (from CSS or default)
+                    const scrollMarginTopValue = parseInt(getComputedStyle(sections[0]).scrollMarginTop) || 96; // 96px is a common sticky header height
+                    let newActiveSectionId = null;
+
+                    // Find current active section based on scroll position
+                    for (let i = 0; i < sections.length; i++) {
+                        const section = sections[i];
+                        const sectionTopBoundary = section.offsetTop - scrollMarginTopValue;
+                        const sectionBottomBoundary = sectionTopBoundary + section.offsetHeight;
+                        if (window.scrollY >= sectionTopBoundary && window.scrollY < sectionBottomBoundary) {
+                            newActiveSectionId = section.id; break;
+                        }
+                    }
+                    // Fallback if no section is perfectly in view (e.g., scrolled past last section)
+                    if (newActiveSectionId === null) {
+                        for (let i = sections.length - 1; i >= 0; i--) { // Check from bottom up
+                            if ((sections[i].offsetTop - scrollMarginTopValue) <= window.scrollY + 5) { // +5 for a bit of leeway
+                                newActiveSectionId = sections[i].id; break;
+                            }
+                        }
+                    }
+                     // Fallback if scrolled above the first section
+                    if (newActiveSectionId === null && sections.length > 0 && window.scrollY < (sections[0].offsetTop - scrollMarginTopValue)) {
+                       newActiveSectionId = sections[0].id;
+                    }
+
+                    if (activeSectionId.value !== newActiveSectionId) activeSectionId.value = newActiveSectionId;
+                };
+                onMounted(() => {
+                    nextTick(() => { // Ensure DOM is fully rendered
+                        sections = Array.from(document.querySelectorAll('main article section[id]'));
+                        handleScroll(); // Initial check
+                        window.addEventListener('scroll', handleScroll, { passive: true });
+                    });
+                });
+                onUnmounted(() => window.removeEventListener('scroll', handleScroll));
+                return { isCollapsed, toggleCollapse, navItems, isActive, smoothScroll, activeSectionId };
+            }
+        };
+        const appEG = createApp({ // Changed app name to appEG
+            setup() {
+                const METHOD_KEY_EG_VUE = "eliminacion-gaussiana"; // Page specific key
+                const METHOD_NAME_TITLE_CASE_EG_VUE = "Eliminación Gaussiana"; // Page specific name
+                return { METHOD_KEY_EG_VUE, METHOD_NAME_TITLE_CASE_EG_VUE };
+            }
+        });
+        appEG.component('left-sidebar-eg', LeftSidebarEG); // Register component with EG suffix
+        appEG.config.compilerOptions.isCustomElement = tag => tag.startsWith('mjx-'); // For MathJax
+        appEG.mount('#app-eg'); // Mount to the new app div ID
+    </script>
+</body>
+</html>

@@ -1,0 +1,2180 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gauss-Jordan - Métodos Numéricos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'custom-blue': '#242A38',
+                        'custom-red': '#E94560',
+                        'custom-gray-bg': '#F3F4F6',
+                        'sidebar-bg': '#FFFFFF',
+                        'sidebar-text': '#4B5563',
+                        'sidebar-hover-bg': '#FEF2F2',
+                    }
+                }
+            }
+        }
+    </script>
+    <script>
+        window.MathJax = {
+            tex: { packages: {'[+]': ['input/mml', 'output/chtml']} },
+            chtml: { matchFontHeight: false },
+            options: { ignoreHtmlClass: 'tex2jax_ignore', processHtmlClass: 'tex2jax_process' }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <!-- Chart.js no se usa activamente aquí, pero se mantiene por si se usa en otras páginas del proyecto -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        @keyframes animatedRainbowBorder { 0% { background-position: 0% center; } 100% { background-position: 200% center; } }
+        .animate-rainbow-border::before {
+            content: ''; position: absolute; z-index: -1; top: -2px; left: -2px; right: -2px; bottom: -2px;
+            border-radius: 9999px;
+            background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #007bff, #8a2be2, #ff00ff, #ff0000);
+            background-size: 200% 100%;
+            animation: animatedRainbowBorder 3s linear infinite;
+        }
+        .animate-rainbow-border { position: relative; z-index: 0; }
+        .correct-answer-gj { border-color: #10B981; background-color: #D1FAE5; }
+        .incorrect-answer-gj { border-color: #EF4444; background-color: #FEE2E2; }
+
+        .gj-output-fullscreen {
+            position: fixed !important; top: 0 !important; left: 0 !important;
+            width: 100vw !important; height: 100vh !important;
+            z-index: 9990 !important; background-color: #111827 !important;
+            padding: 20px !important; margin: 0 !important; border-radius: 0 !important;
+            overflow-y: auto !important; max-height: 100vh !important;
+        }
+        .gj-body-fullscreen-active { overflow: hidden !important; }
+        .gj-output-controls-container-fixed {
+            position: fixed !important; top: 15px !important; right: 15px !important;
+            z-index: 9999 !important; display: flex !important;
+            align-items: center !important; gap: 0.25rem !important;
+        }
+        .gj-font-button-flash-red { animation: gj-flash-red 0.4s ease-out; }
+        @keyframes gj-flash-red { 0% { background-color: #EF4444; } 100% { background-color: #374151; } }
+        .gj-font-button-flash-blue { animation: gj-flash-blue 0.4s ease-out; }
+        @keyframes gj-flash-blue { 0% { background-color: #3B82F6; } 100% { background-color: #374151; } }
+
+        .matrix-table { border-collapse: collapse; margin: 10px auto; font-family: monospace; font-size:0.9em; }
+        .matrix-table th, .matrix-table td { border: 1px solid #555; padding: 6px 10px; text-align: right; }
+        .matrix-table th { background-color: #333; font-weight:normal; }
+        .pivot-element { background-color: #4CAF50 !important; color: white; font-weight: bold; }
+        .matrix-separator { border-right: 2px solid #999 !important; }
+        .step-description { margin-top:15px; margin-bottom:5px; font-style: italic; text-align:center; font-size:0.9em;}
+
+        /* D3 Visualization Styles */
+        #gj-d3-svg-container .row-group rect {
+            stroke: #b0bec5;
+            stroke-width: 1px;
+            fill: white;
+            shape-rendering: crispEdges;
+        }
+        #gj-d3-svg-container .row-group text {
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+            text-anchor: middle;
+            dominant-baseline: central;
+            fill: #263238;
+            font-size: 0.85em;
+            pointer-events: none;
+        }
+        #gj-d3-svg-container .pivot-highlight rect {
+            fill: #FFF59D !important; /* Amarillo pastel más brillante */
+            stroke: #FBC02D !important; /* Amarillo más oscuro para borde */
+        }
+        #gj-d3-svg-container .source-row-highlight rect {
+            fill: #90CAF9 !important; /* Azul claro pastel más brillante */
+        }
+        #gj-d3-svg-container .target-row-highlight rect {
+            fill: #A5D6A7 !important; /* Verde claro pastel más brillante */
+        }
+        #gj-d3-svg-container .eliminate-highlight rect {
+            fill: #EF9A9A !important; /* Rojo claro pastel más brillante */
+            stroke: #E57373 !important;
+        }
+        #gj-d3-svg-container .problem-row-highlight rect {
+             fill: #FFCDD2 !important;
+        }
+        #gj-d3-svg-container .dependent-row-highlight rect {
+            fill: #FFFDE7 !important;
+        }
+        #gj-d3-svg-container .pivot-search-highlight rect {
+            fill: #CFD8DC !important; /* Gris claro para columna de búsqueda de pivote */
+        }
+        #gj-d3-svg-container .matrix-column-separator {
+            stroke: #78909c;
+            stroke-width: 1.5px;
+            stroke-dasharray: 3 2;
+        }
+    </style>
+</head>
+<body class="bg-custom-gray-bg text-gray-700 font-sans antialiased">
+    <div id="app-gj">
+        <header class="bg-custom-blue text-white shadow-md">
+            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                <h1 class="text-xl font-semibold"><a href="/" class="hover:text-gray-300">Métodos Numéricos</a></h1>
+                <nav><a href="../index.html#method-cards-container" class="text-sm px-4 py-2 rounded-md hover:bg-gray-700 transition-colors duration-150">Volver a Métodos</a></nav>
+            </div>
+        </header>
+
+        <div class="container mx-auto mt-8 mb-8 flex flex-col lg:flex-row lg:space-x-8 px-4">
+            <left-sidebar-gj></left-sidebar-gj>
+            <main class="w-full flex-1 min-w-0 bg-white shadow-xl rounded-lg p-6 md:p-8 order-2 mb-6 lg:mb-0">
+                <article class="method-content">
+                    <h2 class="text-3xl font-bold mb-6 text-gray-800 border-b border-gray-200 pb-4">Eliminación de Gauss-Jordan</h2>
+
+                    <section id="teoria-gj" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Fundamento Teórico</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            El método de Gauss-Jordan es una variación de la eliminación de Gauss. La principal diferencia radica en que cuando una incógnita se elimina en el método de Gauss-Jordan, se elimina de todas las otras ecuaciones, no solo de las subsecuentes. Además, todas las filas se normalizan al dividirlas entre su elemento pivote. De esta forma, el proceso de eliminación resulta en una matriz de coeficientes que es una matriz identidad, en lugar de una matriz triangular. Por lo tanto, no es necesario usar la sustitución hacia atrás para obtener la solución.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            El método se aplica a la matriz aumentada del sistema, \([A|b]\). El objetivo es transformar la matriz de coeficientes A en una matriz identidad I. Una vez logrado esto, la columna de los términos independientes b se habrá transformado en el vector solución x. Es decir, partiendo de \([A|b]\), se llega a \([I|x]\).
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-2 font-medium">Las operaciones elementales de fila permitidas son:</p>
+                        <ul class="list-disc list-inside space-y-2 pl-4 text-gray-600 mb-4">
+                            <li>Intercambio de dos filas.</li>
+                            <li>Multiplicación de una fila por una constante no nula.</li>
+                            <li>Suma de un múltiplo de una fila a otra fila.</li>
+                        </ul>
+                        <p class="text-gray-600 leading-relaxed">
+                            Chapra señala que, aunque los métodos de eliminación de Gauss y Gauss-Jordan son útiles para entender los conceptos, no son los más eficientes para resolver sistemas de ecuaciones lineales en la práctica computacional general, especialmente para sistemas grandes. Sin embargo, Gauss-Jordan es eficiente para obtener la inversa de una matriz.
+                        </p>
+                    </section>
+
+                    <section id="algoritmo-gj" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Pasos del Algoritmo</h3>
+                        <ol class="list-decimal list-inside space-y-3 pl-4 text-gray-600 leading-relaxed">
+                            <li>
+                                <strong>Formar la matriz aumentada:</strong> Se combinan la matriz de coeficientes A y el vector de términos constantes b para formar la matriz aumentada \([A|b]\).
+                            </li>
+                            <li>
+                                <strong>Normalización del pivote y eliminación:</strong>
+                                Para cada fila pivote <em>i</em> (desde la primera hasta la última):
+                                <ol type="a" class="list-[lower-alpha] list-inside space-y-2 pl-6 mt-2">
+                                    <li>
+                                        <strong>Pivoteo (Opcional, pero recomendado para estabilidad numérica):</strong> Si es necesario, intercambiar la fila <em>i</em> con alguna fila subsecuente para asegurar que el elemento pivote \(a_{ii}\) (el elemento en la diagonal) sea el más grande (en valor absoluto) posible entre los elementos de la columna <em>i</em> desde la fila <em>i</em> hacia abajo.
+                                    </li>
+                                    <li>
+                                        <strong>Normalización de la fila pivote:</strong> Dividir la fila pivote <em>i</em> entre el elemento pivote \(a_{ii}\). Esto convierte el elemento pivote en 1.
+                                        <br>
+                                        (Si \(a_{ii}\) es cero y no se puede obtener un pivote no nulo mediante intercambio de filas en esa columna, el sistema no tiene solución única).
+                                    </li>
+                                    <li>
+                                        <strong>Eliminación en otras filas:</strong> Para cada otra fila <em>k</em> (donde <em>k ≠ i</em>), eliminar el elemento \(a_{ki}\) (hacerlo cero). Esto se logra restando \(a_{ki}\) veces la fila pivote normalizada (fila <em>i</em>) de la fila <em>k</em>.
+                                        <br>Es decir: Nueva Fila\(_k\) = Antigua Fila\(_k\) - \(a_{ki}\) × Fila Pivote\(_i\) (normalizada).
+                                    </li>
+                                </ol>
+                            </li>
+                            <li>
+                                <strong>Obtención de la solución:</strong> Después de aplicar estos pasos a todas las filas pivote, la parte izquierda de la matriz aumentada (originalmente A) se habrá transformado en la matriz identidad I. La parte derecha de la matriz aumentada (originalmente b) contendrá entonces los valores de la solución x.
+                            </li>
+                            <li>
+                                <strong>Interpretación de casos especiales:</strong>
+                                <ul class="list-disc list-inside space-y-1 pl-6 mt-2">
+                                    <li>Si durante el proceso se obtiene una fila de la forma \([0 \ 0 \ \dots \ 0 \ | \ c]\) donde c ≠ 0, el sistema es inconsistente (no tiene solución).</li>
+                                    <li>Si se obtiene una fila de ceros \([0 \ 0 \ \dots \ 0 \ | \ 0]\), esto indica que hay infinitas soluciones (el sistema es dependiente).</li>
+                                </ul>
+                            </li>
+                        </ol>
+                    </section>
+
+                    <section id="ejemplo-gj" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Ejemplo Paso a Paso</h3>
+                        <p class="text-gray-600 leading-relaxed mb-3"><strong>Problema:</strong> Resolver el sistema de ecuaciones usando el método de Gauss-Jordan:</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                            \(3x_1 - 0.1x_2 - 0.2x_3 = 7.85\)<br>
+                            \(0.1x_1 + 7x_2 - 0.3x_3 = -19.3\)<br>
+                            \(0.3x_1 - 0.2x_2 + 10x_3 = 71.4\)
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mb-2"><strong>1. Matriz Aumentada \([A|b]\):</strong></p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ \begin{bmatrix} 3 & -0.1 & -0.2 & | & 7.85 \\ 0.1 & 7 & -0.3 & | & -19.3 \\ 0.3 & -0.2 & 10 & | & 71.4 \end{bmatrix} \]
+                        </div>
+
+                        <p class="font-medium text-gray-700 mb-1"><strong>Paso 1: Trabajar con la primera fila pivote (Fila 1).</strong></p>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1">a) El elemento pivote es \(a_{11} = 3\). (No se requiere pivoteo por máximo en este ejemplo particular para \(a_{11}\)).</p>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1">b) Normalizar Fila 1: \(F_1 = F_1 / 3\).</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ \begin{bmatrix} 1 & -0.03333 & -0.06667 & | & 2.61667 \\ 0.1 & 7 & -0.3 & | & -19.3 \\ 0.3 & -0.2 & 10 & | & 71.4 \end{bmatrix} \]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1">c) Eliminar \(a_{21}\) y \(a_{31}\): \(F_2 = F_2 - 0.1 \times F_1\) y \(F_3 = F_3 - 0.3 \times F_1\)</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ \begin{bmatrix} 1 & -0.03333 & -0.06667 & | & 2.61667 \\ 0 & 7.00333 & -0.29333 & | & -19.56167 \\ 0 & -0.19000 & 10.02000 & | & 70.61500 \end{bmatrix} \]
+                        </div>
+
+                        <p class="font-medium text-gray-700 mb-1"><strong>Paso 2: Trabajar con la segunda fila pivote (Fila 2).</strong></p>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1">a) El elemento pivote es \(a_{22} = 7.00333\).</p>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1">b) Normalizar Fila 2: \(F_2 = F_2 / 7.00333\).</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ \begin{bmatrix} 1 & -0.03333 & -0.06667 & | & 2.61667 \\ 0 & 1 & -0.04188 & | & -2.79320 \\ 0 & -0.19000 & 10.02000 & | & 70.61500 \end{bmatrix} \]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1">c) Eliminar \(a_{12}\) y \(a_{32}\): \(F_1 = F_1 - (-0.03333) \times F_2\) y \(F_3 = F_3 - (-0.19000) \times F_2\)</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ \begin{bmatrix} 1 & 0 & -0.06806 & | & 2.52356 \\ 0 & 1 & -0.04188 & | & -2.79320 \\ 0 & 0 & 10.01205 & | & 70.08430 \end{bmatrix} \]
+                        </div>
+
+                        <p class="font-medium text-gray-700 mb-1"><strong>Paso 3: Trabajar con la tercera fila pivote (Fila 3).</strong></p>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1">a) El elemento pivote es \(a_{33} = 10.01205\).</p>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1">b) Normalizar Fila 3: \(F_3 = F_3 / 10.01205\).</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ \begin{bmatrix} 1 & 0 & -0.06806 & | & 2.52356 \\ 0 & 1 & -0.04188 & | & -2.79320 \\ 0 & 0 & 1 & | & 7.00000 \end{bmatrix} \]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1">c) Eliminar \(a_{13}\) y \(a_{23}\): \(F_1 = F_1 - (-0.06806) \times F_3\) y \(F_2 = F_2 - (-0.04188) \times F_3\)</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ \begin{bmatrix} 1 & 0 & 0 & | & 3.00000 \\ 0 & 1 & 0 & | & -2.50000 \\ 0 & 0 & 1 & | & 7.00000 \end{bmatrix} \]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mt-3">La matriz de coeficientes es la identidad. La solución es \(x_1=3\), \(x_2=-2.5\), \(x_3=7\).</p>
+                    </section>
+
+                    <section id="codigo-gj" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Código de Implementación (Python)</h3>
+                        <p class="text-gray-600 leading-relaxed mb-3">
+                            El siguiente código implementa el método de Gauss-Jordan. Puedes modificar la matriz `A_matrix` y el vector `b_vector` en el código para resolver diferentes sistemas.
+                            La salida de texto mostrará los pasos de la transformación de la matriz aumentada, y la visualización interactiva usará los datos generados.
+                        </p>
+                        <div class="code-editor-container bg-gray-50 p-4 rounded-lg shadow-inner">
+                            <textarea id="gj-code-input" class="code-input w-full h-[600px] p-3 border border-gray-300 rounded-md font-mono text-sm" style="resize: none;">
+import numpy as np
+
+def format_matrix_html(matrix, pivot_coords=None, n_coeffs=None, precision=5):
+    html = '<table class="matrix-table">'
+    for i, row in enumerate(matrix):
+        html += '<tr>'
+        for j, val in enumerate(row):
+            cell_class = ""
+            if pivot_coords and i == pivot_coords[0] and j == pivot_coords[1]:
+                cell_class = "pivot-element"
+
+            current_val_display = val
+            if abs(val) < 1e-9 and not (pivot_coords and i == pivot_coords[0] and j == pivot_coords[1]):
+                 current_val_display = 0.0
+
+            if isinstance(current_val_display, float):
+                formatted_val = f"{current_val_display:.{precision}f}"
+                if formatted_val.replace("0", "").replace(".", "").replace("-","") == "":
+                    formatted_val = "0.00000" if "." in formatted_val else "0"
+
+                if formatted_val.endswith('.' + '0' * precision):
+                    formatted_val = str(int(round(current_val_display)))
+            else:
+                formatted_val = str(current_val_display)
+
+            td_class = f'class="{cell_class}"' if cell_class else ''
+            if n_coeffs and j == n_coeffs - 1:
+                 td_class = f'class="{cell_class} matrix-separator"'.strip() if cell_class else 'class="matrix-separator"'
+            html += f'<td {td_class}>{formatted_val}</td>'
+        html += '</tr>'
+    html += '</table>'
+    return html
+
+def gauss_jordan_solve_pyodide(A_matrix_str, b_vector_str, use_pivoting_str="true"):
+    html_log_parts = []
+    visualization_steps = []
+
+    try:
+        A_list = eval(A_matrix_str)
+        b_list = eval(b_vector_str)
+        A = np.array(A_list, dtype=float)
+        b_vec = np.array(b_list, dtype=float).reshape(-1, 1)
+        use_pivoting = use_pivoting_str.lower() == "true"
+    except Exception as e:
+        error_msg = f'<p style="color: red; text-align:center;">Error parsing input: {e}. Asegúrate que las matrices y vectores estén en formato Python, ej: [[1,2],[3,4]] y [5,6].</p>'
+        return None, error_msg, []
+
+    if A.shape[0] != A.shape[1]:
+        return None, '<p style="color: red; text-align:center;">Error: La matriz A debe ser cuadrada.</p>', []
+    if A.shape[0] != b_vec.shape[0]:
+        return None, '<p style="color: red; text-align:center;">Error: Incompatibilidad de dimensiones entre A y b.</p>', []
+
+    n = len(b_vec)
+    M = np.hstack([A, b_vec.reshape(-1,1)])
+
+    html_log_parts.append('<p class="step-description">Matriz Aumentada Inicial:</p>')
+    html_log_parts.append(format_matrix_html(M, n_coeffs=n))
+    visualization_steps.append({
+        "matrix": M.copy().tolist(), "operation_type": "initial", "description": "Matriz Aumentada Inicial",
+        "num_coeffs": n
+    })
+
+    for j_pivot_col in range(n):
+        visualization_steps.append({
+            "matrix": M.copy().tolist(), "operation_type": "pivot_search",
+            "description": f"Columna pivote actual: C{j_pivot_col+1}. Buscando pivote en F{j_pivot_col+1} o inferior.",
+            "current_col_highlight": j_pivot_col,
+            "pivot_candidate_row": j_pivot_col,
+            "num_coeffs": n
+        })
+
+        if use_pivoting:
+            pivot_row_scan_start = j_pivot_col
+            actual_pivot_row_in_submatrix = np.argmax(np.abs(M[pivot_row_scan_start:, j_pivot_col]))
+            actual_pivot_row_abs = pivot_row_scan_start + actual_pivot_row_in_submatrix
+
+            if actual_pivot_row_abs != j_pivot_col:
+                desc_pre_swap = f"Pivote máx. en C{j_pivot_col+1} (en F{actual_pivot_row_abs+1}, valor: {M[actual_pivot_row_abs, j_pivot_col]:.4f}). Intercambiando F{j_pivot_col+1} y F{actual_pivot_row_abs+1}."
+                visualization_steps.append({
+                    "matrix": M.copy().tolist(), "operation_type": "pre_swap", "description": desc_pre_swap,
+                    "rows_to_swap": [j_pivot_col, actual_pivot_row_abs],
+                    "pivot_coords_final_location": [j_pivot_col, j_pivot_col],
+                    "num_coeffs": n
+                })
+                M_before_swap = M.copy() # Guardar estado antes del cambio para animación
+                M[[j_pivot_col, actual_pivot_row_abs]] = M[[actual_pivot_row_abs, j_pivot_col]]
+                desc_swap = f"Intercambio F{j_pivot_col+1} <-> F{actual_pivot_row_abs+1} realizado."
+                html_log_parts.append(f'<p class="step-description">{desc_swap}:</p>')
+                html_log_parts.append(format_matrix_html(M, pivot_coords=(j_pivot_col,j_pivot_col), n_coeffs=n))
+                visualization_steps.append({
+                    "matrix_before_op": M_before_swap.tolist(), # Para animar el cambio
+                    "matrix": M.copy().tolist(), "operation_type": "swap", "description": desc_swap,
+                    "swapped_rows_indices": [j_pivot_col, actual_pivot_row_abs],
+                    "pivot_coords": [j_pivot_col, j_pivot_col],
+                    "num_coeffs": n
+                })
+
+        pivot_val = M[j_pivot_col, j_pivot_col]
+
+        if abs(pivot_val) < 1e-12:
+            is_zero_coeffs_row = np.all(np.abs(M[j_pivot_col, j_pivot_col:n]) < 1e-12)
+            if is_zero_coeffs_row and abs(M[j_pivot_col, n]) > 1e-12:
+                desc_inconsistent = f"Sistema inconsistente en Fila {j_pivot_col+1} ([0...0 | no_cero])"
+                html_log_parts.append(f'<p style="color: red; text-align:center;">{desc_inconsistent}. No hay solución.</p>')
+                visualization_steps.append({
+                    "matrix": M.copy().tolist(), "operation_type": "inconsistent", "description": desc_inconsistent,
+                    "problem_row_idx": j_pivot_col, "num_coeffs": n
+                })
+                return None, "".join(html_log_parts), visualization_steps
+            elif is_zero_coeffs_row and abs(M[j_pivot_col,n]) < 1e-12:
+                 desc_dependent = f"Fila {j_pivot_col+1} es [0...0 | 0]. Sistema dependiente."
+                 html_log_parts.append(f'<p style="color: orange; text-align:center;">{desc_dependent}</p>')
+                 visualization_steps.append({
+                    "matrix": M.copy().tolist(), "operation_type": "dependent_row", "description": desc_dependent,
+                    "problem_row_idx": j_pivot_col, "num_coeffs": n
+                 })
+                 continue
+            else:
+                 desc_warn_pivot = f"Advertencia: Pivote en ({j_pivot_col+1},{j_pivot_col+1}) es {pivot_val:.2e}. No se puede normalizar."
+                 html_log_parts.append(f'<p style="color: orange; text-align:center;">{desc_warn_pivot}</p>')
+                 visualization_steps.append({
+                    "matrix": M.copy().tolist(), "operation_type": "zero_pivot_warning", "description": desc_warn_pivot,
+                    "pivot_coords": [j_pivot_col, j_pivot_col], "num_coeffs": n
+                 })
+                 continue
+
+        desc_norm = f"Normalizar F{j_pivot_col+1} (pivote: {pivot_val:.4f}): F{j_pivot_col+1} = F{j_pivot_col+1} / {pivot_val:.4f}"
+        html_log_parts.append(f'<p class="step-description">{desc_norm}:</p>')
+        M_before_norm = M.copy()
+        M[j_pivot_col, :] = M[j_pivot_col, :] / pivot_val
+        if abs(M[j_pivot_col, j_pivot_col] - 1.0) < 1e-9 : M[j_pivot_col, j_pivot_col] = 1.0
+        for k_col in range(M.shape[1]):
+            if k_col != j_pivot_col and abs(M[j_pivot_col, k_col]) < 1e-9 : M[j_pivot_col, k_col] = 0.0
+
+        html_log_parts.append(format_matrix_html(M, pivot_coords=(j_pivot_col,j_pivot_col), n_coeffs=n))
+        visualization_steps.append({
+            "matrix_before_op": M_before_norm.tolist(),
+            "matrix": M.copy().tolist(), "operation_type": "normalize", "description": desc_norm,
+            "pivot_coords": [j_pivot_col, j_pivot_col], "source_row_idx": j_pivot_col,
+            "division_factor": pivot_val,
+            "num_coeffs": n
+        })
+
+        html_log_parts.append(f'<p class="step-description">Eliminar elementos en C{j_pivot_col+1} (usando F{j_pivot_col+1} normalizada):</p>')
+        elim_ops_text_parts = []
+        for i_target_row in range(n):
+            if i_target_row != j_pivot_col:
+                factor_elim = M[i_target_row, j_pivot_col]
+                if abs(factor_elim) > 1e-12:
+                    desc_elim_single = f"F{i_target_row+1} = F{i_target_row+1} - ({factor_elim:.4f}) * F{j_pivot_col+1}"
+                    elim_ops_text_parts.append(desc_elim_single)
+
+                    visualization_steps.append({
+                        "matrix": M.copy().tolist(), "operation_type": "pre_eliminate",
+                        "description": f"Preparando: {desc_elim_single}",
+                        "pivot_coords_of_source_row": [j_pivot_col, j_pivot_col],
+                        "source_row_idx": j_pivot_col,
+                        "target_row_idx": i_target_row,
+                        "element_to_eliminate_coords": [i_target_row, j_pivot_col],
+                        "factor": factor_elim,
+                        "num_coeffs": n
+                    })
+                    M_before_row_op = M.copy()
+                    M[i_target_row, :] = M[i_target_row, :] - factor_elim * M[j_pivot_col, :]
+                    if abs(M[i_target_row, j_pivot_col]) < 1e-9: M[i_target_row, j_pivot_col] = 0.0
+                    for k_col in range(M.shape[1]):
+                         if abs(M[i_target_row, k_col]) < 1e-9 : M[i_target_row, k_col] = 0.0
+
+                    visualization_steps.append({
+                        "matrix_before_op": M_before_row_op.tolist(),
+                        "matrix": M.copy().tolist(), "operation_type": "eliminate",
+                        "description": f"Ejecutado: {desc_elim_single}",
+                        "pivot_coords_of_source_row": [j_pivot_col, j_pivot_col],
+                        "source_row_idx": j_pivot_col,
+                        "target_row_idx": i_target_row,
+                        "factor": factor_elim,
+                        "num_coeffs": n
+                    })
+
+        if elim_ops_text_parts:
+             html_log_parts.append(f'<ul style="font-size:0.8em; text-align:center; list-style-position:inside;"><li>{"<br>".join(elim_ops_text_parts)}</li></ul>')
+        html_log_parts.append(format_matrix_html(M, pivot_coords=(j_pivot_col,j_pivot_col), n_coeffs=n))
+
+    solution_vector = M[:, n]
+    final_desc = "Proceso completado. Matriz final:"
+    A_final_part = M[:, :n]
+    I_expected = np.identity(n)
+    if not np.allclose(A_final_part, I_expected):
+        final_desc = "Proceso completado. La matriz de coeficientes no es identidad (sistema dependiente o inconsistente)."
+        html_log_parts.append(f'<p style="color: orange; text-align:center;">{final_desc}</p>')
+    else:
+        final_desc = "Proceso completado. Matriz en forma identidad."
+
+
+    html_log_parts.append(f'<p style="color: green; text-align:center; font-weight:bold; margin-top:15px;">{final_desc}</p>')
+    html_log_parts.append(format_matrix_html(M, n_coeffs=n))
+    visualization_steps.append({
+        "matrix": M.copy().tolist(), "operation_type": "final", "description": final_desc,
+        "solution": solution_vector.tolist(),
+        "num_coeffs": n
+    })
+
+    return solution_vector, "".join(html_log_parts), visualization_steps
+
+# --- Parámetros Ejemplo ---
+default_A_matrix_str_gj = "[[3, -0.1, -0.2], [0.1, 7, -0.3], [0.3, -0.2, 10]]"
+default_b_vector_str_gj = "[7.85, -19.3, 71.4]"
+# default_A_matrix_str_gj = "[[1, 2, 3], [2, 5, 2], [6, -3, 1]]"
+# default_b_vector_str_gj = "[6, 4, 2]"
+# default_A_matrix_str_gj = "[[2, 1], [1, 3]]" # Para probar 2x2
+# default_b_vector_str_gj = "[4, 7]"
+default_use_pivoting_gj = "true"
+
+# --- Bloque principal para ejecución en Pyodide ---
+if __name__ == "__main__":
+    py_html_buffer = []
+
+    A_str = globals().get("A_matrix_param_gj", default_A_matrix_str_gj)
+    b_str = globals().get("b_vector_param_gj", default_b_vector_str_gj)
+    pivoting_str = globals().get("use_pivoting_param_gj", default_use_pivoting_gj)
+
+    py_html_buffer.append('<div style="text-align: center; font-weight: bold; margin-bottom:15px; font-size:1.1em; padding-top:10px;">MÉTODO DE GAUSS-JORDAN (Salida de Texto)</div>')
+    try:
+        A_disp = np.array(eval(A_str))
+        b_disp = np.array(eval(b_str))
+        py_html_buffer.append(f'<div style="text-align: center; margin-bottom:5px; font-family:monospace;">Matriz A:<br>{str(A_disp).replace(" ", "&nbsp;")}</div>')
+        py_html_buffer.append(f'<div style="text-align: center; margin-bottom:5px; font-family:monospace;">Vector b:<br>{str(b_disp).replace(" ", "&nbsp;")}</div>')
+        py_html_buffer.append(f'<div style="text-align: center; margin-bottom:15px;">Pivoteo: {pivoting_str}</div>')
+    except Exception as e:
+        py_html_buffer.append(f'<p style="color:red; text-align:center;">Error al mostrar A y b: {e}</p>')
+
+    solution_gj, log_html_gj, d3_steps_gj = gauss_jordan_solve_pyodide(A_str, b_str, pivoting_str)
+    py_html_buffer.append(log_html_gj)
+
+    if solution_gj is not None:
+        py_html_buffer.append('<div style="text-align: center; font-weight: bold; margin-top: 20px; margin-bottom: 10px;">RESULTADOS FINALES (Texto)</div>')
+        sol_str_gj = ", ".join([f"{x:.5f}" for x in solution_gj])
+        py_html_buffer.append(f'<div style="text-align:center; padding:5px;">Solución (x): [{sol_str_gj}]</div>')
+        try:
+            A_val = np.array(eval(A_str))
+            b_val = np.array(eval(b_str))
+            Ax = A_val @ solution_gj
+            error_vec = Ax - b_val.flatten()
+            error_norm = np.linalg.norm(error_vec)
+            py_html_buffer.append(f'<div style="text-align:center; font-size:0.85em; padding:5px;">Verificación A*x = {str(Ax.round(5))} (Original b = {str(b_val)})</div>')
+            py_html_buffer.append(f'<div style="text-align:center; font-size:0.85em; padding:5px;">Norma del error ||Ax - b||: {error_norm:.2e}</div>')
+        except Exception as e_verify:
+            py_html_buffer.append(f'<p style="color:orange; text-align:center;">No se pudo verificar la solución: {e_verify}</p>')
+    elif not log_html_gj.strip().endswith("</p>"):
+        py_html_buffer.append('<div style="text-align: center; color: orange; margin-top:10px; padding:5px;">No se encontró una solución o el método no convergió con los parámetros dados.</div>')
+
+    chart_data_package_gj = {
+        "visualization_steps": d3_steps_gj,
+        "solution_vector": solution_gj.tolist() if solution_gj is not None else None,
+    }
+
+    # Asumimos que pyodide_gj_globals es el objeto global de Pyodide (establecido por JS)
+    # Esta sección se ejecutará DENTRO del entorno Pyodide
+    if "pyodide_js" in globals(): # Una forma de verificar si estamos en Pyodide (pyodide_js es un objeto de Pyodide)
+        pyodide_globals = globals()['pyodide_js'].globals
+
+        pyodide_globals.set("pyodide_gj_html_output", "".join(py_html_buffer))
+
+        iter_data_proxy = pyodide_globals.get("pyodide_gj_iteration_data")
+        if iter_data_proxy is not None and hasattr(iter_data_proxy, 'clear'): iter_data_proxy.clear()
+        else: pyodide_globals.set("pyodide_gj_iteration_data", [])
+
+        chart_data_proxy_out = pyodide_globals.get("pyodide_gj_chart_data_package")
+        if chart_data_proxy_out is not None and hasattr(chart_data_proxy_out, 'clear'):
+            chart_data_proxy_out.clear()
+            for key, value in chart_data_package_gj.items():
+                chart_data_proxy_out.set(key, value) # Usar .set para PyProxy de dict
+        else: # Si no es un proxy existente, crearlo
+            # Para Pyodide, convertir el dict Python a un dict JS y luego a PyProxy si es necesario,
+            # o simplemente dejar que Pyodide maneje la conversión.
+            # La forma más segura es que JS inicialice el proxy y Python lo llene.
+            # Aquí, intentamos establecerlo directamente.
+            from pyodide.ffi import to_js
+            pyodide_globals.set("pyodide_gj_chart_data_package", to_js(chart_data_package_gj, dict_converter=js.Object.fromEntries))
+
+    else: # Fallback si se ejecuta fuera de Pyodide (ej. prueba local Python)
+        global pyodide_gj_html_output, pyodide_gj_iteration_data, pyodide_gj_chart_data_package
+        pyodide_gj_html_output = "".join(py_html_buffer)
+        pyodide_gj_iteration_data = []
+        pyodide_gj_chart_data_package = chart_data_package_gj
+                            </textarea>
+                            <button id="run-gj-code-button" class="run-button mt-4 px-5 py-2.5 bg-custom-red text-white rounded-md hover:bg-red-700">Ejecutar Código</button>
+                            <div class="relative mt-5">
+                                <h4 class="mb-2 text-lg font-semibold text-gray-700">Salida de Texto:</h4>
+                                <div id="gj-output-controls-container" class="absolute top-0 right-0 z-10 flex items-center space-x-1 transition-all duration-500 ease-out">
+                                    <button id="gj-decrease-font-button" title="Disminuir fuente" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs font-semibold flex items-center justify-center" style="min-width: 30px;">aa</button>
+                                    <button id="gj-increase-font-button" title="Aumentar fuente" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs font-semibold flex items-center justify-center" style="min-width: 30px;">AA</button>
+                                    <button id="gj-fullscreen-output-button" title="Ver en pantalla completa" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15" /></svg>
+                                    </button>
+                                </div>
+                                <pre id="gj-code-output" class="code-output bg-gray-900 text-white p-4 pt-8 rounded-md min-h-[100px] whitespace-pre-wrap text-xs leading-relaxed max-h-96 overflow-y-auto font-mono transition-all duration-500 ease-out">Presiona "Ejecutar Código" para ver la salida de texto detallada.</pre>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="graficas-gj" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Visualización Interactiva de Gauss-Jordan</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Observa el proceso de eliminación de Gauss-Jordan paso a paso. La matriz se transforma para alcanzar la forma escalonada reducida por filas.
+                            Usa los controles para navegar entre los pasos de la transformación.
+                        </p>
+                        <div id="gauss-jordan-d3-visualization" class="bg-gray-100 p-4 rounded-lg shadow-inner">
+                            <div id="gj-d3-controls" class="mb-4 flex flex-wrap items-center justify-center gap-2">
+                                <button id="gj-d3-prev" class="p-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Anterior"></button>
+                                <button id="gj-d3-next" class="p-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Siguiente"></button>
+                                <button id="gj-d3-play" class="p-2.5 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Play"></button>
+                                <input type="range" id="gj-d3-slider" min="0" value="0" class="mx-2 flex-grow max-w-xs align-middle accent-custom-red disabled:opacity-50 disabled:cursor-not-allowed">
+                                <div class="flex items-center text-sm">
+                                    <label for="gj-d3-speed" class="mr-1">Velocidad:</label>
+                                    <input type="range" id="gj-d3-speed" min="100" max="2000" value="700" step="100" class="w-24 align-middle accent-custom-red">
+                                    <span id="gj-d3-speed-value" class="ml-1 w-10 text-right">700ms</span>
+                                </div>
+                            </div>
+                            <div id="gj-d3-operation-description" class="mb-3 text-sm text-center font-mono h-auto min-h-[2em] p-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-md leading-tight">
+                                Ejecute el código para generar la visualización.
+                            </div>
+                            <div class="flex justify-center overflow-x-auto">
+                                <svg id="gj-d3-svg-container" class="border border-gray-300 bg-white rounded shadow-sm"></svg>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="videos-gj" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Videos Explicativos</h3>
+                        <div class="video-embed w-full h-96">
+                            <iframe class="w-full h-full rounded-lg shadow-lg" src="https://www.youtube.com/embed/dFmGzr1j6eY" title="YouTube video player - Método de Gauss-Jordan" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+                        </div>
+                    </section>
+
+                    <section id="conclusion-gj" class="mb-10 scroll-mt-24">
+                         <h3 class="text-2xl font-semibold mb-4 text-gray-700">Conclusión y Aplicaciones</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            El método de Gauss-Jordan es una técnica directa para resolver sistemas de ecuaciones lineales y también es la base para calcular la inversa de una matriz. Aunque conceptualmente es claro, para sistemas muy grandes, otros métodos como la descomposición LU pueden ser computacionalmente más eficientes para la simple resolución de \([A]\{x\}=\{b\}\).
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            La principal ventaja de Gauss-Jordan es que, una vez completado, la solución se obtiene directamente sin necesidad de sustitución hacia atrás. Sin embargo, realiza más operaciones aritméticas que la eliminación gaussiana simple si solo se busca la solución del sistema.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-2 font-medium"><strong>Aplicaciones:</strong></p>
+                        <ul class="list-disc list-inside space-y-2 pl-4 text-gray-600 mb-4">
+                            <li>Resolver sistemas de ecuaciones lineales.</li>
+                            <li>Calcular la inversa de una matriz (aumentando A con la matriz identidad \([A|I]\) y transformándola a \([I|A^{-1}]\)).</li>
+                            <li>Determinar el rango de una matriz.</li>
+                        </ul>
+                    </section>
+
+                    <section id="referencias-gj" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Referencias</h3>
+                        <ul class="list-disc list-inside space-y-2 text-gray-600 leading-relaxed pl-4">
+                            <li>Chapra, S. C., & Canale, R. P. (2015). <em>Numerical Methods for Engineers</em> (7th ed.). McGraw-Hill Education. (Capítulos 9 y 10).</li>
+                        </ul>
+                    </section>
+
+                    <section id="cuestionario-gj" class="scroll-mt-24 mb-10">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Cuestionario: Eliminación de Gauss-Jordan</h3>
+                        <form id="quiz-gauss-jordan" class="space-y-6 bg-gray-50 p-6 rounded-lg shadow-inner">
+                            <!-- Pregunta 1 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">1. ¿Cuál es el objetivo principal del método de Gauss-Jordan al transformar la matriz aumentada \([A|b]\)?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 1</legend>
+                                    <div class="space-y-2">
+                                        <label for="q1-opt1-gj" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt1-gj" name="question-1-gj" type="radio" value="Obtener una matriz triangular superior en A." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Obtener una matriz triangular superior en A.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt2-gj" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt2-gj" name="question-1-gj" type="radio" value="Obtener la matriz identidad en la parte A, resultando en [I|x] donde x es el vector solución." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Obtener la matriz identidad en la parte A, resultando en \([I|x]\) donde x es el vector solución.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt3-gj" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt3-gj" name="question-1-gj" type="radio" value="Calcular el determinante de A directamente." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Calcular el determinante de A directamente.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-1-gj-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <!-- Pregunta 2 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">2. ¿Cuál de las siguientes NO es una operación elemental de fila permitida en la eliminación de Gauss-Jordan?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 2</legend>
+                                    <div class="space-y-2">
+                                        <label for="q2-opt1-gj" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt1-gj" name="question-2-gj" type="radio" value="Intercambiar dos filas." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Intercambiar dos filas.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt2-gj" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt2-gj" name="question-2-gj" type="radio" value="Multiplicar una fila por cero." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Multiplicar una fila por cero.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt3-gj" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt3-gj" name="question-2-gj" type="radio" value="Sumar un múltiplo de una fila a otra fila." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Sumar un múltiplo de una fila a otra fila.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-2-gj-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <!-- Pregunta 3 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">3. Si después de aplicar el método de Gauss-Jordan a una matriz aumentada, una de las filas es \([0 \ 0 \ 0 \ | \ 5]\), ¿qué indica esto sobre el sistema de ecuaciones?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 3</legend>
+                                    <div class="space-y-2">
+                                        <label for="q3-opt1-gj" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt1-gj" name="question-3-gj" type="radio" value="El sistema tiene una solución única." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">El sistema tiene una solución única.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt2-gj" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt2-gj" name="question-3-gj" type="radio" value="El sistema tiene infinitas soluciones." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">El sistema tiene infinitas soluciones.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt3-gj" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt3-gj" name="question-3-gj" type="radio" value="El sistema es inconsistente (no tiene solución)." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">El sistema es inconsistente (no tiene solución).</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-3-gj-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                             <!-- Pregunta 4 -->
+                             <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">4. La estrategia de pivoteo en Gauss-Jordan (y Gauss) se utiliza principalmente para:</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 4</legend>
+                                    <div class="space-y-2">
+                                        <label for="q4-opt1-gj" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt1-gj" name="question-4-gj" type="radio" value="Acelerar significativamente el número total de cálculos." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Acelerar significativamente el número total de cálculos.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q4-opt2-gj" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt2-gj" name="question-4-gj" type="radio" value="Mejorar la estabilidad numérica del algoritmo y evitar divisiones por números muy pequeños o cero." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Mejorar la estabilidad numérica del algoritmo y evitar divisiones por números muy pequeños o cero.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q4-opt3-gj" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt3-gj" name="question-4-gj" type="radio" value="Asegurar que la matriz de coeficientes A sea simétrica." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Asegurar que la matriz de coeficientes A sea simétrica.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-4-gj-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <button type="submit" class="mt-6 w-full px-6 py-3 bg-custom-red text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors duration-150">
+                                Enviar Respuestas
+                            </button>
+                        </form>
+                        <div id="quiz-feedback-gauss-jordan" class="quiz-feedback-message mt-4 p-3 rounded-md text-sm" style="display: none;"></div>
+                    </section>
+                </article>
+            </main>
+
+            <aside class="w-full lg:w-1/4 bg-sidebar-bg shadow-xl rounded-lg p-6 self-start sticky top-8 order-3 space-y-6">
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-4">Perfil</h3>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex-shrink-0">
+                           <svg class="w-12 h-12 text-gray-400 bg-gray-100 rounded-full p-1 ring-1 ring-gray-200" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-800 text-md">Estudiante Modelo</p>
+                            <p class="text-sm text-gray-500">Explorador de Sistemas</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pb-6 border-b border-gray-200 space-y-3">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide">Progreso en Gauss-Jordan</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li class="flex items-center">
+                            <span id="task-read-theory-status-gj" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Leer la teoría completa</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-run-code-status-gj" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Ejecutar el código Python</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-attempted-status-gj" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Intentar el cuestionario</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-passed-status-gj" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Aprobar el cuestionario</span>
+                        </li>
+                    </ul>
+                    <div class="flex items-center justify-between mb-1 mt-3">
+                       <span class="text-xs font-medium text-custom-red">Progreso General</span>
+                       <span id="right-sidebar-progress-text-gj" class="text-xs font-medium text-custom-red right-sidebar-progress-text">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div id="right-sidebar-progress-bar-gj" class="bg-custom-red h-3 rounded-full right-sidebar-progress-bar transition-width duration-500 ease-in-out" style="width: 0%"></div>
+                    </div>
+                    <button id="completion-gauss-jordan-sidebar" class="mt-4 w-full completion-button px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Marcar Todo Completado</button>
+                </div>
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Recursos y Notas</h3>
+                    <p class="text-sm text-gray-600"><a href="https://archive.org/details/numerical-methods-for-engineers-7th-edit" target="_blank" rel="noopener noreferrer" class="hover:text-custom-red hover:underline">Métodos Numéricos para Ingenieros 7ma Edición de Chapra</a></p>
+                    <img src="https://images.cdn3.buscalibre.com/fit-in/360x360/97/ff/97ffa61a8adb147e569e12c4f1f797b3.jpg" alt="Portada Chapra" class="mt-2 w-full rounded-md shadow-sm">
+                </div>
+                <div>
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Siguiente Paso</h3>
+                    <a href="../methods/gauss-seidel.html" class="group flex items-center text-sm font-medium text-custom-red hover:text-red-700">
+                       <span>Explorar Gauss-Seidel</span>
+                       <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </a>
+                </div>
+            </aside>
+        </div>
+
+        <footer class="bg-custom-blue text-gray-300 text-center p-6 mt-12">
+            <p>&copy; 2024 Plataforma Educativa de Métodos Numéricos. <a href="../index.html" class="hover:text-white underline">Volver al inicio</a></p>
+        </footer>
+    </div>
+
+    <!-- GJ SCRIPT (Logica JS General de la página, Pyodide, Quiz, D3) -->
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const PAGE_KEY_GJ = 'gauss-jordan'; // Usando el formato original que espera el servidor
+        const QUIZ_FORM_ID_GJ = 'quiz-gauss-jordan';
+        const QUIZ_FEEDBACK_ID_GJ = 'quiz-feedback-gauss-jordan';
+        const COMPLETION_BUTTON_ID_GJ = 'completion-gauss-jordan-sidebar';
+        const CODE_INPUT_ID_GJ = 'gj-code-input';
+        const CODE_OUTPUT_ID_GJ = 'gj-code-output';
+        const RUN_CODE_BUTTON_ID_GJ = 'run-gj-code-button';
+        const outputControlsContainer_GJ = document.getElementById('gj-output-controls-container');
+        const fullscreenButton_GJ = document.getElementById('gj-fullscreen-output-button');
+        const increaseFontButton_GJ = document.getElementById('gj-increase-font-button');
+        const decreaseFontButton_GJ = document.getElementById('gj-decrease-font-button');
+        let originalOutputFontSize_GJ = '';
+        const MIN_FONT_SIZE_PX_GJ = 8;
+        const MAX_FONT_SIZE_PX_GJ = 28;
+        const FONT_SIZE_STEP_PX_GJ = 1;
+        let gjCodeOutputInitialRect = null;
+
+        const TASKS_GJ = {
+            READ_THEORY: 'read_theory_gj',
+            RUN_CODE: 'run_code_gj',
+            QUIZ_ATTEMPTED: 'quiz_attempted_gj',
+            QUIZ_PASSED: 'quiz_passed_gj'
+        };
+        const ALL_TASK_KEYS_GJ = Object.values(TASKS_GJ);
+        const TOTAL_TASKS_GJ = ALL_TASK_KEYS_GJ.length;
+
+        const ICON_PENDING_GJ = '<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0-4.418-4.03-8-9-8S3 7.582 3 12c0 1.454.402 2.813 1.098 3.977L3 21l5.023-1.098A8.902 8.902 0 0012 21c4.97 0 9-3.582 9-9z"></path></svg>';
+        const ICON_COMPLETED_GJ = '<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>';
+        const ICON_IN_PROGRESS_GJ = '<svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V9.05a.75.75 0 011.307-.588l5.603 3.112z" clip-rule="evenodd"></path></svg>';
+        const ICON_CORRECT_ANSWER_GJ = '✔️';
+        const ICON_INCORRECT_ANSWER_GJ = '❌';
+        const ICON_THUMB_UP_GJ = '👍';
+         const quizDataGaussJordan = {
+            "question-1-gj": {
+                correctAnswer: "Obtener la matriz identidad en la parte A, resultando en [I|x] donde x es el vector solución.",
+                feedback: {
+                    "Obtener una matriz triangular superior en A.": "Incorrecto. Eso describe la eliminación de Gauss simple, no Gauss-Jordan.",
+                    "Calcular el determinante de A directamente.": "Incorrecto. Aunque las operaciones de fila afectan al determinante, no es el objetivo principal transformar A para este propósito."
+                }
+            },
+            "question-2-gj": {
+                correctAnswer: "Multiplicar una fila por cero.",
+                feedback: {
+                    "Intercambiar dos filas.": "Incorrecto. Esta es una operación elemental permitida.",
+                    "Sumar un múltiplo de una fila a otra fila.": "Incorrecto. Esta es una operación elemental permitida."
+                }
+            },
+            "question-3-gj": {
+                correctAnswer: "El sistema es inconsistente (no tiene solución).",
+                feedback: {
+                    "El sistema tiene una solución única.": "Incorrecto. Una fila [0 0 0 | 5] implica 0x1 + 0x2 + 0x3 = 5, lo cual es una contradicción.",
+                    "El sistema tiene infinitas soluciones.": "Incorrecto. Infinitas soluciones se indican generalmente por una fila de ceros [0 0 0 | 0] (si no hay otras contradicciones)."
+                }
+            },
+            "question-4-gj": {
+                correctAnswer: "Mejorar la estabilidad numérica del algoritmo y evitar divisiones por números muy pequeños o cero.",
+                feedback: {
+                    "Acelerar significativamente el número total de cálculos.": "Incorrecto. El pivoteo puede añadir algunas comparaciones, no necesariamente acelera el total de operaciones aritméticas.",
+                    "Asegurar que la matriz de coeficientes A sea simétrica.": "Incorrecto. El pivoteo no tiene como objetivo hacer la matriz simétrica."
+                }
+            }
+        };
+
+        // Variable global para el estado de autenticación
+        window.USER_IS_AUTHENTICATED = false;
+        
+        // Elementos DOM
+        let pyodide_GJ = null;
+        const mainCompletionButton_GJ = document.getElementById(COMPLETION_BUTTON_ID_GJ);
+        const quizForm_GJ = document.getElementById(QUIZ_FORM_ID_GJ);
+        const generalQuizFeedbackDiv_GJ = document.getElementById(QUIZ_FEEDBACK_ID_GJ);
+        const codeInput_GJ = document.getElementById(CODE_INPUT_ID_GJ);
+        const codeOutput_GJ = document.getElementById(CODE_OUTPUT_ID_GJ);
+        const runCodeButton_GJ = document.getElementById(RUN_CODE_BUTTON_ID_GJ);
+        
+        // Elemento para mostrar el estado de autenticación (para depuración)
+        const authStatusIndicator = document.createElement('div');
+        authStatusIndicator.style.position = 'fixed';
+        authStatusIndicator.style.bottom = '10px';
+        authStatusIndicator.style.right = '10px';
+        authStatusIndicator.style.padding = '5px 10px';
+        authStatusIndicator.style.borderRadius = '5px';
+        authStatusIndicator.style.fontSize = '12px';
+        authStatusIndicator.style.zIndex = '9999';
+        document.body.appendChild(authStatusIndicator);
+        
+        // Función para verificar la autenticación del usuario
+        async function checkAuthentication() {
+            // Ver si tenemos un estado de autenticación guardado en localStorage
+            try {
+                const savedAuth = localStorage.getItem('USER_IS_AUTHENTICATED');
+                if (savedAuth !== null) {
+                    window.USER_IS_AUTHENTICATED = savedAuth === 'true';
+                    console.log('[AUTH DEBUG] Recovered authentication state from localStorage:', window.USER_IS_AUTHENTICATED);
+                }
+            } catch (e) {
+                console.warn('[AUTH DEBUG] Could not recover authentication state from localStorage:', e);
+            }
+            
+            // Intentar verificar con el servidor
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000); // Timeout de 3 segundos
+                
+                const response = await fetch('/api/check_auth', {
+                    signal: controller.signal
+                }).catch(err => {
+                    console.warn('[AUTH DEBUG] Auth check request failed:', err);
+                    return null;
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (response && response.ok) {
+                    const data = await response.json();
+                    window.USER_IS_AUTHENTICATED = data.authenticated === true;
+                    
+                    // Guardar estado en localStorage para futuras referencias
+                    try {
+                        localStorage.setItem('USER_IS_AUTHENTICATED', window.USER_IS_AUTHENTICATED);
+                    } catch (e) {
+                        console.warn('[AUTH DEBUG] Could not save authentication state to localStorage:', e);
+                    }
+                    
+                    // Actualizar indicador visual de autenticación
+                    authStatusIndicator.textContent = window.USER_IS_AUTHENTICATED ? '✓ Autenticado' : '✗ No autenticado';
+                    authStatusIndicator.style.backgroundColor = window.USER_IS_AUTHENTICATED ? 'rgba(0, 128, 0, 0.7)' : 'rgba(255, 0, 0, 0.7)';
+                    authStatusIndicator.style.color = 'white';
+                    
+                    console.log('[AUTH DEBUG] Authentication check succeeded:', window.USER_IS_AUTHENTICATED);
+                    return window.USER_IS_AUTHENTICATED;
+                } else if (response) {
+                    console.warn('[AUTH DEBUG] Authentication check failed with status:', response.status);
+                    // No cambiamos el estado de autenticación si ya lo teníamos
+                    // Solo lo actualizamos si no teníamos un estado previo
+                    if (typeof window.USER_IS_AUTHENTICATED === 'undefined') {
+                        window.USER_IS_AUTHENTICATED = false;
+                    }
+                    
+                    // Actualizar indicador visual basado en el estado actual
+                    authStatusIndicator.textContent = window.USER_IS_AUTHENTICATED ? '✓ Autenticado (Cached)' : '✗ Error API';
+                    authStatusIndicator.style.backgroundColor = window.USER_IS_AUTHENTICATED ? 'rgba(0, 128, 0, 0.5)' : 'rgba(255, 165, 0, 0.7)';
+                    authStatusIndicator.style.color = 'white';
+                    
+                    return window.USER_IS_AUTHENTICATED;
+                }
+            } catch (error) {
+                console.error('[AUTH DEBUG] Exception during authentication check:', error);
+                // Mantenemos el estado anterior si lo teníamos
+                if (typeof window.USER_IS_AUTHENTICATED === 'undefined') {
+                    window.USER_IS_AUTHENTICATED = false;
+                }
+                
+                // Actualizar indicador visual basado en el estado actual
+                authStatusIndicator.textContent = window.USER_IS_AUTHENTICATED ? '✓ Autenticado (Cached)' : '✗ Error';
+                authStatusIndicator.style.backgroundColor = window.USER_IS_AUTHENTICATED ? 'rgba(0, 128, 0, 0.5)' : 'rgba(255, 165, 0, 0.7)';
+                authStatusIndicator.style.color = 'white';
+                
+                return window.USER_IS_AUTHENTICATED;
+            }
+            
+            // Si llegamos aquí es porque hubo algún problema que no manejamos antes
+            console.warn('[AUTH DEBUG] Authentication check completed with no definitive result');
+            
+            // Si no tenemos estado previo, establecemos como no autenticado
+            if (typeof window.USER_IS_AUTHENTICATED === 'undefined') {
+                window.USER_IS_AUTHENTICATED = false;
+            }
+            
+            authStatusIndicator.textContent = window.USER_IS_AUTHENTICATED ? '✓ Autenticado (Cached)' : '✗ No verificado';
+            authStatusIndicator.style.backgroundColor = window.USER_IS_AUTHENTICATED ? 'rgba(0, 128, 0, 0.5)' : 'rgba(255, 165, 0, 0.7)';
+            authStatusIndicator.style.color = 'white';
+            
+            return window.USER_IS_AUTHENTICATED;
+        }
+        
+        // Verificar autenticación cada 5 minutos
+        setInterval(checkAuthentication, 5 * 60 * 1000);
+
+        const taskStatusIcons_GJ = {};
+        taskStatusIcons_GJ[TASKS_GJ.READ_THEORY] = document.getElementById('task-read-theory-status-gj');
+        taskStatusIcons_GJ[TASKS_GJ.RUN_CODE] = document.getElementById('task-run-code-status-gj');
+        taskStatusIcons_GJ[TASKS_GJ.QUIZ_ATTEMPTED] = document.getElementById('task-quiz-attempted-status-gj');
+        taskStatusIcons_GJ[TASKS_GJ.QUIZ_PASSED] = document.getElementById('task-quiz-passed-status-gj');
+        const overallProgressText_GJ = document.getElementById('right-sidebar-progress-text-gj');
+        const overallProgressBar_GJ = document.getElementById('right-sidebar-progress-bar-gj');
+
+
+        // Función auxiliar para limpiar datos de progreso
+        function getCleanedProgress(progress) {
+            if (!progress || typeof progress !== 'object') return {};
+            
+            // Copia profunda para evitar modificar el original
+            const cleaned = JSON.parse(JSON.stringify(progress));
+            
+            // Asegurar que las propiedades de tareas sean booleanas
+            ALL_TASK_KEYS_GJ.forEach(taskKey => {
+                if (taskKey in cleaned) {
+                    cleaned[taskKey] = Boolean(cleaned[taskKey]);
+                }
+            });
+            
+            // Asegurar que overall_progress sea un número
+            if ('overall_progress' in cleaned) {
+                const progressValue = Number(cleaned.overall_progress);
+                cleaned.overall_progress = isNaN(progressValue) ? 0 : progressValue;
+            }
+            
+            return cleaned;
+        }
+        
+        // Cargar progreso desde el servidor o localStorage como fallback
+        async function getPageProgressFromStorage_GJ(pKey) {
+            const defaults = ALL_TASK_KEYS_GJ.reduce((obj, task) => ({ ...obj, [task]: false }), {});
+            defaults.overall_progress = 0;
+            defaults.user_quiz_answers = {};
+            defaults.quiz_current_score = 0;
+            defaults.quiz_feedback_active = false;
+
+            // Intentar recuperar desde localStorage primero para velocidad
+            let localStorageProgress = null;
+            try {
+                const stored = localStorage.getItem(pKey);
+                if (stored) {
+                    const localProgress = JSON.parse(stored);
+                    localStorageProgress = getCleanedProgress(localProgress);
+                    console.log(`[GET PROGRESS DEBUG] Retrieved from localStorage for ${pKey}:`, JSON.stringify(localStorageProgress));
+                }
+            } catch (e) { 
+                console.error(`[GET PROGRESS DEBUG] Error reading localStorage for ${pKey}:`, e); 
+            }
+
+            // Verificar autenticación antes de intentar cargar del servidor
+            await checkAuthentication();
+            
+            // Si el usuario está autenticado, intentar cargar desde el servidor
+            if (window.USER_IS_AUTHENTICATED) {
+                try {
+                    console.log(`[GET PROGRESS DEBUG] Trying to load from server for ${pKey}`);
+                    const response = await fetch(`/api/load_progress/${pKey}`);
+                    
+                    if (response.ok) {
+                        const serverResponse = await response.json();
+                        console.log("[GET PROGRESS DEBUG] Raw serverResponse from API:", JSON.stringify(serverResponse));
+                        
+                        // Extraer el objeto progress del objeto response
+                        const progressData = serverResponse.progress || {};
+                        console.log("[GET PROGRESS DEBUG] Extracted progress data:", JSON.stringify(progressData));
+                        
+                        const cleanedProgress = getCleanedProgress(progressData);
+
+                        if (cleanedProgress && typeof cleanedProgress === 'object' && Object.keys(cleanedProgress).length > 0) {
+                            console.log(`[GET PROGRESS DEBUG] Returning server progress for ${pKey}`);
+                            return { ...defaults, ...cleanedProgress };
+                        }
+                        // Si server no tiene datos pero localStorage sí, usar localStorage
+                        if (localStorageProgress && Object.keys(localStorageProgress).length > 0) {
+                            console.log(`[GET PROGRESS DEBUG] Server returned empty data but localStorage has data for ${pKey}`);
+                            return { ...defaults, ...localStorageProgress };
+                        }
+                        // Si ninguno tiene datos, devolver defaults
+                        console.log(`[GET PROGRESS DEBUG] Neither server nor localStorage has data for ${pKey}`);
+                        return defaults;
+                    } else {
+                        console.log(`[GET PROGRESS DEBUG] Server returned ${response.status} for ${pKey}`);
+                        // Si el servidor da error pero tenemos datos en localStorage, usar localStorage
+                        if (localStorageProgress && Object.keys(localStorageProgress).length > 0) {
+                            console.log(`[GET PROGRESS DEBUG] Using localStorage data due to server error for ${pKey}`);
+                            return { ...defaults, ...localStorageProgress };
+                        }
+                        // Si no hay datos en localStorage, devolver defaults
+                        console.log(`[GET PROGRESS DEBUG] No localStorage data available for ${pKey}`);
+                        return defaults;
+                    }
+                } catch (e) {
+                    console.error(`[GET PROGRESS DEBUG] Exception fetching from server for ${pKey}:`, e);
+                    // Si hay error en la petición pero tenemos datos en localStorage, usar localStorage
+                    if (localStorageProgress && Object.keys(localStorageProgress).length > 0) {
+                        console.log(`[GET PROGRESS DEBUG] Using localStorage data due to fetch error for ${pKey}`);
+                        return { ...defaults, ...localStorageProgress };
+                    }
+                }
+            } else {
+                console.log(`[GET PROGRESS DEBUG] User not authenticated, using localStorage only for ${pKey}`);
+            }
+
+            // Si llegamos aquí, o bien el usuario no está autenticado o falló la carga desde el servidor
+            // y no teníamos nada en localStorage
+            if (localStorageProgress && Object.keys(localStorageProgress).length > 0) {
+                return { ...defaults, ...localStorageProgress };
+            }
+            
+            console.log(`[GET PROGRESS DEBUG] No progress found anywhere for ${pKey}, returning defaults`);
+            return defaults;
+        }
+
+        // Variable para rastrear reintentos fallidos consecutivos con el servidor
+        let consecutiveServerFailures = 0;
+        const MAX_CONSECUTIVE_FAILURES = 3;
+        const RETRY_DELAY_MS = 2000; // 2 segundos entre reintentos
+        
+        // Función para guardar progreso en el servidor con fallback a localStorage y reintentos automáticos
+        async function savePageProgressToStorage_GJ(pKey, progress, retryCount = 0) {
+            const MAX_RETRIES = 2; // Máximo número de reintentos
+            
+            // Siempre guardar en localStorage primero para garantizar que el progreso no se pierda
+            try {
+                localStorage.setItem(pKey, JSON.stringify(progress));
+                console.log(`[SAVE PROGRESS DEBUG] Successfully saved to localStorage for ${pKey}`);
+            } catch (localErr) {
+                console.warn(`[SAVE PROGRESS DEBUG] Could not save to localStorage for ${pKey}:`, localErr);
+            }
+            
+            // Si hemos tenido demasiados fallos consecutivos, no intentar guardar en el servidor
+            if (consecutiveServerFailures >= MAX_CONSECUTIVE_FAILURES) {
+                const timeUntilReset = Math.ceil((MAX_CONSECUTIVE_FAILURES * RETRY_DELAY_MS) / 1000);
+                console.warn(`[SAVE PROGRESS DEBUG] Too many consecutive server failures (${consecutiveServerFailures}). Using localStorage only for the next ${timeUntilReset} seconds.`);
+                
+                // Programar un reset del contador después de un tiempo
+                if (consecutiveServerFailures === MAX_CONSECUTIVE_FAILURES) {
+                    setTimeout(() => {
+                        console.log('[SAVE PROGRESS DEBUG] Resetting consecutive server failures counter');
+                        consecutiveServerFailures = 0;
+                    }, MAX_CONSECUTIVE_FAILURES * RETRY_DELAY_MS);
+                }
+                
+                window.dispatchEvent(new CustomEvent('gjPageProgressSaved', { 
+                    detail: { pageKey: pKey, progress, source: 'localStorage', serverDisabled: true } 
+                }));
+                return true;
+            }
+            
+            // Intentar guardar en el servidor si el usuario está autenticado
+            if (window.USER_IS_AUTHENTICATED) {
+                try {
+                    console.log(`[SAVE PROGRESS DEBUG] Attempting to save progress to server for ${pKey} (retry: ${retryCount})`);
+                    
+                    // Usar AbortController para evitar bloqueos por timeouts
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 segundos de timeout
+                    
+                    // Probamos con el formato correcto
+                    const response = await fetch('/api/save_progress', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ page_key: pKey, progress_data: progress }),
+                        signal: controller.signal
+                    }).catch(err => {
+                        clearTimeout(timeoutId);
+                        throw err; // Re-lanzar para que sea capturado por el catch externo
+                    });
+                    
+                    clearTimeout(timeoutId);
+                    
+                    if (response.ok) {
+                        // Éxito: reiniciar contador de fallos
+                        consecutiveServerFailures = 0;
+                        console.log(`[SAVE PROGRESS DEBUG] Progress saved to server successfully for ${pKey}`);
+                        window.dispatchEvent(new CustomEvent('gjPageProgressSaved', { 
+                            detail: { pageKey: pKey, progress, source: 'server', retryCount } 
+                        }));
+                        return true;
+                    } else {
+                        // Error en el servidor, comprobar si debemos reintentar
+                        console.warn(`[SAVE PROGRESS DEBUG] Server returned ${response.status} for ${pKey}`);
+                        
+                        if (retryCount < MAX_RETRIES) {
+                            // Reintentar después de un breve retraso
+                            console.log(`[SAVE PROGRESS DEBUG] Will retry in ${RETRY_DELAY_MS}ms (retry ${retryCount + 1}/${MAX_RETRIES})`);
+                            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+                            return savePageProgressToStorage_GJ(pKey, progress, retryCount + 1);
+                        } else {
+                            // Incrementar contador de fallos consecutivos
+                            consecutiveServerFailures++;
+                            console.warn(`[SAVE PROGRESS DEBUG] Failed after ${MAX_RETRIES} retries. Consecutive failures: ${consecutiveServerFailures}`);
+                            window.dispatchEvent(new CustomEvent('gjPageProgressSaved', { 
+                                detail: { pageKey: pKey, progress, source: 'localStorage', serverError: response.status } 
+                            }));
+                            return true; // Devolvemos true porque localStorage funcionó
+                        }
+                    }
+                } catch (e) {
+                    console.error(`[SAVE PROGRESS DEBUG] Exception during server save for ${pKey}:`, e);
+                    
+                    if (retryCount < MAX_RETRIES) {
+                        // Reintentar después de un breve retraso
+                        console.log(`[SAVE PROGRESS DEBUG] Will retry after error in ${RETRY_DELAY_MS}ms (retry ${retryCount + 1}/${MAX_RETRIES})`);
+                        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+                        return savePageProgressToStorage_GJ(pKey, progress, retryCount + 1);
+                    } else {
+                        // Incrementar contador de fallos consecutivos
+                        consecutiveServerFailures++;
+                        console.warn(`[SAVE PROGRESS DEBUG] Failed after ${MAX_RETRIES} retries due to exception. Consecutive failures: ${consecutiveServerFailures}`);
+                        window.dispatchEvent(new CustomEvent('gjPageProgressSaved', { 
+                            detail: { pageKey: pKey, progress, source: 'localStorage', serverException: true } 
+                        }));
+                        return true; // Devolvemos true porque localStorage funcionó
+                    }
+                }
+            } else {
+                console.log(`[SAVE PROGRESS DEBUG] User not authenticated, using localStorage only for ${pKey}`);
+                window.dispatchEvent(new CustomEvent('gjPageProgressSaved', { 
+                    detail: { pageKey: pKey, progress, source: 'localStorage', reason: 'not_authenticated' } 
+                }));
+                return true; // Devolvemos true porque localStorage funcionó
+            }
+        }
+
+        async function updateTaskStatusInStorage_GJ(taskName, isCompleted) {
+            try {
+                let currentProgress = await getPageProgressFromStorage_GJ(PAGE_KEY_GJ);
+                currentProgress[taskName] = !!isCompleted;
+                
+                // Lógica especial para ciertos tipos de tareas
+                if (taskName === TASKS_GJ.QUIZ_ATTEMPTED && !isCompleted) {
+                    currentProgress[TASKS_GJ.QUIZ_PASSED] = false;
+                    currentProgress.user_quiz_answers = {};
+                    currentProgress.quiz_current_score = 0;
+                    currentProgress.quiz_feedback_active = false;
+                }
+                
+                if (taskName === TASKS_GJ.QUIZ_PASSED && isCompleted) {
+                    currentProgress[TASKS_GJ.QUIZ_ATTEMPTED] = true;
+                }
+                
+                // Guardar cambios y actualizar UI
+                await savePageProgressToStorage_GJ(PAGE_KEY_GJ, currentProgress);
+                renderTaskStatus_GJ(); // Actualizar los iconos de estado
+                await calculateAndUpdateOverallProgress_GJ(); // Actualizar barra de progreso
+                
+                return currentProgress;
+            } catch (error) {
+                console.error('[UPDATE TASK ERROR]', error);
+                return null;
+            }
+        }
+
+        async function renderTaskStatus_GJ() {
+            try {
+                const progress = await getPageProgressFromStorage_GJ(PAGE_KEY_GJ);
+                ALL_TASK_KEYS_GJ.forEach(taskKey => {
+                    const iconElement = taskStatusIcons_GJ[taskKey];
+                    if (iconElement) {
+                        let newIconHTML = ICON_PENDING_GJ;
+                        if (progress[taskKey]) newIconHTML = ICON_COMPLETED_GJ;
+                        else if (taskKey === TASKS_GJ.QUIZ_PASSED && progress[TASKS_GJ.QUIZ_ATTEMPTED]) newIconHTML = ICON_IN_PROGRESS_GJ;
+                        iconElement.innerHTML = newIconHTML;
+                    }
+                });
+                return progress;
+            } catch (error) {
+                console.error('[RENDER TASK STATUS ERROR]', error);
+                return null;
+            }
+        }
+
+        async function calculateAndUpdateOverallProgress_GJ() {
+            try {
+                let progress = await getPageProgressFromStorage_GJ(PAGE_KEY_GJ);
+                const totalTasks = ALL_TASK_KEYS_GJ.length;
+                const completedCount = ALL_TASK_KEYS_GJ.filter(key => progress[key]).length;
+                const progressPercentage = Math.round((completedCount / totalTasks) * 100);
+                progress.overall_progress = progressPercentage;
+
+                const isHundredPercent = progressPercentage === 100;
+                if (overallProgressBar_GJ) {
+                    overallProgressBar_GJ.style.width = `${progressPercentage}%`;
+                    overallProgressBar_GJ.classList.toggle('animate-rainbow-border', isHundredPercent);
+                }
+                if (overallProgressText_GJ) overallProgressText_GJ.textContent = `${progressPercentage}%`;
+                
+                await savePageProgressToStorage_GJ(PAGE_KEY_GJ, progress);
+                await updateMainCompletionButtonState_GJ();
+                
+                return progressPercentage;
+            } catch (error) {
+                console.error('[CALCULATE PROGRESS ERROR]', error);
+                return 0;
+            }
+        }
+
+        function handleMarkAllMouseEnter_GJ() {
+            if (mainCompletionButton_GJ && mainCompletionButton_GJ.dataset.isUndo === "true") {
+                mainCompletionButton_GJ.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+                mainCompletionButton_GJ.classList.add('bg-red-600', 'hover:bg-red-700');
+            }
+        }
+
+        function handleMarkAllMouseLeave_GJ() {
+            if (mainCompletionButton_GJ && mainCompletionButton_GJ.dataset.isUndo === "true") {
+                mainCompletionButton_GJ.classList.remove('bg-red-600', 'hover:bg-red-700');
+                mainCompletionButton_GJ.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+            }
+        }
+
+        async function updateMainCompletionButtonState_GJ() {
+            if (!mainCompletionButton_GJ) return;
+            
+            try {
+                const progress = await getPageProgressFromStorage_GJ(PAGE_KEY_GJ);
+                let allTasksCompleted = ALL_TASK_KEYS_GJ.every(task => progress[task]);
+
+                mainCompletionButton_GJ.removeEventListener('mouseenter', handleMarkAllMouseEnter_GJ);
+                mainCompletionButton_GJ.removeEventListener('mouseleave', handleMarkAllMouseLeave_GJ);
+                mainCompletionButton_GJ.classList.remove('bg-green-600', 'hover:bg-green-700', 'bg-yellow-500', 'hover:bg-yellow-600', 'bg-red-600', 'hover:bg-red-700');
+
+                if (allTasksCompleted) {
+                    mainCompletionButton_GJ.textContent = 'Deshacer Completado';
+                    mainCompletionButton_GJ.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+                    mainCompletionButton_GJ.dataset.isUndo = "true";
+                    mainCompletionButton_GJ.addEventListener('mouseenter', handleMarkAllMouseEnter_GJ);
+                    mainCompletionButton_GJ.addEventListener('mouseleave', handleMarkAllMouseLeave_GJ);
+                } else {
+                    mainCompletionButton_GJ.textContent = 'Marcar Todo Completado';
+                    mainCompletionButton_GJ.classList.add('bg-green-600', 'hover:bg-green-700');
+                    mainCompletionButton_GJ.dataset.isUndo = "false";
+                }
+                
+                return allTasksCompleted;
+            } catch (error) {
+                console.error('[UPDATE BUTTON STATE ERROR]', error);
+                return false;
+            }
+        }
+
+        function clearAllVisualFeedback_GJ(clearGeneralMessage = false) {
+            if (!quizForm_GJ) return;
+            quizForm_GJ.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                wrapper.classList.remove('correct-answer-gj', 'incorrect-answer-gj', 'border-green-500', 'border-red-500', 'ring-1', 'ring-green-500', 'ring-red-500', 'bg-green-50', 'bg-red-50');
+                wrapper.classList.add('border-gray-300', 'hover:border-gray-400', 'has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                const iconPlaceholder = wrapper.querySelector('.feedback-icon-placeholder span');
+                if (iconPlaceholder) iconPlaceholder.innerHTML = '';
+            });
+            quizForm_GJ.querySelectorAll('.specific-question-feedback').forEach(el => {
+                el.textContent = '';
+                el.style.display = 'none';
+            });
+            if (clearGeneralMessage && generalQuizFeedbackDiv_GJ) {
+                generalQuizFeedbackDiv_GJ.textContent = '';
+                generalQuizFeedbackDiv_GJ.style.display = 'none';
+                generalQuizFeedbackDiv_GJ.className = 'quiz-feedback-message mt-4 p-3 rounded-md text-sm';
+            }
+        }
+
+        async function displayQuizFeedback_GJ() {
+            try {
+                if (!quizForm_GJ || !generalQuizFeedbackDiv_GJ) return false;
+                
+                const progress = await getPageProgressFromStorage_GJ(PAGE_KEY_GJ);
+                const userAnswers = progress.user_quiz_answers || {};
+                const submitButton = quizForm_GJ.querySelector('button[type="submit"]');
+
+                clearAllVisualFeedback_GJ(false);
+
+                if (!progress.quiz_feedback_active && Object.keys(userAnswers).length === 0) {
+                    quizForm_GJ.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                    if (submitButton) {
+                        submitButton.textContent = 'Enviar Respuestas';
+                        submitButton.disabled = false;
+                    }
+                    return false;
+                }
+
+                let allCorrect = true;
+                let score = 0;
+
+                for (const questionName in quizDataGaussJordan) {
+                    const userAnswer = userAnswers[questionName];
+                    const questionData = quizDataGaussJordan[questionName];
+                    const correctAnswer = questionData.correctAnswer;
+                    const specificFeedbackDiv = document.getElementById(`${questionName}-specific-feedback`);
+
+                    const radioInputs = quizForm_GJ.querySelectorAll(`input[name="${questionName}"]`);
+                    radioInputs.forEach(input => {
+                        const wrapper = input.closest('.quiz-option-wrapper');
+                        const iconPlaceholder = wrapper.querySelector('.feedback-icon-placeholder span');
+                        input.disabled = true;
+                        wrapper.classList.remove('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+
+                        if (input.value === userAnswer) {
+                            input.checked = true;
+                            if (userAnswer === correctAnswer) {
+                                wrapper.classList.add('correct-answer-gj', 'border-green-500', 'ring-1', 'ring-green-500', 'bg-green-50');
+                                if (iconPlaceholder) iconPlaceholder.textContent = ICON_CORRECT_ANSWER_GJ;
+                                score++;
+                            } else {
+                                wrapper.classList.add('incorrect-answer-gj', 'border-red-500', 'ring-1', 'ring-red-500', 'bg-red-50');
+                                if (iconPlaceholder) iconPlaceholder.textContent = ICON_INCORRECT_ANSWER_GJ;
+                                allCorrect = false;
+                            }
+                        } else if (input.value === correctAnswer) {
+                            wrapper.classList.add('correct-answer-gj', 'border-green-500', 'ring-1', 'ring-green-500', 'bg-green-50');
+                        }
+                    });
+
+                    if (specificFeedbackDiv && userAnswer && userAnswer !== correctAnswer && questionData.feedback && questionData.feedback[userAnswer]) {
+                        specificFeedbackDiv.innerHTML = `<div class="p-3 text-sm bg-orange-50 border border-orange-200 text-orange-700 rounded-md mt-2">${questionData.feedback[userAnswer]}</div>`;
+                        specificFeedbackDiv.style.display = 'block';
+                    }
+                }
+
+                generalQuizFeedbackDiv_GJ.style.display = 'block';
+                if (allCorrect) {
+                    generalQuizFeedbackDiv_GJ.className = 'mt-4 p-3 rounded-md text-sm bg-green-100 text-green-700 border border-green-200';
+                    generalQuizFeedbackDiv_GJ.innerHTML = `<strong>¡Felicidades!</strong> Todas tus respuestas son correctas. (${score}/${Object.keys(quizDataGaussJordan).length})`;
+                    if (submitButton) {
+                        submitButton.textContent = 'Respuestas Correctas';
+                        submitButton.disabled = true;
+                    }
+                } else {
+                    generalQuizFeedbackDiv_GJ.className = 'mt-4 p-3 rounded-md text-sm bg-orange-100 text-orange-700 border border-orange-200';
+                    generalQuizFeedbackDiv_GJ.innerHTML = `Has respondido correctamente ${score} de ${Object.keys(quizDataGaussJordan).length} preguntas. Revisa los comentarios e intenta de nuevo.`;
+                    if (submitButton) {
+                        submitButton.textContent = 'Intentar de Nuevo';
+                        submitButton.disabled = false;
+                    }
+                }
+                if (window.MathJax && window.MathJax.typesetPromise && quizForm_GJ) {
+                    window.MathJax.typesetPromise([quizForm_GJ]);
+                }
+                return allCorrect;
+            } catch (error) {
+                console.error('[DISPLAY QUIZ FEEDBACK ERROR]', error);
+                return false;
+            }
+        }
+
+        async function initializePyodide_GJ() {
+            if (!window.pyodideInstance_GJ_Global) {
+                if (codeOutput_GJ) codeOutput_GJ.innerHTML = "<p>Cargando Pyodide y entorno...</p>";
+                try {
+                    window.pyodideInstance_GJ_Global = await window.loadPyodide();
+                    await window.pyodideInstance_GJ_Global.loadPackage("numpy");
+
+                    window.pyodide_gj_globals = window.pyodideInstance_GJ_Global.globals; // Establecer globalmente
+
+                    window.pyodide_gj_globals.set("pyodide_gj_html_output", "");
+                    window.pyodide_gj_globals.set("pyodide_gj_iteration_data", window.pyodideInstance_GJ_Global.toPy([]));
+                    window.pyodide_gj_globals.set("pyodide_gj_chart_data_package", window.pyodideInstance_GJ_Global.toPy({}));
+
+                    if (codeOutput_GJ) codeOutput_GJ.innerHTML = "<p>Pyodide listo. Presiona 'Ejecutar Código'.</p>";
+                } catch (error) {
+                    console.error("Error al cargar Pyodide para Gauss-Jordan:", error);
+                    if (codeOutput_GJ) codeOutput_GJ.innerHTML = "<p>Error al cargar Pyodide. Revisa la consola.</p>";
+                    return null;
+                }
+            }
+            if (!window.pyodide_gj_globals && window.pyodideInstance_GJ_Global) { // Asegurar que esté definido si Pyodide ya cargó
+                 window.pyodide_gj_globals = window.pyodideInstance_GJ_Global.globals;
+            }
+            return window.pyodideInstance_GJ_Global;
+        }
+
+        async function runCodeNow_GJ() {
+            pyodide_GJ = await initializePyodide_GJ();
+            if (!pyodide_GJ || !window.pyodide_gj_globals) {
+                if (codeOutput_GJ) codeOutput_GJ.innerHTML = "<p>Pyodide no está listo. Intenta recargar.</p>";
+                return;
+            }
+            if (!codeInput_GJ || !codeOutput_GJ) return;
+
+            const pythonCode = codeInput_GJ.value;
+            if (codeOutput_GJ) codeOutput_GJ.innerHTML = "<p>Ejecutando código...</p>";
+            gj_d3_opDesc.html("Generando datos para la visualización...");
+            gj_d3_svg.selectAll("*").remove();
+
+            try {
+                window.pyodide_gj_globals.set("pyodide_gj_html_output", "");
+                let iterDataProxy = window.pyodide_gj_globals.get("pyodide_gj_iteration_data");
+                if (iterDataProxy && typeof iterDataProxy.clear === 'function') iterDataProxy.clear();
+                else window.pyodide_gj_globals.set("pyodide_gj_iteration_data", pyodide_GJ.toPy([]));
+
+                let chartPkgProxy = window.pyodide_gj_globals.get("pyodide_gj_chart_data_package");
+                if (chartPkgProxy && typeof chartPkgProxy.clear === 'function') chartPkgProxy.clear();
+                else window.pyodide_gj_globals.set("pyodide_gj_chart_data_package", pyodide_GJ.toPy({}));
+
+                await pyodide_GJ.loadPackagesFromImports(pythonCode);
+                await pyodide_GJ.runPythonAsync(pythonCode);
+
+                const htmlResult = window.pyodide_gj_globals.get("pyodide_gj_html_output");
+                if (codeOutput_GJ) {
+                    codeOutput_GJ.innerHTML = htmlResult || "<p>Ejecución completada. No se generó salida HTML de texto.</p>";
+                }
+                updateTaskStatusInStorage_GJ(TASKS_GJ.RUN_CODE, true);
+
+                const d3DataPackage = window.pyodide_gj_globals.get("pyodide_gj_chart_data_package").toJs({ dict_converter: Object.fromEntries });
+                initializeGJVisualization(d3DataPackage);
+
+            } catch (error) {
+                console.error("Error al ejecutar el código Python (Gauss-Jordan):", error);
+                if (codeOutput_GJ) {
+                    codeOutput_GJ.innerHTML = `<p style="color:red;">Error en la ejecución: ${error.toString().replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p><pre>${error.stack ? error.stack.replace(/</g, "&lt;").replace(/>/g, "&gt;") : ''}</pre>`;
+                }
+                gj_d3_opDesc.html("Error al generar datos para la visualización.");
+            }
+        }
+
+        // --- D3.js Gauss-Jordan Visualization Logic ---
+        let gj_d3_currentStepIndex = 0;
+        let gj_d3_visualizationData = [];
+        let gj_d3_isPlaying = false;
+        let gj_d3_animationSpeed = 700;
+        let gj_d3_playInterval = null;
+
+        const gj_d3_svg = d3.select("#gj-d3-svg-container");
+        const gj_d3_opDesc = d3.select("#gj-d3-operation-description");
+        const gj_d3_prevButton = d3.select("#gj-d3-prev");
+        const gj_d3_nextButton = d3.select("#gj-d3-next");
+        const gj_d3_playButton = d3.select("#gj-d3-play");
+        const gj_d3_slider = d3.select("#gj-d3-slider");
+        const gj_d3_speedSlider = d3.select("#gj-d3-speed");
+        const gj_d3_speedValueText = d3.select("#gj-d3-speed-value");
+
+        const gj_d3_cellSize = { width: 70, height: 38 };
+        const gj_d3_padding = 4;
+        const gj_d3_numberFormat = d3.format(".3~f");
+
+        const ICON_GJ_PREVIOUS = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M15.225 15.077a.75.75 0 01-1.06 0L8.94 9.852a.75.75 0 010-1.06l5.224-5.224a.75.75 0 011.06 1.06L10.532 9.322l4.693 4.695a.75.75 0 010 1.06z"/></svg>';
+        const ICON_GJ_NEXT = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M4.775 4.923a.75.75 0 011.06 0l5.224 5.224a.75.75 0 010 1.06l-5.224 5.224a.75.75 0 01-1.06-1.06L9.468 10.678 4.775 5.983a.75.75 0 010-1.06z"/></svg>';
+        const ICON_GJ_PLAY = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"/></svg>';
+        const ICON_GJ_PAUSE = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M5.75 4.5a.75.75 0 00-.75.75v10.5a.75.75 0 001.5 0V5.25a.75.75 0 00-.75-.75zm8.5 0a.75.75 0 00-.75.75v10.5a.75.75 0 001.5 0V5.25a.75.75 0 00-.75-.75z"/></svg>';
+
+        function initializeGJVisualization(data) {
+            gj_d3_svg.selectAll("*").remove();
+            if (!data || !data.visualization_steps || data.visualization_steps.length === 0) {
+                gj_d3_opDesc.html("No hay datos de visualización. Ejecute el código.");
+                gj_d3_prevButton.property("disabled", true).html(ICON_GJ_PREVIOUS).attr("aria-label", "Anterior");
+                gj_d3_nextButton.property("disabled", true).html(ICON_GJ_NEXT).attr("aria-label", "Siguiente");
+                gj_d3_slider.property("disabled", true).attr("max",0).property("value",0);
+                gj_d3_playButton.property("disabled", true).html(ICON_GJ_PLAY).attr("aria-label", "Play");
+                return;
+            }
+            gj_d3_visualizationData = data.visualization_steps;
+            gj_d3_currentStepIndex = 0;
+            gj_d3_isPlaying = false;
+            if (gj_d3_playInterval) clearInterval(gj_d3_playInterval);
+            
+            gj_d3_prevButton.html(ICON_GJ_PREVIOUS).attr("aria-label", "Anterior").property("disabled", false);
+            gj_d3_nextButton.html(ICON_GJ_NEXT).attr("aria-label", "Siguiente").property("disabled", false);
+            gj_d3_playButton.html(ICON_GJ_PLAY).attr("aria-label", "Play").property("disabled", false);
+            gj_d3_slider.attr("max", gj_d3_visualizationData.length - 1).property("value", 0).property("disabled", false);
+
+            renderGJStep(gj_d3_currentStepIndex, false);
+            updateGJControls();
+        }
+
+        function formatNumberForDisplay(num) {
+            if (Math.abs(num) < 1e-9) return "0";
+            const rounded = parseFloat(num.toFixed(4));
+            if (Math.abs(rounded - Math.round(rounded)) < 1e-9) return String(Math.round(rounded));
+            let formatted = gj_d3_numberFormat(rounded);
+            // Evitar que d3.format devuelva "-0"
+            if (formatted === "-0" || formatted === "-0.0" || formatted === "-0.00" || formatted === "-0.000") return "0";
+            return formatted;
+        }
+
+        function renderGJStep(stepIndex, animate = true) {
+            if (stepIndex < 0 || stepIndex >= gj_d3_visualizationData.length) return;
+
+            const stepData = gj_d3_visualizationData[stepIndex];
+            const matrixToDisplay = stepData.matrix_before_op ? stepData.matrix_before_op : stepData.matrix;
+            const matrixAfterOp = stepData.matrix; // User's corrected code uses this name.
+
+
+            const numRows = matrixToDisplay.length;
+            const numCols = matrixToDisplay[0] ? matrixToDisplay[0].length : 0;
+            if (numRows === 0 || numCols === 0) {
+                 gj_d3_opDesc.html("Matriz vacía o inválida en el paso.");
+                 gj_d3_svg.selectAll("*").remove();
+                 return;
+            }
+            const numCoeffs = stepData.num_coeffs != null ? stepData.num_coeffs : numCols -1;
+
+            gj_d3_opDesc.html(stepData.description || `Paso ${stepIndex + 1}`);
+            gj_d3_slider.property("value", stepIndex);
+
+            const totalWidth = numCols * (gj_d3_cellSize.width + gj_d3_padding) - gj_d3_padding;
+            const totalHeight = numRows * (gj_d3_cellSize.height + gj_d3_padding) - gj_d3_padding;
+            gj_d3_svg.attr("width", Math.max(200, totalWidth)) 
+                       .attr("height", Math.max(50, totalHeight))
+                       .attr("viewBox", `0 0 ${totalWidth} ${totalHeight}`);
+
+            const transitionDuration = animate ? gj_d3_animationSpeed : 0;
+
+            // Filas
+            const rowSelection = gj_d3_svg.selectAll("g.row-group")
+                .data(matrixToDisplay, (d, i) => `row-${i}`); 
+            
+            rowSelection.join(
+                enter => enter.append("g")
+                    .attr("class", (d, i) => `row-group row-${i}`)
+                    .attr("data-row-index", (d, i) => i)
+                    .attr("transform", (d, i) => `translate(0, ${i * (gj_d3_cellSize.height + gj_d3_padding)})`)
+                    .style("opacity", 0) 
+                    .call(enterRows => enterRows.transition().duration(transitionDuration / 2).style("opacity", 1)),
+                update => update
+                    .call(updateRows => { 
+                        if (animate && stepData.operation_type === 'swap' && stepData.swapped_rows_indices) {
+                            const [idx1, idx2] = stepData.swapped_rows_indices;
+                            updateRows.filter((d_row_data, i_original_row_index) => i_original_row_index === idx1 || i_original_row_index === idx2)
+                                .transition().duration(transitionDuration)
+                                .attr("transform", (d_row_data, i_filtered_sel, nodes) => {
+                                    const originalRowIndexStr = d3.select(nodes[i_filtered_sel]).attr("data-row-index");
+                                    const originalRowIndex = parseInt(originalRowIndexStr);
+                                    let targetY;
+                                    if (originalRowIndex === idx1) targetY = idx2 * (gj_d3_cellSize.height + gj_d3_padding);
+                                    else if (originalRowIndex === idx2) targetY = idx1 * (gj_d3_cellSize.height + gj_d3_padding);
+                                    else targetY = originalRowIndex * (gj_d3_cellSize.height + gj_d3_padding);
+                                    return `translate(0, ${targetY})`;
+                                });
+                        } else { 
+                            updateRows.transition().duration(transitionDuration / 2)
+                                .attr("transform", (d, i) => `translate(0, ${i * (gj_d3_cellSize.height + gj_d3_padding)})`);
+                        }
+                    }),
+                exit => exit.transition().duration(transitionDuration / 2).style("opacity", 0).remove()
+            );
+
+            gj_d3_svg.selectAll("g.row-group") 
+                .each(function(rowDataFromMatrixToDisplay, rowIndex) { 
+                    const currentRowGroup = d3.select(this);
+
+                    const cellDataForRow = rowDataFromMatrixToDisplay.map((cellVal, colIndex) => ({
+                        initialValue: cellVal,
+                        finalValue: matrixAfterOp[rowIndex][colIndex], 
+                        rowIndex: rowIndex,
+                        colIndex: colIndex
+                    }));
+
+                    const cellSelection = currentRowGroup.selectAll("g.cell-group")
+                        .data(cellDataForRow, d_cell => `cell-${d_cell.rowIndex}-${d_cell.colIndex}`);
+
+                    cellSelection.join(
+                        enter => enter.append("g")
+                            .attr("class", d_cell => `cell-group cell-${d_cell.rowIndex}-${d_cell.colIndex}`)
+                            .attr("data-row-index", d_cell => d_cell.rowIndex)
+                            .attr("data-col-index", d_cell => d_cell.colIndex)
+                            .attr("transform", d_cell => `translate(${d_cell.colIndex * (gj_d3_cellSize.width + gj_d3_padding)}, 0)`)
+                            .call(cellEnter => {
+                                cellEnter.append("rect")
+                                    .attr("width", gj_d3_cellSize.width)
+                                    .attr("height", gj_d3_cellSize.height)
+                                    .style("fill", "white");
+                                cellEnter.append("text")
+                                    .attr("x", gj_d3_cellSize.width / 2)
+                                    .attr("y", gj_d3_cellSize.height / 2)
+                                    .text(d_cell => formatNumberForDisplay(d_cell.initialValue)); 
+                            }),
+                        update => update, 
+                        exit => exit.remove()
+                    )
+                    .call(allCellsInRow => { 
+                        allCellsInRow.select("rect")
+                            .transition().duration(transitionDuration * 0.4) 
+                            .style("fill", "white") 
+                            .attr("class","") 
+                            .end().then(() => { 
+                                allCellsInRow.select("rect")
+                                    .transition().duration(transitionDuration * 0.6)
+                                    .style("fill", (d_cell) => {
+                                        if (stepData.pivot_coords && d_cell.rowIndex === stepData.pivot_coords[0] && d_cell.colIndex === stepData.pivot_coords[1]) return "#FFF59D";
+                                        if (stepData.pivot_coords_of_source_row && d_cell.rowIndex === stepData.pivot_coords_of_source_row[0] && d_cell.colIndex === stepData.pivot_coords_of_source_row[1]) return "#FFF59D";
+                                        if (stepData.source_row_idx === d_cell.rowIndex && (stepData.operation_type === 'normalize' || stepData.operation_type === 'pre_eliminate' || stepData.operation_type === 'eliminate' || stepData.operation_type === 'pre_swap' || stepData.operation_type === 'swap')) return "#90CAF9";
+                                        if (stepData.target_row_idx === d_cell.rowIndex && (stepData.operation_type === 'eliminate' || stepData.operation_type === 'pre_eliminate' || stepData.operation_type === 'pre_swap' || stepData.operation_type === 'swap')) return "#A5D6A7";
+                                        if (stepData.element_to_eliminate_coords && d_cell.rowIndex === stepData.element_to_eliminate_coords[0] && d_cell.colIndex === stepData.element_to_eliminate_coords[1]) return "#EF9A9A";
+                                        if (stepData.operation_type === 'inconsistent' && stepData.problem_row_idx === d_cell.rowIndex) return "#FFCDD2";
+                                        if (stepData.operation_type === 'dependent_row' && stepData.problem_row_idx === d_cell.rowIndex) return "#FFFDE7";
+                                        if (stepData.current_col_highlight === d_cell.colIndex && stepData.operation_type === 'pivot_search') return "#CFD8DC";
+                                        return "white";
+                                    });
+                            });
+
+                        allCellsInRow.select("text")
+                            .transition().duration(transitionDuration)
+                            .textTween(function(d_cell) {
+                                const currentValue = parseFloat(this.textContent.replace(/[^0-9.-]+/g,"")) || d_cell.initialValue;
+                                const i = d3.interpolateNumber(currentValue, d_cell.finalValue);
+                                return function(t) { return formatNumberForDisplay(i(t)); };
+                            });
+                    });
+                }); 
+
+            gj_d3_svg.selectAll(".matrix-column-separator").remove();
+            if (numCoeffs < numCols && numCoeffs > 0) {
+                 const xSeparator = numCoeffs * (gj_d3_cellSize.width + gj_d3_padding) - (gj_d3_padding / 2);
+                 gj_d3_svg.append("line")
+                    .attr("class", "matrix-column-separator")
+                    .attr("x1", xSeparator).attr("x2", xSeparator)
+                    .attr("y1", -gj_d3_padding / 2).attr("y2", totalHeight - gj_d3_padding /2);
+            }
+            updateGJControls();
+        }
+
+        function updateGJControls() {
+            gj_d3_prevButton.property("disabled", gj_d3_currentStepIndex <= 0);
+            gj_d3_nextButton.property("disabled", gj_d3_currentStepIndex >= gj_d3_visualizationData.length - 1);
+            gj_d3_slider.property("value", gj_d3_currentStepIndex);
+            gj_d3_playButton.property("disabled", gj_d3_visualizationData.length === 0);
+        }
+        function stopGJPlayback() {
+            gj_d3_isPlaying = false;
+            clearInterval(gj_d3_playInterval);
+            gj_d3_playButton.html(ICON_GJ_PLAY).attr("aria-label", "Play");
+        }
+
+        gj_d3_prevButton.on("click", () => {
+            if (gj_d3_isPlaying) stopGJPlayback();
+            if (gj_d3_currentStepIndex > 0) {
+                gj_d3_currentStepIndex--;
+                renderGJStep(gj_d3_currentStepIndex, true);
+            }
+        });
+
+        gj_d3_nextButton.on("click", () => {
+            if (gj_d3_isPlaying) stopGJPlayback();
+            if (gj_d3_currentStepIndex < gj_d3_visualizationData.length - 1) {
+                gj_d3_currentStepIndex++;
+                renderGJStep(gj_d3_currentStepIndex, true);
+            }
+        });
+        gj_d3_playButton.on("click", () => {
+            if (gj_d3_visualizationData.length === 0) return;
+            gj_d3_isPlaying = !gj_d3_isPlaying;
+            if (gj_d3_isPlaying) {
+                gj_d3_playButton.html(ICON_GJ_PAUSE).attr("aria-label", "Pause");
+                if (gj_d3_currentStepIndex >= gj_d3_visualizationData.length - 1) {
+                    gj_d3_currentStepIndex = -1; // Start from beginning if at end
+                }
+                gj_d3_playInterval = setInterval(() => {
+                    if (gj_d3_currentStepIndex < gj_d3_visualizationData.length - 1) {
+                        gj_d3_currentStepIndex++;
+                        renderGJStep(gj_d3_currentStepIndex, true);
+                    } else {
+                        stopGJPlayback();
+                    }
+                }, gj_d3_animationSpeed + 150);
+            } else {
+                stopGJPlayback(); // This will set the icon to Play and aria-label
+            }
+        });
+
+        gj_d3_slider.on("input", function() {
+            if (gj_d3_isPlaying) stopGJPlayback();
+            gj_d3_currentStepIndex = +this.value;
+            renderGJStep(gj_d3_currentStepIndex, true);
+        });
+
+        gj_d3_speedSlider.on("input", function() {
+            gj_d3_animationSpeed = +this.value;
+            gj_d3_speedValueText.text(`${gj_d3_animationSpeed}ms`);
+            if (gj_d3_isPlaying) {
+                stopGJPlayback();
+                gj_d3_playButton.dispatch("click");
+            }
+        });
+        gj_d3_speedValueText.text(`${gj_d3_speedSlider.property("value")}ms`);
+
+
+        if (runCodeButton_GJ) runCodeButton_GJ.addEventListener('click', runCodeNow_GJ);
+
+        if (quizForm_GJ) {
+            quizForm_GJ.addEventListener('submit', async function(event) {
+                try {
+                    event.preventDefault();
+                    const generalQuizFeedbackDiv_GJ = document.getElementById('general-quiz-feedback-gj');
+                    const submitButton = quizForm_GJ.querySelector('button[type="submit"]');
+                    const currentLocalProgress = await getPageProgressFromStorage_GJ(PAGE_KEY_GJ);
+
+                    // Si ya se pasó el quiz y no se está intentando de nuevo, no hacer nada
+                    if (currentLocalProgress[TASKS_GJ.QUIZ_PASSED] && submitButton.textContent !== 'Intentar de Nuevo') return;
+
+                    // Si se está intentando de nuevo, resetear el formulario
+                    if (submitButton && submitButton.textContent === 'Intentar de Nuevo') {
+                        quizForm_GJ.reset();
+                        clearAllVisualFeedback_GJ(true);
+                        if(generalQuizFeedbackDiv_GJ) generalQuizFeedbackDiv_GJ.style.display = 'none';
+
+                        let progressToSave = await getPageProgressFromStorage_GJ(PAGE_KEY_GJ);
+                        progressToSave.user_quiz_answers = {};
+                        progressToSave.quiz_current_score = 0;
+                        progressToSave.quiz_feedback_active = false;
+                        await savePageProgressToStorage_GJ(PAGE_KEY_GJ, progressToSave);
+                        submitButton.textContent = 'Enviar Respuestas';
+                        quizForm_GJ.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                        quizForm_GJ.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                            wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                        });
+                        return;
+                    }
+
+                    // Procesando el envío normal del formulario
+                    const formData = new FormData(quizForm_GJ);
+                    
+                    // Verificar que todas las preguntas estén respondidas
+                    let allAnswered = true;
+                    for (const qName of Object.keys(quizDataGaussJordan)) { 
+                        if (!formData.has(qName)) { 
+                            allAnswered = false; 
+                            break; 
+                        } 
+                    }
+
+                    if (!allAnswered) {
+                        if (generalQuizFeedbackDiv_GJ) {
+                            generalQuizFeedbackDiv_GJ.textContent = "Por favor, responde todas las preguntas.";
+                            generalQuizFeedbackDiv_GJ.className = 'mt-4 p-3 rounded-md text-sm bg-yellow-100 text-yellow-700 border border-yellow-200';
+                            generalQuizFeedbackDiv_GJ.style.display = 'block';
+                        } 
+                        return;
+                    }
+
+                    // Marcar que se ha intentado el cuestionario
+                    await updateTaskStatusInStorage_GJ(TASKS_GJ.QUIZ_ATTEMPTED, true);
+
+                    // Guardar las respuestas del usuario
+                    let progress = await getPageProgressFromStorage_GJ(PAGE_KEY_GJ);
+                    progress.user_quiz_answers = {};
+                    for (const qName of Object.keys(quizDataGaussJordan)) { 
+                        progress.user_quiz_answers[qName] = formData.get(qName); 
+                    }
+                    progress.quiz_feedback_active = true;
+                    await savePageProgressToStorage_GJ(PAGE_KEY_GJ, progress);
+
+                    // Mostrar retroalimentación y actualizar estado
+                    const quizWasPassed = await displayQuizFeedback_GJ();
+                    await updateTaskStatusInStorage_GJ(TASKS_GJ.QUIZ_PASSED, quizWasPassed);
+                    await calculateAndUpdateOverallProgress_GJ();
+                } catch (error) {
+                    console.error('[QUIZ SUBMIT ERROR]', error);
+                }
+            });
+        }
+
+         if (mainCompletionButton_GJ) {
+             // Añadir un indicador de estado al botón para que sea visible cuando está procesando
+             const buttonStateIndicator = document.createElement('span');
+             buttonStateIndicator.className = 'ml-2 inline-block w-4 h-4 opacity-0 transition-opacity duration-200';
+             mainCompletionButton_GJ.appendChild(buttonStateIndicator);
+             
+             mainCompletionButton_GJ.addEventListener('click', async () => {
+                // Deshabilitar el botón e indicar procesamiento
+                mainCompletionButton_GJ.disabled = true;
+                const originalText = mainCompletionButton_GJ.textContent;
+                buttonStateIndicator.className = 'ml-2 inline-block w-4 h-4 opacity-100 rounded-full bg-white animate-pulse';
+                
+                try {
+                    console.log('[MARK ALL DEBUG] Button clicked, getting current progress');
+                    const progress = await getPageProgressFromStorage_GJ(PAGE_KEY_GJ);
+                    let allCurrentlyCompleted = ALL_TASK_KEYS_GJ.every(taskKey => progress[taskKey]);
+                    let markAllAs = !allCurrentlyCompleted;
+                    
+                    console.log(`[MARK ALL DEBUG] Current status: all completed=${allCurrentlyCompleted}, will mark all as: ${markAllAs}`);
+
+                    // Crear una copia local del progreso para trabajar de manera independiente
+                    let updatedProgress = JSON.parse(JSON.stringify(progress));
+                    
+                    // Actualizar en memoria primero (operación sincrónica)
+                    for (const taskName of ALL_TASK_KEYS_GJ) {
+                        updatedProgress[taskName] = markAllAs;
+                    }
+                    
+                    // Aplicar cambios adicionales según el modo
+                    if (!markAllAs) {
+                        // Modo "Deshacer completado"
+                        updatedProgress.user_quiz_answers = {};
+                        updatedProgress.quiz_current_score = 0;
+                        updatedProgress.quiz_feedback_active = false;
+                        
+                        // Actualizar UI inmediatamente
+                        if (quizForm_GJ) {
+                            quizForm_GJ.reset();
+                            quizForm_GJ.querySelectorAll('input[type="radio"]').forEach(r => r.disabled = false);
+                            const sb = quizForm_GJ.querySelector('button[type="submit"]');
+                            if(sb) sb.textContent = 'Enviar Respuestas';
+                            quizForm_GJ.querySelectorAll('.quiz-option-wrapper').forEach(w => w.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red'));
+                        }
+                        clearAllVisualFeedback_GJ(true);
+                    } else {
+                        // Modo "Marcar todo completado"
+                        updatedProgress[TASKS_GJ.QUIZ_ATTEMPTED] = true;
+                        updatedProgress[TASKS_GJ.QUIZ_PASSED] = true;
+                        if (Object.keys(updatedProgress.user_quiz_answers).length === 0) {
+                            for (const qName in quizDataGaussJordan) {
+                                updatedProgress.user_quiz_answers[qName] = quizDataGaussJordan[qName].correctAnswer;
+                            }
+                            updatedProgress.quiz_current_score = Object.keys(quizDataGaussJordan).length;
+                        }
+                        updatedProgress.quiz_feedback_active = true;
+                    }
+                    
+                    // Guardar el progreso actualizado (operación asíncrona)
+                    console.log('[MARK ALL DEBUG] Saving updated progress');
+                    await savePageProgressToStorage_GJ(PAGE_KEY_GJ, updatedProgress);
+
+                    // Actualizar la UI con los nuevos datos
+                    console.log('[MARK ALL DEBUG] Updating UI');
+                    if (quizForm_GJ && markAllAs) { 
+                        await displayQuizFeedback_GJ();
+                    } else if (generalQuizFeedbackDiv_GJ && !markAllAs) {
+                        generalQuizFeedbackDiv_GJ.style.display = 'none';
+                    }
+                    
+                    // Actualizar la barra de progreso
+                    await calculateAndUpdateOverallProgress_GJ();
+                    
+                    console.log('[MARK ALL DEBUG] All tasks completed successfully');
+                } catch (error) {
+                    console.error('[MARK ALL ERROR]', error);
+                    
+                    // Mostrar un mensaje de error discreto
+                    const errorToast = document.createElement('div');
+                    errorToast.className = 'fixed bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded-md shadow-md';
+                    errorToast.textContent = 'Error al guardar el progreso. Intentando usar almacenamiento local.';
+                    document.body.appendChild(errorToast);
+                    
+                    // Eliminar el mensaje después de 3 segundos
+                    setTimeout(() => {
+                        errorToast.classList.add('opacity-0', 'transition-opacity', 'duration-500');
+                        setTimeout(() => errorToast.remove(), 500);
+                    }, 3000);
+                } finally {
+                    // Restaurar el botón a su estado normal
+                    mainCompletionButton_GJ.disabled = false;
+                    buttonStateIndicator.className = 'ml-2 inline-block w-4 h-4 opacity-0 transition-opacity duration-200';
+                }
+            });
+        }
+
+        const theorySectionObserverTargetNodeGJ = document.getElementById('conclusion-gj') || document.getElementById('teoria-gj');
+        if (theorySectionObserverTargetNodeGJ) {
+            const observerOptionsGJ = { root: null, rootMargin: '0px', threshold: 0.1 };
+            const observerCallbackGJ = async (entries) => {
+                entries.forEach(async entry => {
+                    if (entry.isIntersecting) await updateTaskStatusInStorage_GJ(TASKS_GJ.READ_THEORY, true);
+                });
+            };
+            const theoryObserver_GJ = new IntersectionObserver(observerCallbackGJ, observerOptionsGJ);
+            theoryObserver_GJ.observe(theorySectionObserverTargetNodeGJ);
+        }
+
+        if (window.location.hash) history.replaceState(null, '', window.location.pathname + window.location.search);
+
+        (async () => {
+            pyodide_GJ = await initializePyodide_GJ();
+            initializeGJVisualization(null);
+        })();
+
+        // Inicialización asíncrona del progreso
+        (async () => {
+            try {
+                const initialProgress_GJ = await getPageProgressFromStorage_GJ(PAGE_KEY_GJ);
+                
+                if (initialProgress_GJ.quiz_feedback_active || (initialProgress_GJ[TASKS_GJ.QUIZ_ATTEMPTED] && Object.keys(initialProgress_GJ.user_quiz_answers).length > 0)) {
+                    if (quizForm_GJ && initialProgress_GJ.user_quiz_answers) {
+                        for (const qName in initialProgress_GJ.user_quiz_answers) {
+                            const userAnswer = initialProgress_GJ.user_quiz_answers[qName];
+                            const escapedUserAnswer = userAnswer.replace(/([\\()\[\]"'])/g, '\\$1');
+                            try {
+                                const radioToSelect = quizForm_GJ.querySelector(`input[name="${qName}"][value="${escapedUserAnswer}"]`);
+                                if (radioToSelect) radioToSelect.checked = true;
+                            } catch (e) { 
+                                console.warn(`Error seleccionando radio GJ para ${qName}`, e);
+                            }
+                        }
+                    }
+                    await displayQuizFeedback_GJ();
+                } else if (quizForm_GJ) {
+                    const submitButton = quizForm_GJ.querySelector('button[type="submit"]');
+                    if (submitButton) { submitButton.textContent = 'Enviar Respuestas'; submitButton.disabled = false; }
+                    quizForm_GJ.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                    quizForm_GJ.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red'));
+                    if (window.MathJax && window.MathJax.typesetPromise) window.MathJax.typesetPromise([quizForm_GJ]);
+                }
+                
+                // Explícitamente renderizar el estado de las tareas para mostrar los iconos
+                await renderTaskStatus_GJ();
+                await calculateAndUpdateOverallProgress_GJ();
+                await updateMainCompletionButtonState_GJ();
+                
+                console.log('[INITIALIZATION DEBUG] Initial task status rendered');
+            } catch (error) {
+                console.error('[INITIALIZATION ERROR]', error);
+                // Intentar renderizar los iconos incluso si hay un error
+                try {
+                    await renderTaskStatus_GJ();
+                    console.log('[INITIALIZATION DEBUG] Task status rendered after error');
+                } catch (e) {
+                    console.error('[INITIALIZATION DEBUG] Failed to render task status after error:', e);
+                }
+            }
+        })();
+
+        if (fullscreenButton_GJ && codeOutput_GJ && outputControlsContainer_GJ) {
+             fullscreenButton_GJ.addEventListener('click', () => {
+                const isFullscreen = codeOutput_GJ.classList.contains('gj-output-fullscreen');
+                if (isFullscreen) {
+                    outputControlsContainer_GJ.style.opacity = '0';
+                    if(increaseFontButton_GJ) increaseFontButton_GJ.style.display = 'none';
+                    if(decreaseFontButton_GJ) decreaseFontButton_GJ.style.display = 'none';
+                    if (gjCodeOutputInitialRect) {
+                        const finalRect = codeOutput_GJ.getBoundingClientRect();
+                        const scaleX = gjCodeOutputInitialRect.width / finalRect.width;
+                        const scaleY = gjCodeOutputInitialRect.height / finalRect.height;
+                        const deltaX = (gjCodeOutputInitialRect.left + gjCodeOutputInitialRect.width / 2) - (finalRect.left + finalRect.width / 2);
+                        const deltaY = (gjCodeOutputInitialRect.top + gjCodeOutputInitialRect.height / 2) - (finalRect.top + finalRect.height / 2);
+                        codeOutput_GJ.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+                     }
+                    setTimeout(() => {
+                        codeOutput_GJ.style.transition = 'none';
+                        codeOutput_GJ.classList.remove('gj-output-fullscreen');
+                        document.body.classList.remove('gj-body-fullscreen-active');
+                        outputControlsContainer_GJ.classList.remove('gj-output-controls-container-fixed');
+                        outputControlsContainer_GJ.style.transition = 'none'; outputControlsContainer_GJ.style.opacity = '1';
+                        outputControlsContainer_GJ.offsetHeight; outputControlsContainer_GJ.style.transition = '';
+                        codeOutput_GJ.style.transform = '';
+                        if (originalOutputFontSize_GJ) codeOutput_GJ.style.fontSize = originalOutputFontSize_GJ;
+                        codeOutput_GJ.offsetHeight; codeOutput_GJ.style.transition = '';
+                        fullscreenButton_GJ.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15" /></svg>`;
+                        fullscreenButton_GJ.title = "Ver en pantalla completa"; gjCodeOutputInitialRect = null;
+                    }, 500);
+                } else {
+                    originalOutputFontSize_GJ = window.getComputedStyle(codeOutput_GJ).fontSize;
+                    gjCodeOutputInitialRect = codeOutput_GJ.getBoundingClientRect();
+                    outputControlsContainer_GJ.style.transition = 'none'; outputControlsContainer_GJ.style.opacity = '0';
+                    outputControlsContainer_GJ.offsetHeight; outputControlsContainer_GJ.style.transition = '';
+                    codeOutput_GJ.style.transition = 'none';
+                    codeOutput_GJ.classList.add('gj-output-fullscreen');
+                    document.body.classList.add('gj-body-fullscreen-active');
+                    outputControlsContainer_GJ.classList.add('gj-output-controls-container-fixed');
+                    const finalRect = codeOutput_GJ.getBoundingClientRect();
+                    const scaleX = gjCodeOutputInitialRect.width / finalRect.width;
+                    const scaleY = gjCodeOutputInitialRect.height / finalRect.height;
+                    const deltaX = (gjCodeOutputInitialRect.left + gjCodeOutputInitialRect.width / 2) - (finalRect.left + finalRect.width / 2);
+                    const deltaY = (gjCodeOutputInitialRect.top + gjCodeOutputInitialRect.height / 2) - (finalRect.top + finalRect.height / 2);
+                    codeOutput_GJ.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+                    codeOutput_GJ.offsetHeight; codeOutput_GJ.style.transition = '';
+                    codeOutput_GJ.style.transform = 'translate(0px, 0px) scale(1)';
+                    fullscreenButton_GJ.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9V4.5M15 9h4.5M15 9l5.25-5.25M15 15v4.5M15 15h4.5M15 15l5.25 5.25" /></svg>`;
+                    fullscreenButton_GJ.title = "Salir de pantalla completa";
+                    setTimeout(() => {
+                        outputControlsContainer_GJ.style.opacity = '1';
+                        if(increaseFontButton_GJ) increaseFontButton_GJ.style.display = 'inline-flex';
+                        if(decreaseFontButton_GJ) decreaseFontButton_GJ.style.display = 'inline-flex';
+                    }, 500);
+                }
+            });
+        }
+        if (increaseFontButton_GJ && codeOutput_GJ) { /* ... */
+            increaseFontButton_GJ.addEventListener('click', () => {
+                if (codeOutput_GJ.classList.contains('gj-output-fullscreen')) {
+                    let currentSize = parseFloat(window.getComputedStyle(codeOutput_GJ).fontSize);
+                    if (currentSize < MAX_FONT_SIZE_PX_GJ) {
+                        codeOutput_GJ.style.fontSize = (currentSize + FONT_SIZE_STEP_PX_GJ) + 'px';
+                        increaseFontButton_GJ.classList.add('gj-font-button-flash-blue');
+                        setTimeout(() => { increaseFontButton_GJ.classList.remove('gj-font-button-flash-blue'); }, 400);
+                    }
+                }
+            });
+        }
+        if (decreaseFontButton_GJ && codeOutput_GJ) { /* ... */
+             decreaseFontButton_GJ.addEventListener('click', () => {
+                if (codeOutput_GJ.classList.contains('gj-output-fullscreen')) {
+                    let currentSize = parseFloat(window.getComputedStyle(codeOutput_GJ).fontSize);
+                    if (currentSize > MIN_FONT_SIZE_PX_GJ) {
+                        codeOutput_GJ.style.fontSize = (currentSize - FONT_SIZE_STEP_PX_GJ) + 'px';
+                        decreaseFontButton_GJ.classList.add('gj-font-button-flash-red');
+                        setTimeout(() => { decreaseFontButton_GJ.classList.remove('gj-font-button-flash-red'); }, 400);
+                    }
+                }
+            });
+        }
+        if(increaseFontButton_GJ) increaseFontButton_GJ.style.display = 'none';
+        if(decreaseFontButton_GJ) decreaseFontButton_GJ.style.display = 'none';
+
+    });
+    </script>
+
+    <!-- Vue App Initialization Script -->
+    <script type="module">
+        const { createApp, ref, onMounted, onUnmounted, watch, nextTick } = Vue;
+        const LeftSidebarGJ = {
+            template: `{% raw %}
+                <aside :class="[
+                    'bg-gradient-to-b from-red-500 to-red-700', 'shadow-xl', 'rounded-lg', 'p-4',
+                    'flex', 'flex-col',
+                    'transition-all', 'duration-300', 'ease-in-out',
+                    'order-1',
+                    isCollapsed ? 'w-full lg:w-20' : 'w-full lg:w-64',
+                    'self-start',
+                    'lg:sticky', 'lg:top-8',
+                    'lg:max-h-[calc(100vh-4rem)]',
+                    'overflow-y-auto'
+                ]">
+                    <div class="flex justify-between items-center mb-4 border-b border-red-400 pb-3">
+                        <h3 v-show="!isCollapsed" class="text-lg font-semibold text-white select-none">Contenido</h3>
+                        <button @click="toggleCollapse" class="p-1.5 ml-2 text-white hover:bg-red-700 rounded focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-75" :aria-label="isCollapsed ? 'Expandir menú' : 'Colapsar menú'">
+                            <svg v-if="!isCollapsed" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5" /></svg>
+                            <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5m-6-15l7.5 7.5-7.5 7.5" /></svg>
+                        </button>
+                    </div>
+                    <nav v-show="!isCollapsed">
+                        <ul class="space-y-1">
+                            <li v-for="item in navItems" :key="item.id">
+                                <a :href="item.href" @click.prevent="smoothScroll(item.href)"
+                                   :class="['nav-link block px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 flex items-center', isActive(item.id) ? 'bg-white text-custom-blue font-semibold shadow-sm' : 'text-red-100 hover:bg-red-700 hover:text-white']">
+                                    <span v-html="item.iconSVG" class="mr-3 translate-y-px"></span>
+                                    <span>{{ item.text }}</span>
+                                </a></li></ul></nav>
+                    <nav v-show="isCollapsed" class="mt-4">
+                         <ul class="space-y-1">
+                            <li v-for="item in navItems" :key="item.id + '-collapsed'">
+                                <a :href="item.href" @click.prevent="smoothScroll(item.href)" :title="item.text" :aria-label="item.text"
+                                   :class="['nav-link-collapsed block py-2 pl-2.5 pr-1.5 rounded-md transition-colors duration-150 flex justify-center items-center', isActive(item.id) ? 'bg-white text-custom-blue shadow-sm' : 'text-red-100 hover:bg-red-700 hover:text-white']">
+                                    <span v-html="item.iconSVG" class="w-6 h-6 translate-y-px"></span>
+                                </a></li></ul></nav></aside>{% endraw %}`,
+            setup() {
+                const isCollapsed = ref(false);
+                const activeSectionId = ref('teoria-gj');
+                const navItems = ref([
+                    { id: 'teoria-gj', text: 'Fundamento Teórico', href: '#teoria-gj', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>' },
+                    { id: 'algoritmo-gj', text: 'Pasos del Algoritmo', href: '#algoritmo-gj', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" /></svg>' },
+                    { id: 'ejemplo-gj', text: 'Ejemplo Detallado', href: '#ejemplo-gj', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>' },
+                    { id: 'codigo-gj', text: 'Implementación (Python)', href: '#codigo-gj', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" /></svg>' },
+                    { id: 'graficas-gj', text: 'Visualización Interactiva', href: '#graficas-gj', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h12A2.25 2.25 0 0120.25 6v12A2.25 2.25 0 0118 20.25H6A2.25 2.25 0 013.75 18V6zM3.75 12h16.5M12 3.75v16.5" /></svg>' },
+                    { id: 'videos-gj', text: 'Videos Explicativos', href: '#videos-gj', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.75.75 0 010 1.656l-5.603 3.113A.75.75 0 019 15.95V9.05a.75.75 0 011.307-.588l5.603 3.112z" /></svg>' },
+                    { id: 'conclusion-gj', text: 'Conclusión', href: '#conclusion-gj', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' },
+                    { id: 'referencias-gj', text: 'Referencias', href: '#referencias-gj', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 3.75V16.5L12 14.25L7.5 16.5V3.75m9 0H18A2.25 2.25 0 0120.25 6v12A2.25 2.25 0 0118 20.25H6A2.25 2.25 0 013.75 18V6A2.25 2.25 0 016 3.75h1.5m9 0h-9" /></svg>' },
+                    { id: 'cuestionario-gj', text: 'Cuestionario', href: '#cuestionario-gj', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' }
+                ]);
+                let sections = [];
+                const toggleCollapse = () => isCollapsed.value = !isCollapsed.value;
+                const isActive = (id) => activeSectionId.value === id;
+                const smoothScroll = (targetHref) => {
+                    const targetId = targetHref.substring(1);
+                    const targetElement = document.getElementById(targetId);
+                    if (targetElement) {
+                        targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+                        history.pushState(null, null, targetHref);
+                    }
+                };
+                const handleScroll = () => {
+                    if (!sections.length) return;
+                    const scrollMarginTopValue = parseInt(getComputedStyle(sections[0]).scrollMarginTop) || 96;
+                    let newActiveSectionId = null;
+                    for (let i = 0; i < sections.length; i++) {
+                        const section = sections[i];
+                        const sectionTopBoundary = section.offsetTop - scrollMarginTopValue;
+                        const sectionBottomBoundary = sectionTopBoundary + section.offsetHeight;
+                        if (window.scrollY >= sectionTopBoundary && window.scrollY < sectionBottomBoundary) {
+                            newActiveSectionId = section.id; break;
+                        }
+                    }
+                    if (newActiveSectionId === null) {
+                        for (let i = sections.length - 1; i >= 0; i--) {
+                            if ((sections[i].offsetTop - scrollMarginTopValue) <= window.scrollY + 5) {
+                                newActiveSectionId = sections[i].id; break;
+                            }
+                        }
+                    }
+                     if (newActiveSectionId === null && sections.length > 0 && window.scrollY < (sections[0].offsetTop - scrollMarginTopValue)) {
+                       newActiveSectionId = sections[0].id;
+                    }
+                    if (activeSectionId.value !== newActiveSectionId) activeSectionId.value = newActiveSectionId;
+                };
+                onMounted(() => {
+                    nextTick(() => {
+                        sections = Array.from(document.querySelectorAll('main article section[id]'));
+                        handleScroll();
+                        window.addEventListener('scroll', handleScroll, { passive: true });
+                    });
+                });
+                onUnmounted(() => window.removeEventListener('scroll', handleScroll));
+                return { isCollapsed, toggleCollapse, navItems, isActive, smoothScroll, activeSectionId };
+            }
+        };
+        const appGJ = createApp({
+            setup() {
+                const METHOD_KEY_GJ_VUE = "gauss-jordan";
+                const METHOD_NAME_TITLE_CASE_GJ_VUE = "Gauss-Jordan";
+                return { METHOD_KEY_GJ_VUE, METHOD_NAME_TITLE_CASE_GJ_VUE };
+            }
+        });
+        appGJ.component('left-sidebar-gj', LeftSidebarGJ);
+        appGJ.config.compilerOptions.isCustomElement = tag => tag.startsWith('mjx-');
+        appGJ.mount('#app-gj');
+    </script>
+</body>
+</html>

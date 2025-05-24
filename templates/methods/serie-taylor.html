@@ -1,0 +1,1599 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Serie de Taylor - Métodos Numéricos</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- <link rel="stylesheet" href="../style.css"> --> <!-- Comentado para priorizar Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script> <!-- Tailwind CSS CDN -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'], // Establecer Inter como fuente sans por defecto
+                    },
+                    colors: {
+                        'custom-blue': '#242A38',
+                        'custom-red': '#E94560',
+                        'custom-gray-bg': '#F3F4F6', // Un gris más parecido al de Tailwind 'slate-100'
+                        'sidebar-bg': '#FFFFFF',
+                        'sidebar-text': '#4B5563', // Un gris un poco más oscuro para texto de sidebar (Tailwind gray-600)
+                        'sidebar-hover-bg': '#FEF2F2', // Rojo muy claro (Tailwind red-50)
+                        // Los colores activos ahora se aplicarán directamente con clases de Tailwind (bg-white, text-custom-blue)
+                        // 'sidebar-active-bg': '#E94560', // Ya no se usa directamente
+                        // 'sidebar-active-text': '#FFFFFF', // Ya no se usa directamente
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Configuración de MathJax para saltos de línea automáticos -->
+    <script>
+        window.MathJax = {
+            tex: {
+                packages: {'[+]': ['input/mml', 'output/chtml']}
+            },
+            chtml: { 
+                matchFontHeight: false // Ajuste común para mejorar consistencia
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore', // Clases a ignorar
+                processHtmlClass: 'tex2jax_process' // Clases a procesar
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <!-- Cargar Pyodide -->
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+    <!-- Cargar Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- Scripts de Skulpt eliminados -->
+    <style>
+        @keyframes animatedRainbowBorder {
+            0% { background-position: 0% center; }
+            100% { background-position: 200% center; }
+        }
+
+        .animate-rainbow-border {
+            position: relative; /* Necesario para el posicionamiento del pseudo-elemento */
+            z-index: 0; /* Asegura que el pseudo-elemento pueda estar detrás */
+        }
+
+        .animate-rainbow-border::before {
+            content: '';
+            position: absolute;
+            z-index: -1; /* Se posiciona detrás del contenido del elemento principal */
+            top: -2px;   /* Crea un "borde" de 2px */
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            border-radius: 9999px; /* Equivalente a rounded-full de Tailwind */
+            background: linear-gradient(
+                90deg, 
+                #ff0000, /* Rojo */
+                #ffff00, /* Amarillo */
+                #00ff00, /* Verde */
+                #00ffff, /* Cian */
+                #007bff, /* Azul */
+                #8a2be2, /* Púrpura */
+                #ff00ff, /* Magenta */
+                #ff0000  /* Rojo de nuevo para un bucle suave */
+            );
+            background-size: 200% 100%; /* El doble del ancho para que el gradiente se "mueva" */
+            animation: animatedRainbowBorder 3s linear infinite;
+        }
+
+        /* Styles for fullscreen code output - Taylor Series */
+        .ts-output-fullscreen {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 9990 !important; 
+            background-color: #111827 !important; /* bg-gray-900 */
+            padding: 20px !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+            overflow-y: auto !important;
+            max-height: 100vh !important;
+            /* Transitions will be handled by existing Tailwind classes on the pre tag */
+        }
+        .ts-body-fullscreen-active {
+            overflow: hidden !important;
+        }
+        /* Contenedor de controles de salida (fullscreen, +/- fuente) en modo pantalla completa - Taylor Series */
+        .ts-output-controls-container-fixed {
+            position: fixed !important;
+            top: 10px !important;
+            right: 10px !important; /* Adjusted from 50px */
+            z-index: 9995 !important; /* Encima del área de código fullscreen */
+            display: flex !important; /* For internal alignment of font buttons */
+            gap: 0.25rem !important; /* Space between font buttons */
+            /* Transitions will be handled by existing Tailwind classes */
+        }
+        /* Estilos para botones de fuente y sus animaciones de flash - Taylor Series */
+        .ts-font-button {
+            background-color: #374151; /* gray-700 */
+            color: white;
+            padding: 4px 8px;
+            border-radius: 0.375rem; /* rounded-md */
+            font-size: 0.75rem; /* text-xs */
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+            border: 1px solid #4B5563; /* gray-600 */
+        }
+        .ts-font-button:hover {
+            background-color: #4B5563; /* gray-600 */
+        }
+        .ts-font-button-flash-red {
+            animation: ts-flash-red 0.3s ease-in-out;
+        }
+        .ts-font-button-flash-blue {
+            animation: ts-flash-blue 0.3s ease-in-out;
+        }
+        @keyframes ts-flash-red {
+            0% { background-color: #EF4444; } /* red-500 */
+            100% { background-color: #374151; } /* gray-700 */
+        }
+        @keyframes ts-flash-blue {
+            0% { background-color: #3B82F6; } /* blue-500 */
+            100% { background-color: #374151; } /* gray-700 */
+        }
+    </style>
+</head>
+<body class="bg-custom-gray-bg text-gray-700 font-sans antialiased"> <!-- Antialiased para mejor renderizado de fuentes -->
+    <!-- Vue App Container -->
+    <div id="app">
+        <!-- Nuevo Header estilo Skiller -->
+        <header class="bg-custom-blue text-white shadow-md">
+            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                <h1 class="text-xl font-semibold">
+                    <a href="../index.html" class="hover:text-gray-300">Métodos Numéricos</a>
+                </h1>
+                <nav>
+                    <a href="../index.html#method-cards-container" class="text-sm px-4 py-2 rounded-md hover:bg-gray-700 transition-colors duration-150">Volver a Métodos</a>
+                </nav>
+            </div>
+        </header>
+
+        <!-- Contenedor principal flex para sidebar y contenido -->
+        <div class="container mx-auto mt-8 mb-8 flex flex-col lg:flex-row lg:space-x-8 px-4">
+            
+            <!-- Barra lateral de navegación izquierda del método (Reemplazada por componente Vue) -->
+            <left-sidebar></left-sidebar>
+            <!-- 
+            <aside class="w-full lg:w-1/4 bg-sidebar-bg shadow-xl rounded-lg p-6 self-start sticky top-8 mb-6 lg:mb-0 order-1">
+                <h3 class="text-lg font-semibold mb-5 text-custom-blue border-b border-gray-200 pb-3">Contenido del Método</h3>
+                <nav>
+                    <ul class="space-y-1.5">
+                        <li><a href="#teoria" class="nav-link block px-4 py-2.5 rounded-md text-sm font-medium text-sidebar-text hover:bg-sidebar-hover-bg hover:text-custom-red transition-colors duration-150">Fundamento Teórico</a></li>
+                        <li><a href="#algoritmo" class="nav-link block px-4 py-2.5 rounded-md text-sm font-medium text-sidebar-text hover:bg-sidebar-hover-bg hover:text-custom-red transition-colors duration-150">Algoritmo</a></li>
+                        <li><a href="#ejemplo" class="nav-link block px-4 py-2.5 rounded-md text-sm font-medium text-sidebar-text hover:bg-sidebar-hover-bg hover:text-custom-red transition-colors duration-150">Ejemplo Detallado</a></li>
+                        <li><a href="#codigo" class="nav-link block px-4 py-2.5 rounded-md text-sm font-medium text-sidebar-text hover:bg-sidebar-hover-bg hover:text-custom-red transition-colors duration-150">Código (Python)</a></li>
+                        <li><a href="#graficas" class="nav-link block px-4 py-2.5 rounded-md text-sm font-medium text-sidebar-text hover:bg-sidebar-hover-bg hover:text-custom-red transition-colors duration-150">Gráficas Interactivas</a></li>
+                        <li><a href="#videos" class="nav-link block px-4 py-2.5 rounded-md text-sm font-medium text-sidebar-text hover:bg-sidebar-hover-bg hover:text-custom-red transition-colors duration-150">Videos Explicativos</a></li>
+                        <li><a href="#conclusion" class="nav-link block px-4 py-2.5 rounded-md text-sm font-medium text-sidebar-text hover:bg-sidebar-hover-bg hover:text-custom-red transition-colors duration-150">Conclusión</a></li>
+                        <li><a href="#referencias" class="nav-link block px-4 py-2.5 rounded-md text-sm font-medium text-sidebar-text hover:bg-sidebar-hover-bg hover:text-custom-red transition-colors duration-150">Referencias</a></li>
+                        <li><a href="#progreso-metodo" class="nav-link block px-4 py-2.5 rounded-md text-sm font-medium text-sidebar-text hover:bg-sidebar-hover-bg hover:text-custom-red transition-colors duration-150">Tu Progreso</a></li>
+                        <li><a href="#cuestionario" class="nav-link block px-4 py-2.5 rounded-md text-sm font-medium text-sidebar-text hover:bg-sidebar-hover-bg hover:text-custom-red transition-colors duration-150">Cuestionario</a></li>
+                    </ul>
+                </nav>
+            </aside>
+            -->
+
+            <!-- Contenido principal del método -->
+            <main class="w-full flex-1 min-w-0 bg-white shadow-xl rounded-lg p-6 md:p-8 order-2 mb-6 lg:mb-0">
+                <article class="method-content">
+                    <h2 class="text-3xl font-bold mb-6 text-gray-800 border-b border-gray-200 pb-4">Serie de Taylor</h2>
+                
+                    <section id="teoria" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Fundamento Teórico (Según Chapra)</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            El teorema de Taylor y su corolario, la serie de Taylor, proporcionan un medio para predecir el valor de una función en un punto en términos del valor de la función y sus derivadas en otro punto.
+                            Específicamente, el teorema establece que cualquier función suave puede aproximarse por un polinomio.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            La <strong>serie de Taylor</strong> expande una función \(f(x)\) alrededor de un punto \(x_i\) (o \(a\) en la notación común). La forma general es:
+                        </p>
+                        <p style="text-align:center;" class="mb-4">
+                            \(f(x_{i+1}) = f(x_i) + f'(x_i)h + \frac{f''(x_i)}{2!}h^2 + \frac{f'''(x_i)}{3!}h^3 + \dots + \frac{f^{(n)}(x_i)}{n!}h^n + R_n\)
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            donde \(h = x_{i+1} - x_i\) es el tamaño del paso (o \(x-a\) en la notación común), y \(R_n\) es el término residual o error de truncamiento:
+                        </p>
+                        <p style="text-align:center;" class="mb-4">
+                            \(R_n = \frac{f^{(n+1)}(\xi)}{(n+1)!}h^{n+1}\)
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Este término residual indica que el error de truncamiento es de orden \(h^{n+1}\) (escrito como \(O(h^{n+1})\)). Si la expansión se centra en \(x_i=0\), se conoce como <strong>serie de Maclaurin</strong>.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed">
+                            La serie de Taylor es fundamental porque permite aproximar el valor de una función en un nuevo punto basándose en la información de un punto conocido, y también cuantifica el error de esta aproximación.
+                        </p>
+                    </section>
+
+                    <section id="algoritmo" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Pasos del Algoritmo (Aplicando la Serie de Taylor)</h3>
+                        <ol class="list-decimal list-inside space-y-3 pl-4 text-gray-600 leading-relaxed">
+                            <li><strong>Identificar la función \(f(x)\)</strong> que se desea aproximar y el punto \(x_{i+1}\) donde se quiere estimar la función.</li>
+                            <li><strong>Elegir un punto base \(x_i\)</strong> (o \(a\)) cercano a \(x_{i+1}\) donde la función \(f(x_i)\) y sus derivadas sean conocidas o fáciles de calcular.</li>
+                            <li><strong>Calcular el tamaño del paso \(h = x_{i+1} - x_i\)</strong>.</li>
+                            <li><strong>Determinar el orden de la aproximación (n)</strong>: cuántos términos de la serie se utilizarán. Una \(n\) mayor generalmente implica mayor precisión pero más cálculos.</li>
+                            <li><strong>Calcular las derivadas sucesivas</strong> de la función \(f(x)\) hasta el orden \(n\): \(f'(x), f''(x), \dots, f^{(n)}(x)\).</li>
+                            <li><strong>Evaluar la función y sus derivadas en el punto base \(x_i\)</strong>: \(f(x_i), f'(x_i), f''(x_i), \dots, f^{(n)}(x_i)\).</li>
+                            <li><strong>Sustituir los valores calculados en la fórmula de la serie de Taylor</strong> truncada hasta el término \(n\):
+                                <p style="text-align:center;">
+                                \(f(x_{i+1}) \approx f(x_i) + f'(x_i)h + \frac{f''(x_i)}{2!}h^2 + \dots + \frac{f^{(n)}(x_i)}{n!}h^n\)
+                                </p>
+                            </li>
+                            <li>(Opcional) <strong>Estimar el error de truncamiento \(R_n\)</strong> si se conoce la \((n+1)\)-ésima derivada.</li>
+                        </ol>
+                    </section>
+
+                    <section id="ejemplo" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Ejemplo Paso a Paso (Según Chapra)</h3>
+                        <p class="text-gray-600 leading-relaxed mb-3"><strong>Problema:</strong> Usar la expansión de la serie de Taylor de orden cero hasta cuarto para aproximar \(f(x) = -0.1x^4 - 0.15x^3 - 0.5x^2 - 0.25x + 1.2\) en \(x_{i+1} = 1\) partiendo del punto base \(x_i = 0\) (por lo tanto, \(h=1\)).</p>
+                        <p class="text-gray-600 leading-relaxed mb-3">Dado \(f(x) = -0.1x^4 - 0.15x^3 - 0.5x^2 - 0.25x + 1.2\).</p>
+                        <p class="text-gray-600 leading-relaxed mb-4">En el punto base \(x_i = 0\): \(f(0) = 1.2\).</p>
+                        
+                        <p class="font-medium text-gray-700 mb-1"><strong>Aproximación de orden cero (n=0):</strong></p>
+                        <p class="text-gray-600 leading-relaxed mb-1">\(f(x_{i+1}) \approx f(x_i)\)</p>
+                        <p class="text-gray-600 leading-relaxed mb-1">\(f(1) \approx f(0) = 1.2\)</p>
+                        <p class="text-gray-600 leading-relaxed mb-1">El valor verdadero es \(f(1) = -0.1(1)^4 - 0.15(1)^3 - 0.5(1)^2 - 0.25(1) + 1.2 = 0.2\).</p>
+                        <p class="text-gray-600 leading-relaxed mb-4">Error verdadero (\(E_t\)) = Valor verdadero - Aproximación = \(0.2 - 1.2 = -1.0\)</p>
+
+                        <p class="font-medium text-gray-700 mb-1"><strong>Aproximación de primer orden (n=1):</strong></p>
+                        <p class="text-gray-600 leading-relaxed mb-1">Necesitamos \(f'(x) = -0.4x^3 - 0.45x^2 - 1.0x - 0.25\). Evaluando en \(x_i=0\): \(f'(0) = -0.25\).</p>
+                        <p class="text-gray-600 leading-relaxed mb-1">\(f(x_{i+1}) \approx f(x_i) + f'(x_i)h\)</p>
+                        <p class="text-gray-600 leading-relaxed mb-1">\(f(1) \approx 1.2 + (-0.25)(1) = 0.95\)</p>
+                        <p class="text-gray-600 leading-relaxed mb-4">\(E_t = 0.2 - 0.95 = -0.75\)</p>
+
+                        <p class="font-medium text-gray-700 mb-1"><strong>Aproximación de segundo orden (n=2):</strong></p>
+                        <p class="text-gray-600 leading-relaxed mb-1">Necesitamos \(f''(x) = -1.2x^2 - 0.9x - 1.0\). Evaluando en \(x_i=0\): \(f''(0) = -1.0\).</p>
+                        <p class="text-gray-600 leading-relaxed mb-1">\(f(x_{i+1}) \approx f(x_i) + f'(x_i)h + \frac{f''(x_i)}{2!}h^2\)</p>
+                        <p class="text-gray-600 leading-relaxed mb-1">\(f(1) \approx 1.2 + (-0.25)(1) + \frac{-1.0}{2}(1)^2 = 1.2 - 0.25 - 0.5 = 0.45\)</p>
+                        <p class="text-gray-600 leading-relaxed mb-4">\(E_t = 0.2 - 0.45 = -0.25\)</p>
+
+                        <p class="font-medium text-gray-700 mb-1"><strong>Aproximación de tercer orden (n=3):</strong></p>
+                        <p class="text-gray-600 leading-relaxed mb-1">Necesitamos \(f'''(x) = -2.4x - 0.9\). Evaluando en \(x_i=0\): \(f'''(0) = -0.9\).</p>
+                        <p class="text-gray-600 leading-relaxed mb-1">\(f(x_{i+1}) \approx f(x_i) + f'(x_i)h + \frac{f''(x_i)}{2!}h^2 + \frac{f'''(x_i)}{3!}h^3\)</p>
+                        <p class="text-gray-600 leading-relaxed mb-1">\(f(1) \approx 0.45 + \frac{-0.9}{6}(1)^3 = 0.45 - 0.15 = 0.3\)</p>
+                        <p class="text-gray-600 leading-relaxed mb-4">\(E_t = 0.2 - 0.3 = -0.1\)</p>
+
+                        <p class="font-medium text-gray-700 mb-1"><strong>Aproximación de cuarto orden (n=4):</strong></p>
+                        <p class="text-gray-600 leading-relaxed mb-1">Necesitamos \(f^{(4)}(x) = -2.4\). Evaluando en \(x_i=0\): \(f^{(4)}(0) = -2.4\).</p>
+                        <p class="text-gray-600 leading-relaxed mb-1">\(f(x_{i+1}) \approx f(x_i) + f'(x_i)h + \frac{f''(x_i)}{2!}h^2 + \frac{f'''(x_i)}{3!}h^3 + \frac{f^{(4)}(x_i)}{4!}h^4\)</p>
+                        <p class="text-gray-600 leading-relaxed mb-1">\(f(1) \approx 0.3 + \frac{-2.4}{24}(1)^4 = 0.3 - 0.1 = 0.2\)</p>
+                        <p class="text-gray-600 leading-relaxed mb-1">\(E_t = 0.2 - 0.2 = 0\)</p>
+                        <p class="text-gray-600 leading-relaxed">En este caso, como el polinomio original es de cuarto orden, la serie de Taylor de cuarto orden produce el valor exacto.</p>
+                    </section>
+
+                    <section id="codigo" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Código de Implementación (Python) - Ejecutable</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">Puedes modificar y ejecutar el siguiente código Python directamente en el navegador para ver la aproximación de \(e^x\) usando la Serie de Taylor (Maclaurin).</p>
+                        <div class="code-editor-container bg-gray-50 p-4 rounded-lg shadow-inner">
+                            <textarea id="taylor-code-input" class="code-input w-full h-72 p-3 border border-gray-300 rounded-md font-mono text-sm" rows="25" style="resize: none;">
+import math
+
+# --- Definición de la Función y Derivadas (Ejemplo Chapra) ---
+def chapra_polynomial(x):
+    return -0.1*x**4 - 0.15*x**3 - 0.5*x**2 - 0.25*x + 1.2
+
+def chapra_derivatives(x_val):
+    """Calcula las derivadas de la función de Chapra en x_val."""
+    f0 = chapra_polynomial(x_val)
+    # f'(x) = -0.4x^3 - 0.45x^2 - 1.0x - 0.25
+    f1 = -0.4*x_val**3 - 0.45*x_val**2 - 1.0*x_val - 0.25
+    # f''(x) = -1.2x^2 - 0.9x - 1.0
+    f2 = -1.2*x_val**2 - 0.9*x_val - 1.0
+    # f'''(x) = -2.4x - 0.9
+    f3 = -2.4*x_val - 0.9
+    # f^(4)(x) = -2.4
+    f4 = -2.4
+    # f^(5)(x) = 0 (y todas las subsiguientes)
+    f5 = 0.0
+    return [f0, f1, f2, f3, f4, f5]
+
+def factorial(n):
+    if n < 0: return None # No definido para negativos
+    if n == 0: return 1
+    res = 1
+    for i in range(1, int(n) + 1): # Asegurar que n sea entero para range
+        res *= i
+    return float(res) # Devolver flotante para consistencia
+
+# --- Función Principal para la Serie de Taylor ---
+def calculate_taylor_series_chapra(x_target, x_base, max_order_n):
+    html_parts = []
+    chart_data_points = {'orders': [], 'approximations': [], 'terms_values': []}
+
+    h = float(x_target - x_base)
+    true_value = chapra_polynomial(x_target)
+    
+    derivatives_at_base = chapra_derivatives(x_base)
+
+    html_parts.append(f'<div style="text-align: center; font-weight: bold; margin-bottom:10px; font-size:1.1em;">Aproximación de Serie de Taylor para f(x)</div>')
+    func_definition = "-0.1x⁴ - 0.15x³ - 0.5x² - 0.25x + 1.2" # Con superíndices para HTML
+    html_parts.append(f'<p style="text-align:center; margin-bottom:5px;">Función: f(x) = {func_definition.replace("x^4","x<sup>4</sup>").replace("x^3","x<sup>3</sup>").replace("x^2","x<sup>2</sup>")}</p>')
+    html_parts.append(f'<p style="text-align:center; margin-bottom:5px;">Aproximando f({x_target}) expandiendo alrededor de x₀ = {x_base} (h = {h})</p>')
+    html_parts.append(f'<p style="text-align:center; margin-bottom:15px;">Valor verdadero f({x_target}) = {true_value:.8f}</p>')
+
+    html_parts.append('<table border="1" style="width:100%; border-collapse: collapse; margin-bottom:15px; font-size: 0.85em;">')
+    html_parts.append('<thead><tr>' +
+                      '<th style="padding:4px; text-align:center;">Orden (n)</th>' +
+                      '<th style="padding:4px; text-align:center;">Término f<sup>(n)</sup>(x₀)h<sup>n</sup>/n!</th>' +
+                      '<th style="padding:4px; text-align:center;">Aprox. f<sub>n</sub>({x_target})</th>' +
+                      '<th style="padding:4px; text-align:center;">Error Verd. (E<sub>t</sub>)</th>' +
+                      '<th style="padding:4px; text-align:center;">Error Rel. Ver. (ε<sub>t</sub> %)</th>' +
+                      '</tr></thead><tbody>')
+
+    current_approximation = 0.0
+    if max_order_n >= 0 and len(derivatives_at_base) > 0: # Orden cero
+        term_value = derivatives_at_base[0] # f(x_base)
+        current_approximation = term_value
+        error_true = true_value - current_approximation
+        error_rel_true_percent = (error_true / true_value) * 100 if true_value != 0 else float('inf')
+        
+        html_parts.append(f'<tr><td style="text-align:center;">0</td>' +
+                          f'<td style="text-align:right; padding-right:5px;">{term_value:.8f} (f(x₀))</td>' +
+                          f'<td style="text-align:right; padding-right:5px;">{current_approximation:.8f}</td>' +
+                          f'<td style="text-align:right; padding-right:5px;">{error_true:.8f}</td>' +
+                          f'<td style="text-align:right; padding-right:5px;">{error_rel_true_percent:.2f}%</td></tr>')
+        chart_data_points['orders'].append(0)
+        chart_data_points['approximations'].append(current_approximation)
+        chart_data_points['terms_values'].append(term_value)
+
+
+    for n_iter in range(1, int(max_order_n) + 1):
+        if n_iter < len(derivatives_at_base):
+            derivative_val = derivatives_at_base[n_iter] # f^(n)(x_base)
+            fact_n = factorial(n_iter)
+            if fact_n is None or fact_n == 0: # Evitar división por cero
+                term_value = float('inf') if derivative_val != 0 else 0.0
+            else:
+                term_value = (derivative_val * (h**n_iter)) / fact_n
+            
+            current_approximation += term_value
+            error_true = true_value - current_approximation
+            error_rel_true_percent = (error_true / true_value) * 100 if true_value != 0 else float('inf')
+
+            html_parts.append(f'<tr><td style="text-align:center;">{n_iter}</td>' +
+                              f'<td style="text-align:right; padding-right:5px;">{term_value:.8f}</td>' +
+                              f'<td style="text-align:right; padding-right:5px;">{current_approximation:.8f}</td>' +
+                              f'<td style="text-align:right; padding-right:5px;">{error_true:.8f}</td>' +
+                              f'<td style="text-align:right; padding-right:5px;">{error_rel_true_percent:.2f}%</td></tr>')
+            chart_data_points['orders'].append(n_iter)
+            chart_data_points['approximations'].append(current_approximation)
+            chart_data_points['terms_values'].append(term_value)
+        else:
+            html_parts.append(f'<tr><td style="text-align:center;">{n_iter}</td><td colspan="4" style="text-align:center; color:gray;">No hay suficientes derivadas precalculadas.</td></tr>')
+            break 
+            
+    html_parts.append('</tbody></table>')
+    html_parts.append(f'<div style="text-align:center; margin-top:10px; padding:5px; background-color:#e8f5e9; border:1px solid #a5d6a7; border-radius:4px; color: #000000;">')
+    html_parts.append(f'<b>Resumen:</b> Aproximación final de f({x_target}) con orden {int(max_order_n)} es <b>{current_approximation:.8f}</b>.<br>')
+    final_error = true_value - current_approximation
+    final_rel_error = (final_error / true_value) * 100 if true_value != 0 else float('inf')
+    html_parts.append(f'Error verdadero final: {final_error:.8f} (Relativo: {final_rel_error:.4f}%)</div>')
+
+    # --- Preparar datos para el gráfico ---
+    # X_values para la gráfica (e.g., de x_base - 2*abs(h) a x_target + 2*abs(h) o un rango fijo)
+    plot_x_min = min(x_base, x_target) - abs(h) if h != 0 else x_base - 1
+    plot_x_max = max(x_base, x_target) + abs(h) if h != 0 else x_base + 1
+    if plot_x_min == plot_x_max: # Caso h=0
+        plot_x_min -=1
+        plot_x_max +=1
+
+    num_plot_points = 100
+    plot_step = (plot_x_max - plot_x_min) / (num_plot_points -1) if num_plot_points > 1 else 1
+    
+    graph_x_vals = [plot_x_min + i * plot_step for i in range(num_plot_points)]
+    graph_y_true = [chapra_polynomial(x) for x in graph_x_vals]
+    
+    graph_y_taylor_orders = [] # Lista de listas (cada sublista es y_values para un orden n)
+    
+    temp_approx = 0.0
+    # Orden 0
+    if 0 <= max_order_n and len(derivatives_at_base)>0:
+        temp_approx = derivatives_at_base[0]
+        graph_y_taylor_orders.append([temp_approx for _ in graph_x_vals]) # Constante f(x_base)
+
+    # Ordenes 1 a max_order_n
+    for n in range(1, int(max_order_n) + 1):
+        if n < len(derivatives_at_base):
+            y_approx_current_order = []
+            # Recalcular la aproximación completa para cada x en graph_x_vals para este orden n
+            for x_plot_val in graph_x_vals:
+                current_sum_for_x = derivatives_at_base[0] # f(x0)
+                h_plot = x_plot_val - x_base
+                for k_term in range(1, n + 1):
+                    if k_term < len(derivatives_at_base):
+                         fact_k = factorial(k_term)
+                         term_val_plot = (derivatives_at_base[k_term] * (h_plot**k_term)) / fact_k if fact_k != 0 else float('inf')
+                         current_sum_for_x += term_val_plot
+                y_approx_current_order.append(current_sum_for_x)
+            graph_y_taylor_orders.append(y_approx_current_order)
+        else: # Si no hay suficientes derivadas, rellenar con None o lista vacía
+            graph_y_taylor_orders.append([None]*num_plot_points)
+
+
+    chart_package_data = {
+        "x_values_plot": graph_x_vals,
+        "y_true_plot": graph_y_true,
+        "y_taylor_orders_plot": graph_y_taylor_orders, # Lista de listas de aproximaciones
+        "max_order_calculated": min(max_order_n, len(derivatives_at_base)-1),
+        "point_of_expansion": x_base,
+        "target_point": x_target,
+        "derivatives_at_base": derivatives_at_base[:int(max_order_n)+1]
+    }
+    
+    return "".join(html_parts), chart_package_data
+
+# --- Parámetros de Ejemplo para Chapra ---
+# x_aprox_target = 1.0
+# x_expansion_base = 0.0
+# max_orden = 4
+# ---------------------------------------
+
+if __name__ == "__main__":
+    # Estos valores podrían venir de inputs en una UI, aquí son fijos para el ejemplo
+    # Tomados del ejemplo de Chapra para f(x) = -0.1x^4 - 0.15x^3 - 0.5x^2 - 0.25x + 1.2
+    # Aproximar f(1) expandiendo alrededor de x_base = 0.
+    param_x_target = 1.0
+    param_x_base = 0.0
+    param_max_order = 4 # Hasta orden 4
+
+    final_html_output, final_chart_data = calculate_taylor_series_chapra(param_x_target, param_x_base, param_max_order)
+
+    # En Pyodide, estas variables globales serán leídas por JavaScript.
+    # JavaScript debe haberlas inicializado en el scope global de Pyodide antes.
+    try:
+        global pyodide_ts_html_output
+        pyodide_ts_html_output = final_html_output
+    except NameError:
+        print("ERROR Python: 'pyodide_ts_html_output' no definido globalmente (esperado por JS).")
+        # print("\\n--- Salida HTML Generada (local) ---")
+        # print(final_html_output)
+
+
+    try:
+        global pyodide_ts_chart_data_package
+        # pyodide_ts_chart_data_package ya es un dict proxy de JS, se modifica
+        # Lo ideal sería que JS pase un dict proxy vacío y Python lo llene.
+        # Aquí, Python crea un nuevo dict y JS lo reemplaza o lee el nuevo.
+        # Mejor que JS cree el dict proxy y Python lo mute:
+        # pyodide_ts_chart_data_package.clear() # Si es un proxy de JS
+        # for key, value in final_chart_data.items():
+        #    pyodide_ts_chart_data_package[key] = value
+        # Pero para simplicidad, Python define y JS lee:
+        pyodide_ts_chart_data_package = final_chart_data
+
+    except NameError:
+        print("ERROR Python: 'pyodide_ts_chart_data_package' no definido globalmente (esperado por JS).")
+        # print("\\n--- Datos del Gráfico (local) ---")
+        # print(final_chart_data)
+                            </textarea>
+                            <button id="run-taylor-code-button" class="run-button mt-4 px-5 py-2.5 bg-custom-red text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 font-medium text-sm transition-colors duration-150">Ejecutar Código</button>
+                            
+                            <div class="relative">
+                                <div id="ts-output-controls-container" class="absolute top-2 right-2 z-10 flex items-center space-x-1 transition-all duration-500 ease-out">
+                                    <button id="ts-decrease-font-button" title="Disminuir fuente" class="ts-font-button p-1.5 font-semibold flex items-center justify-center" style="min-width: 30px;">
+                                        aa
+                                    </button>
+                                    <button id="ts-increase-font-button" title="Aumentar fuente" class="ts-font-button p-1.5 font-semibold flex items-center justify-center" style="min-width: 30px;">
+                                        AA
+                                    </button>
+                                    <button id="ts-fullscreen-output-button" title="Pantalla Completa" class="bg-gray-700 hover:bg-gray-600 text-white p-1.5 rounded-md text-xs">
+                                        <!-- SVG will be injected by JavaScript -->
+                                    </button>
+                                </div>
+                                <h4 class="mt-5 mb-2 text-lg font-semibold text-gray-700">Salida:</h4>
+                                <pre id="ts-code-output" class="code-output bg-gray-900 text-white p-4 pt-10 rounded-md min-h-[100px] whitespace-pre-wrap transition-all duration-500 ease-out text-xs leading-relaxed max-h-96 overflow-y-auto font-mono">Presiona "Ejecutar Código" para ver la salida.</pre>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="graficas" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Gráficas/Animaciones Interactivas</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">Visualización de cómo la aproximación de Taylor mejora al añadir más términos, basada en el ejemplo de Chapra (\(f(x) = -0.1x^4 - 0.15x^3 - 0.5x^2 - 0.25x + 1.2\) expandida alrededor de \(x=0\) para aproximar \(f(1)\)).</p>
+                        <div class="interactive-graphics w-full h-96 bg-white p-4 rounded-lg shadow-md">
+                            <canvas id="taylor-chapra-chart"></canvas>
+                            <p id="chart-loading-message" class="text-center text-gray-600 italic mt-2"><em>Cargando gráfica... (Requiere Pyodide)</em></p>
+                        </div>
+                    </section>
+
+                    <section id="videos" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Videos Explicativos</h3>
+                        <div class="video-embed w-full h-96">
+                            <iframe class="w-full h-full rounded-lg shadow-lg" src="https://www.youtube.com/embed/NY85ZX_NHmY" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+                        </div>
+                    </section>
+                
+                    <section id="conclusion" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Conclusión y Aplicaciones</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Las series de Taylor son fundamentales en matemáticas, física e ingeniería. Permiten aproximar funciones complicadas 
+                            con polinomios más simples, facilitando cálculos y análisis. Se usan en la resolución de ecuaciones diferenciales, 
+                            optimización, cálculo de límites, y en la derivación de otros métodos numéricos.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed">
+                            Por ejemplo, calculadoras y software científico usan aproximaciones polinómicas (derivadas de Taylor) para calcular 
+                            funciones trigonométricas, logarítmicas y exponenciales.
+                        </p>
+                    </section>
+
+                    <section id="referencias" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Referencias y Lecturas Adicionales</h3>
+                        <ul class="list-disc list-inside space-y-2 pl-4 text-gray-600 leading-relaxed">
+                            <li>Chapra, S. C., & Canale, R. P. (2015). <em>Numerical Methods for Engineers</em> (7th ed.). McGraw-Hill Education. (Capítulo 4)</li>
+                            <li>Burden, R. L., & Faires, J. D. (2011). <em>Numerical Analysis</em> (9th ed.). Brooks/Cole, Cengage Learning.</li>
+                        </ul>
+                    </section>
+
+                    <section id="cuestionario" class="scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Cuestionario: Serie de Taylor</h3>
+                        <form id="quiz-serie-taylor" class="space-y-6 bg-gray-50 p-6 rounded-lg shadow-inner">
+                            <!-- Pregunta 1 (Placeholder) -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">1. ¿Cuál es el propósito principal de la serie de Taylor?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 1</legend>
+                                    <div class="space-y-2">
+                                        <label for="q1-opt1-ts" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt1-ts" name="question-1-ts" type="radio" value="Encontrar raíces" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Encontrar las raíces de una función.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt2-ts" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt2-ts" name="question-1-ts" type="radio" value="Aproximar funciones" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Aproximar el valor de una función en un punto usando sus derivadas en otro punto.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt3-ts" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt3-ts" name="question-1-ts" type="radio" value="Integrar numéricamente" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Calcular la integral definida de una función.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-1-ts-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+                            <!-- Pregunta 2 (Placeholder) -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">2. Si una serie de Taylor se centra en x = 0, ¿cómo se llama específicamente?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 2</legend>
+                                    <div class="space-y-2">
+                                        <label for="q2-opt1-ts" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt1-ts" name="question-2-ts" type="radio" value="Serie de Fourier" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Serie de Fourier</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt2-ts" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt2-ts" name="question-2-ts" type="radio" value="Serie de Maclaurin" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Serie de Maclaurin</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt3-ts" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt3-ts" name="question-2-ts" type="radio" value="Serie Geométrica" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Serie Geométrica</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-2-ts-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+                             <!-- Pregunta 3 (Placeholder) -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">3. El término residual \(R_n\) en la serie de Taylor representa:</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 3</legend>
+                                    <div class="space-y-2">
+                                        <label for="q3-opt1-ts" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt1-ts" name="question-3-ts" type="radio" value="El siguiente término de la serie" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">El siguiente término que se añadiría a la serie.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt2-ts" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt2-ts" name="question-3-ts" type="radio" value="El error de truncamiento" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">El error cometido al truncar la serie después de n términos.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt3-ts" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt3-ts" name="question-3-ts" type="radio" value="El valor exacto de la función" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">El valor exacto de la función en el punto de expansión.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-3-ts-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+                            <button type="submit" class="mt-6 w-full px-6 py-3 bg-custom-red text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors duration-150">
+                                Enviar Respuestas
+                            </button>
+                        </form>
+                        <div id="quiz-feedback-serie-taylor" class="quiz-feedback-message mt-4 p-3 rounded-md text-sm" style="display: none;"></div>
+                    </section>
+
+                </article>
+            </main>
+
+            <!-- Barra lateral derecha de acciones y perfil -->
+            <aside class="w-full lg:w-1/4 bg-sidebar-bg shadow-xl rounded-lg p-6 self-start sticky top-8 order-3 space-y-6">
+                <!-- Perfil Placeholder -->
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-4">Perfil</h3>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex-shrink-0">
+                           <svg class="w-12 h-12 text-gray-400 bg-gray-100 rounded-full p-1 ring-1 ring-gray-200" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-800 text-md">Estudiante Modelo</p>
+                            <p class="text-sm text-gray-500">Aprendiz Activo</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Progreso del Método -->
+                <div class="pb-6 border-b border-gray-200 space-y-3">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide">Progreso en Serie de Taylor</h3>
+                    
+                    <!-- Lista de Tareas -->
+                    <ul class="space-y-2 text-sm">
+                        <li class="flex items-center">
+                            <span id="task-read-theory-status" class="task-status-icon mr-2 text-gray-400">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> <!-- Placeholder: círculo vacío -->
+                            </span>
+                            <span class="text-gray-600">Leer la teoría completa</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-run-code-status" class="task-status-icon mr-2 text-gray-400">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </span>
+                            <span class="text-gray-600">Ejecutar el código Python</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-attempted-status" class="task-status-icon mr-2 text-gray-400">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </span>
+                            <span class="text-gray-600">Intentar el cuestionario</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-passed-status" class="task-status-icon mr-2 text-gray-400">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            </span>
+                            <span class="text-gray-600">Aprobar el cuestionario</span>
+                        </li>
+                    </ul>
+
+                    <!-- Barra de Progreso General -->
+                    <div class="flex items-center justify-between mb-1 mt-3">
+                       <span class="text-xs font-medium text-custom-red">Progreso General</span>
+                       <span class="text-xs font-medium text-custom-red right-sidebar-progress-text">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div class="bg-custom-red h-3 rounded-full right-sidebar-progress-bar transition-width duration-500 ease-in-out" style="width: 0%"></div>
+                    </div>
+                    
+                    <!-- El botón de completar general podría eliminarse o su función redefinirse más adelante -->
+                    <button id="completion-serie-taylor-sidebar" class="mt-4 w-full completion-button px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 font-medium text-sm transition-colors duration-150">Marcar Todo Completado (Temp)</button>
+                </div>
+
+                <!-- Cuestionario -->
+                <!-- 
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Evaluación</h3>
+                    <a href="#cuestionario" class="block w-full text-center px-4 py-2 bg-custom-blue text-white rounded-md hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-custom-blue focus:ring-offset-2 font-medium text-sm transition-colors duration-150">Realizar Cuestionario</a>
+                </div>
+                -->
+
+                <!-- Recursos Rápidos Placeholder -->
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Recursos y Notas</h3>
+                    <p class="text-sm text-gray-600">
+                        <a href="https://archive.org/details/numerical-methods-for-engineers-7th-edit" target="_blank" rel="noopener noreferrer" class="hover:text-custom-red hover:underline">
+                            Métodos Numéricos para Ingenieros 7ma Edición de Chapra
+                        </a>
+                    </p>
+                    <img src="https://images.cdn3.buscalibre.com/fit-in/360x360/97/ff/97ffa61a8adb147e569e12c4f1f797b3.jpg" alt="Portada del libro Métodos Numéricos para Ingenieros de Chapra" class="mt-2 w-full rounded-md shadow-sm">
+                    <!-- Podríamos añadir un botón simple aquí -->
+                    <!-- <button class="mt-2 w-full text-left text-sm text-gray-500 hover:text-gray-700">(+) Añadir nota</button> -->
+                </div>
+
+                <!-- Siguiente Método Placeholder -->
+                <div>
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Siguiente Paso</h3>
+                    <a href="../methods/biseccion.html" class="group flex items-center text-sm font-medium text-custom-red hover:text-red-700 transition-colors duration-150">
+                       <span>Explorar Método de Bisección</span> 
+                       <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform duration-150" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </a>
+                </div>
+            </aside>
+
+        </div> <!-- Cierre del contenedor principal flex -->
+
+        <footer class="bg-custom-blue text-gray-300 text-center p-6 mt-12">
+            <p>&copy; 2024 Plataforma Educativa de Métodos Numéricos. <a href="../index.html" class="hover:text-white underline">Volver al inicio</a></p>
+        </footer>
+    </div> <!-- Fin #app -->
+
+    <!-- <script src="../script.js"></script> -->
+    <!-- Vue App Initialization Script -->
+    <script>
+        const { createApp, ref, onMounted, onUnmounted, computed } = Vue;
+
+        // Componente LeftSidebar
+        const LeftSidebar = { // Definición del componente LeftSidebar para Vue
+        props: {
+            pageThemeColor: { type: String, default: 'red' }, // Color base del tema (e.g., 'red', 'blue')
+            pageGradientFrom: { type: String, default: 'from-red-500' }, // Clase para inicio de gradiente
+            pageGradientTo: { type: String, default: 'to-red-700' },     // Clase para fin de gradiente
+            pageActiveTextColor: { type: String, default: 'text-custom-red' } // Texto activo para links, usa el color base
+        },
+        template: `{% raw %}
+            <aside 
+                :class="[
+                    'bg-gradient-to-b', pageGradientFrom, pageGradientTo,
+                    'shadow-xl', 'rounded-lg', 'p-4',
+                    'flex', 'flex-col',
+                    'transition-all', 'duration-300', 'ease-in-out',
+                    'order-1', 
+                    isCollapsed ? 'w-full lg:w-20' : 'w-full lg:w-64',
+                    'self-start', 
+                    'lg:sticky', 'lg:top-8', 
+                    'lg:max-h-[calc(100vh-4rem)]', // Altura máxima considerando 2rem (top-8) * 2 para arriba y abajo
+                    'overflow-y-auto' // Scroll si el contenido excede la altura máxima
+                ]"
+                aria-label="Sidebar de navegación del método">
+                <div :class="['flex justify-between items-center mb-4 border-b pb-3', 'border-' + pageThemeColor + '-400']">
+                    <h3 v-show="!isCollapsed" class="text-lg font-semibold text-white select-none">Contenido</h3>
+                    <button @click="toggleCollapse" :class="['p-1.5 ml-2 text-white rounded focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-75', 'hover:bg-' + pageThemeColor + '-600']" :aria-label="isCollapsed ? 'Expandir menú' : 'Colapsar menú'">
+                        <svg v-if="!isCollapsed" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5" />
+                        </svg>
+                        <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5m-6-15l7.5 7.5-7.5 7.5" />
+                        </svg>
+                    </button>
+                </div>
+                <nav v-show="!isCollapsed" class="flex-grow">
+                    <ul class="space-y-1">
+                        <li v-for="item in navItems" :key="item.id">
+                            <a :href="item.href"
+                               @click.prevent="smoothScroll(item.href)"
+                               :class="[
+                                   'nav-link block px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 flex items-center',
+                                   isActive(item.id) ? ['bg-white shadow-sm font-semibold', pageActiveTextColor] : ['text-' + pageThemeColor + '-100', 'hover:text-white', 'hover:bg-' + pageThemeColor + '-600']
+                               ]">
+                                <span v-html="item.iconSVG" class="mr-3 translate-y-px"></span>
+                                <span>{{ item.text }}</span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+                <nav v-show="isCollapsed" class="mt-4 flex-grow">
+                     <ul class="space-y-1">
+                        <li v-for="item in navItems" :key="item.id + '-collapsed'">
+                            <a :href="item.href"
+                               @click.prevent="smoothScroll(item.href)"
+                               :title="item.text"
+                               :aria-label="item.text"
+                               :class="[
+                                   'nav-link-collapsed block py-2 pl-2.5 pr-1.5 rounded-md transition-colors duration-150 flex justify-center items-center',
+                                   isActive(item.id) ? ['bg-white shadow-sm', pageActiveTextColor] : ['text-' + pageThemeColor + '-100', 'hover:text-white', 'hover:bg-' + pageThemeColor + '-600']
+                               ]">
+                                <span v-html="item.iconSVG" class="w-6 h-6 translate-y-px"></span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </aside>
+        {% endraw %}`,
+        setup(props) {
+            const isCollapsed = ref(false);
+            const activeSectionId = ref(null);
+            // navItems se define aquí o se pasa como prop si varía mucho entre páginas
+            const navItems = ref([
+                { id: 'teoria', text: 'Fundamento Teórico', href: '#teoria', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>' },
+                { id: 'algoritmo', text: 'Pasos del Algoritmo', href: '#algoritmo', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" /></svg>' },
+                { id: 'ejemplo', text: 'Ejemplo Detallado', href: '#ejemplo', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>' },
+                { id: 'codigo', text: 'Implementación (Python)', href: '#codigo', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" /></svg>' },
+                { id: 'graficas', text: 'Gráficas Interactivas', href: '#graficas', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>' },
+                { id: 'videos', text: 'Videos Explicativos', href: '#videos', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.75.75 0 010 1.656l-5.603 3.113A.75.75 0 019 15.95V9.05a.75.75 0 011.307-.588l5.603 3.112z" /></svg>' },
+                { id: 'conclusion-metodo', text: 'Conclusión y Aplicaciones', href: '#conclusion-metodo', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' },
+                { id: 'referencias', text: 'Referencias', href: '#referencias', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 3.75V16.5L12 14.25L7.5 16.5V3.75m9 0H18A2.25 2.25 0 0120.25 6v12A2.25 2.25 0 0118 20.25H6A2.25 2.25 0 013.75 18V6A2.25 2.25 0 016 3.75h1.5m9 0h-9" /></svg>' },
+                { id: 'cuestionario', text: 'Cuestionario', href: '#cuestionario', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' }
+            ]); // Asegúrate de que estos navItems sean los correctos para todas las páginas o ajústalos.
+
+            let sections = []; // Para el scroll-spy
+
+            const toggleCollapse = () => {
+                isCollapsed.value = !isCollapsed.value;
+            };
+
+            const isActive = (id) => {
+                return activeSectionId.value === id;
+            };
+            
+            const smoothScroll = (targetHref) => {
+                const targetId = targetHref.substring(1);
+                const targetElement = document.getElementById(targetId);
+                if (targetElement) {
+                    targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+                    history.pushState(null, null, targetHref); 
+                }
+            };
+
+            const handleScroll = () => {
+                if (!sections || sections.length === 0) return;
+                const scrollMarginTopValue = parseInt(getComputedStyle(sections[0]).scrollMarginTop) || 96; 
+                let newActiveSectionId = null;
+                for (let i = 0; i < sections.length; i++) {
+                    const section = sections[i];
+                    const sectionTopBoundary = section.offsetTop - scrollMarginTopValue;
+                    const sectionBottomBoundary = sectionTopBoundary + section.offsetHeight;
+                    if (window.scrollY >= sectionTopBoundary && window.scrollY < sectionBottomBoundary) {
+                        newActiveSectionId = section.id;
+                        break;
+                    }
+                }
+                if (newActiveSectionId === null && sections.length > 0) {
+                    for (let i = sections.length - 1; i >= 0; i--) {
+                        const section = sections[i];
+                        if ((section.offsetTop - scrollMarginTopValue) <= window.scrollY + 5) {
+                            newActiveSectionId = section.id;
+                            break;
+                        }
+                    }
+                }
+                 if (newActiveSectionId === null && sections.length > 0 && window.scrollY < (sections[0].offsetTop - scrollMarginTopValue)) {
+                    newActiveSectionId = sections[0].id;
+                 }
+                if (activeSectionId.value !== newActiveSectionId) {
+                    activeSectionId.value = newActiveSectionId;
+                }
+            };
+
+            onMounted(() => {
+                nextTick(() => {
+                    sections = Array.from(document.querySelectorAll('main article section[id]'));
+                    handleScroll(); 
+                    window.addEventListener('scroll', handleScroll, { passive: true });
+                });
+            });
+
+            onUnmounted(() => {
+                window.removeEventListener('scroll', handleScroll);
+            });
+
+            return {
+                isCollapsed,
+                toggleCollapse,
+                navItems,
+                isActive,
+                smoothScroll,
+                activeSectionId,
+                // pageThemeColor, pageGradientFrom, pageGradientTo, pageActiveTextColor // Expuestas desde props
+            };
+        }
+    };
+
+        const app = createApp({
+            setup() {
+                return {};
+            }
+        });
+
+        app.component('left-sidebar', LeftSidebar);
+
+        app.mount('#app');
+    </script>
+
+    <!-- START ST SCRIPT -->
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const PAGE_KEY_ST = 'serie-taylor';
+        const QUIZ_FORM_ID_ST = 'quiz-serie-taylor';
+        const QUIZ_FEEDBACK_ID_ST = 'quiz-feedback-serie-taylor';
+        const COMPLETION_BUTTON_ID_ST = 'completion-serie-taylor-sidebar';
+
+        const TASKS_ST = {
+            READ_THEORY: 'read_theory',
+            RUN_CODE: 'run_code',
+            QUIZ_ATTEMPTED: 'quiz_attempted',
+            QUIZ_PASSED: 'quiz_passed'
+        };
+        const ALL_TASK_KEYS_ST = Object.values(TASKS_ST);
+        const TOTAL_TASKS_ST = ALL_TASK_KEYS_ST.length;
+
+        const ICON_PENDING_ST = '<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0-4.418-4.03-8-9-8S3 7.582 3 12c0 1.454.402 2.813 1.098 3.977L3 21l5.023-1.098A8.902 8.902 0 0012 21c4.97 0 9-3.582 9-9z"></path></svg>';
+        const ICON_COMPLETED_ST = '<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>';
+        const ICON_IN_PROGRESS_ST = '<svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path></svg>';
+
+        const quizDataTaylor = {
+            'question-1-ts': { 
+                correct: 'Aproximar funciones',
+                feedbacks: {
+                    'Encontrar raíces': 'Incorrecto. Aunque las aproximaciones de Taylor pueden ayudar indirectamente, su propósito principal no es encontrar raíces directamente.',
+                    'Integrar numéricamente': 'Incorrecto. Las series de Taylor pueden usarse para derivar fórmulas de integración numérica, pero su objetivo primario es la aproximación de la propia función.'
+                }
+            },
+            'question-2-ts': {
+                correct: 'Serie de Maclaurin',
+                feedbacks: {
+                    'Serie de Fourier': 'Incorrecto. La Serie de Fourier se utiliza para representar funciones periódicas.',
+                    'Serie Geométrica': 'Incorrecto. Una serie geométrica es aquella con una razón fija entre términos consecutivos.'
+                }
+            },
+            'question-3-ts': {
+                correct: 'El error de truncamiento',
+                feedbacks: {
+                    'El siguiente término de la serie': 'Incorrecto. El término residual \'R_n\' representa la suma de todos los términos omitidos.',
+                    'El valor exacto de la función': 'Incorrecto. El valor exacto en el punto de expansión es el primer término de la serie.'
+                }
+            }
+        };
+
+        const mainCompletionButtonST = document.getElementById(COMPLETION_BUTTON_ID_ST);
+        const quizFormST = document.getElementById(QUIZ_FORM_ID_ST);
+        const generalQuizFeedbackDivST = document.getElementById(QUIZ_FEEDBACK_ID_ST);
+
+        const taskStatusIconsST = ALL_TASK_KEYS_ST.reduce((acc, key) => {
+            acc[key] = document.getElementById(`task-${key.replace(/_/g, '-')}-status`); // e.g. task-read-theory-status
+            return acc;
+        }, {});
+        const overallProgressTextST = document.querySelector('#app .right-sidebar-progress-text'); 
+        const overallProgressBarST = document.querySelector('#app .right-sidebar-progress-bar');
+        
+        function getPageProgressFromStorage_ST(pKey) {
+            const progress = JSON.parse(localStorage.getItem(pKey)) || {};
+            const defaultStructure = ALL_TASK_KEYS_ST.reduce((obj, task) => ({ ...obj, [task]: false }), {});
+            defaultStructure.overall_progress = 0;
+            defaultStructure.user_quiz_answers = {};
+            defaultStructure.quiz_current_score = 0;
+            defaultStructure.quiz_total_questions = Object.keys(quizDataTaylor).length;
+            defaultStructure.quiz_feedback_active = false;
+            return { ...defaultStructure, ...progress };
+        }
+
+        function savePageProgressToStorage_ST(pKey, progressData) {
+            localStorage.setItem(pKey, JSON.stringify(progressData));
+        }
+        
+        function updateTaskStatusInStorageST(taskName, isCompleted) {
+            const currentProgress = getPageProgressFromStorage_ST(PAGE_KEY_ST);
+            if (currentProgress[taskName] !== isCompleted) {
+                currentProgress[taskName] = isCompleted;
+                if (taskName === TASKS_ST.QUIZ_ATTEMPTED && !isCompleted) {
+                    currentProgress[TASKS_ST.QUIZ_PASSED] = false;
+                    currentProgress.user_quiz_answers = {};
+                    currentProgress.quiz_current_score = 0;
+                    currentProgress.quiz_feedback_active = false;
+                }
+                if (taskName === TASKS_ST.QUIZ_PASSED && isCompleted) {
+                    currentProgress[TASKS_ST.QUIZ_ATTEMPTED] = true;
+                }
+                savePageProgressToStorage_ST(PAGE_KEY_ST, currentProgress);
+                calculateAndUpdateOverallProgressST();
+            }
+        }
+
+        function renderTaskStatusST() {
+            const progress = getPageProgressFromStorage_ST(PAGE_KEY_ST);
+            ALL_TASK_KEYS_ST.forEach(taskKey => {
+                const iconElement = taskStatusIconsST[taskKey];
+                if (iconElement) {
+                    let newIconHTML = ICON_PENDING_ST;
+                    if (progress[taskKey] === true) newIconHTML = ICON_COMPLETED_ST;
+                    else if (taskKey === TASKS_ST.QUIZ_PASSED && progress[TASKS_ST.QUIZ_ATTEMPTED] === true) newIconHTML = ICON_IN_PROGRESS_ST;
+                    iconElement.innerHTML = newIconHTML;
+                }
+            });
+        }
+        
+        function calculateAndUpdateOverallProgressST() {
+            const progress = getPageProgressFromStorage_ST(PAGE_KEY_ST);
+            let completedTasksCount = ALL_TASK_KEYS_ST.filter(taskKey => progress[taskKey] === true).length;
+            const percentage = TOTAL_TASKS_ST > 0 ? (completedTasksCount / TOTAL_TASKS_ST) * 100 : 0;
+            progress.overall_progress = percentage;
+            savePageProgressToStorage_ST(PAGE_KEY_ST, progress);
+
+            if (overallProgressBarST) {
+                overallProgressBarST.style.width = `${percentage.toFixed(0)}%`;
+                overallProgressBarST.classList.toggle('animate-rainbow-border', percentage.toFixed(0) === '100');
+            }
+            if (overallProgressTextST) overallProgressTextST.textContent = `${percentage.toFixed(0)}%`;
+            renderTaskStatusST();
+            updateMainCompletionButtonStateST();
+        }
+
+        function handleMarkAllMouseEnter_ST() {
+            if (mainCompletionButtonST && mainCompletionButtonST.dataset.isUndo === "true") {
+                mainCompletionButtonST.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+                mainCompletionButtonST.classList.add('bg-red-600', 'hover:bg-red-700');
+            }
+        }
+
+        function handleMarkAllMouseLeave_ST() {
+            if (mainCompletionButtonST && mainCompletionButtonST.dataset.isUndo === "true") {
+                mainCompletionButtonST.classList.remove('bg-red-600', 'hover:bg-red-700');
+                mainCompletionButtonST.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+            }
+        }
+
+        function updateMainCompletionButtonStateST() {
+            if (!mainCompletionButtonST) return;
+            const progress = getPageProgressFromStorage_ST(PAGE_KEY_ST);
+            const allTasksCompleted = ALL_TASK_KEYS_ST.every(taskKey => progress[taskKey] === true);
+
+            mainCompletionButtonST.removeEventListener('mouseenter', handleMarkAllMouseEnter_ST);
+            mainCompletionButtonST.removeEventListener('mouseleave', handleMarkAllMouseLeave_ST);
+            mainCompletionButtonST.classList.remove('bg-green-600', 'hover:bg-green-700', 'bg-yellow-500', 'hover:bg-yellow-600', 'bg-red-600', 'hover:bg-red-700');
+
+            if (allTasksCompleted) {
+                mainCompletionButtonST.textContent = 'Deshacer Completado';
+                mainCompletionButtonST.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+                mainCompletionButtonST.dataset.isUndo = "true";
+                mainCompletionButtonST.addEventListener('mouseenter', handleMarkAllMouseEnter_ST);
+                mainCompletionButtonST.addEventListener('mouseleave', handleMarkAllMouseLeave_ST);
+            } else {
+                mainCompletionButtonST.textContent = 'Marcar Todo Completado';
+                mainCompletionButtonST.classList.add('bg-green-600', 'hover:bg-green-700');
+                mainCompletionButtonST.dataset.isUndo = "false";
+            }
+        }
+
+        function handleMainCompletionClickST() {
+            const progress = getPageProgressFromStorage_ST(PAGE_KEY_ST);
+            const allCurrentlyCompleted = ALL_TASK_KEYS_ST.every(taskKey => progress[taskKey] === true);
+            const markAllAs = !allCurrentlyCompleted;
+
+            ALL_TASK_KEYS_ST.forEach(taskName => updateTaskStatusInStorageST(taskName, markAllAs));
+
+            if (!markAllAs) { // Deshacer
+                let currentProgress = getPageProgressFromStorage_ST(PAGE_KEY_ST); // Re-fetch after updates
+                currentProgress.user_quiz_answers = {};
+                currentProgress.quiz_current_score = 0;
+                currentProgress.quiz_feedback_active = false;
+                savePageProgressToStorage_ST(PAGE_KEY_ST, currentProgress);
+                if (quizFormST) {
+                    quizFormST.reset();
+                    const submitButton = quizFormST.querySelector('button[type="submit"]');
+                    if (submitButton) {
+                        submitButton.textContent = 'Enviar Respuestas';
+                        submitButton.disabled = false;
+                    }
+                    quizFormST.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                    clearAllVisualFeedbackST(true); // True to restore default hover
+                }
+                if(generalQuizFeedbackDivST) generalQuizFeedbackDivST.style.display = 'none';
+            }
+            calculateAndUpdateOverallProgressST();
+            alert(markAllAs ? 'Todas las tareas marcadas como completadas.' : 'Se ha deshecho el completado de todas las tareas.');
+        }
+        
+        function clearAllVisualFeedbackST(restoreDefaultHover = false) {
+            if (!quizFormST) return;
+            quizFormST.querySelectorAll('input[type="radio"]').forEach(input => {
+                const wrapper = input.closest('label.quiz-option-wrapper');
+                if (wrapper) {
+                    wrapper.classList.remove('border-green-500', 'bg-green-50', 'ring-green-500', 'border-red-500', 'bg-red-50', 'ring-red-500', 'ring-1');
+                    if(restoreDefaultHover){
+                         wrapper.classList.add('border-gray-300', 'hover:border-gray-400', 'has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                    } else {
+                        // Si no restauramos hover, al menos quitar clases de :checked que no sean las de Tailwind
+                        wrapper.classList.remove('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                        // Y asegurar que las clases base de Tailwind para :checked estén si no se aplica validación
+                        if(!wrapper.classList.contains('border-green-500') && !wrapper.classList.contains('border-red-500')){
+                            wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                        }
+                    }
+                    const feedbackIconPlaceholder = wrapper.querySelector('.feedback-icon-placeholder span');
+                    if (feedbackIconPlaceholder) feedbackIconPlaceholder.innerHTML = '';
+                }
+            });
+            quizFormST.querySelectorAll('.specific-question-feedback').forEach(div => {
+                div.textContent = '';
+                div.style.display = 'none';
+            });
+            if (generalQuizFeedbackDivST) generalQuizFeedbackDivST.style.display = 'none';
+        }
+
+        function displayQuizFeedbackST() {
+            if (!quizFormST) return;
+            const progress = getPageProgressFromStorage_ST(PAGE_KEY_ST);
+            const userAnswers = progress.user_quiz_answers || {};
+            const quizButton = quizFormST.querySelector('button[type="submit"]');
+
+            clearAllVisualFeedbackST(false); // False: no restaurar hover por defecto aún, se hará selectivamente
+
+            for (const questionName in quizDataTaylor) {
+                const questionData = quizDataTaylor[questionName];
+                const correctAnswerValue = questionData.correct;
+                const userAnswerValue = userAnswers[questionName];
+                const specificFeedbackDiv = document.getElementById(`${questionName}-specific-feedback`);
+
+                const radioInputs = quizFormST.querySelectorAll(`input[name="${questionName}"]`);
+                radioInputs.forEach(input => {
+                    const wrapper = input.closest('label.quiz-option-wrapper');
+                    if (!wrapper) return;
+                    const feedbackIconSpan = wrapper.querySelector('.feedback-icon-placeholder span');
+                    wrapper.classList.remove('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+
+                    if (input.value === userAnswerValue) { // Opción que el usuario seleccionó
+                        input.checked = true; // Asegurar que esté visualmente seleccionada
+                        if (userAnswerValue === correctAnswerValue) {
+                            wrapper.classList.add('border-green-500', 'bg-green-50', 'ring-1', 'ring-green-500');
+                            if(feedbackIconSpan) feedbackIconSpan.innerHTML = '✔️';
+                        } else {
+                            wrapper.classList.add('border-red-500', 'bg-red-50', 'ring-1', 'ring-red-500');
+                            if(feedbackIconSpan) feedbackIconSpan.innerHTML = '❌';
+                            if (specificFeedbackDiv && questionData.feedbacks[userAnswerValue]) {
+                                specificFeedbackDiv.textContent = questionData.feedbacks[userAnswerValue];
+                                specificFeedbackDiv.style.display = 'block';
+                            } else if (specificFeedbackDiv) {
+                                specificFeedbackDiv.textContent = "Respuesta incorrecta.";
+                                specificFeedbackDiv.style.display = 'block';
+                            }
+                        }
+                    } else { // Opciones no seleccionadas por el usuario
+                        // Restaurar clases de Tailwind para hover y :checked por defecto
+                        wrapper.classList.add('border-gray-300', 'hover:border-gray-400', 'has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                    }
+                });
+            }
+
+            if (progress.quiz_passed) {
+                if (quizButton) {
+                    quizButton.textContent = 'Cuestionario Aprobado';
+                    quizButton.disabled = true;
+                }
+                quizFormST.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = true);
+                if (generalQuizFeedbackDivST) {
+                    generalQuizFeedbackDivST.innerHTML = '<p class="text-green-700 font-medium">¡Felicidades! Has aprobado. Todas tus respuestas son correctas.</p>';
+                    generalQuizFeedbackDivST.className = 'quiz-feedback-message mt-4 p-4 rounded-md text-sm bg-green-50 border border-green-200';
+                    generalQuizFeedbackDivST.style.display = 'block';
+                }
+            } else if (progress.quiz_feedback_active) { // Intentado pero no aprobado O clic en "Intentar de Nuevo" pero aún no enviado
+                 if (quizButton) {
+                    quizButton.textContent = 'Intentar de Nuevo';
+                    quizButton.disabled = false;
+                }
+                quizFormST.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                if (generalQuizFeedbackDivST) {
+                    generalQuizFeedbackDivST.innerHTML = '<p class="text-red-700 font-medium">Algunas respuestas son incorrectas. Revisa el feedback e inténtalo de nuevo.</p>';
+                    generalQuizFeedbackDivST.className = 'quiz-feedback-message mt-4 p-4 rounded-md text-sm bg-red-50 border border-red-200';
+                    generalQuizFeedbackDivST.style.display = 'block';
+                }
+            } else { // Estado inicial o después de un reset completo (no solo click en "Intentar de Nuevo")
+                if (quizButton) {
+                    quizButton.textContent = 'Enviar Respuestas';
+                    quizButton.disabled = false;
+                }
+                quizFormST.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                if(generalQuizFeedbackDivST) generalQuizFeedbackDivST.style.display = 'none';
+                clearAllVisualFeedbackST(true); // Asegurar estilos por defecto y hover
+            }
+        }
+
+        if (quizFormST) {
+            quizFormST.addEventListener('submit', function(event) {
+                event.preventDefault();
+                const currentLocalProgress = getPageProgressFromStorage_ST(PAGE_KEY_ST);
+                const submitButton = quizFormST.querySelector('button[type="submit"]');
+
+                if (currentLocalProgress.quiz_passed) return;
+
+                if (submitButton && submitButton.textContent === 'Intentar de Nuevo') {
+                    quizFormST.reset();
+                    clearAllVisualFeedbackST(true);
+                    if(generalQuizFeedbackDivST) generalQuizFeedbackDivST.style.display = 'none';
+                    
+                    let progressToSave = getPageProgressFromStorage_ST(PAGE_KEY_ST);
+                    progressToSave.user_quiz_answers = {};
+                    progressToSave.quiz_current_score = 0;
+                    progressToSave.quiz_feedback_active = false;
+                    progressToSave[TASKS_ST.QUIZ_PASSED] = false; // Asegurar que no esté como pasado
+                    // NO se resetea quiz_attempted, ya que el intento ocurrió.
+                    savePageProgressToStorage_ST(PAGE_KEY_ST, progressToSave);
+                    
+                    submitButton.textContent = 'Enviar Respuestas';
+                    quizFormST.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                    // No llamar a displayQuizFeedbackST aquí, queremos el form limpio.
+                    calculateAndUpdateOverallProgressST(); 
+                    return;
+                }
+
+                // Explicitly hide general feedback before processing a new submission.
+                // This ensures that if the "Por favor, responde todas las preguntas" message
+                // was shown, it's cleared now. If the condition to show it again is met,
+                // it will be re-shown. Otherwise, displayQuizFeedbackST will handle other messages.
+                if (generalQuizFeedbackDivST) {
+                    generalQuizFeedbackDivST.style.display = 'none';
+                    generalQuizFeedbackDivST.innerHTML = ''; // Clear content as well
+                }
+                
+                const formData = new FormData(quizFormST);
+                let allAnswered = true;
+                let score = 0;
+                const userAnswersData = {};
+                
+                for (const questionName in quizDataTaylor) {
+                    const userAnswer = formData.get(questionName);
+                    if (userAnswer === null) {
+                        allAnswered = false;
+                        break;
+                    }
+                    userAnswersData[questionName] = userAnswer;
+                    if (userAnswer === quizDataTaylor[questionName].correct) {
+                        score++;
+                    }
+                }
+
+                if (!allAnswered) {
+                    if(generalQuizFeedbackDivST) {
+                        generalQuizFeedbackDivST.innerHTML = '<p class="text-yellow-700 font-medium">Por favor, responde todas las preguntas antes de enviar.</p>';
+                        generalQuizFeedbackDivST.className = 'quiz-feedback-message mt-4 p-4 rounded-md text-sm bg-yellow-50 border border-yellow-200';
+                        generalQuizFeedbackDivST.style.display = 'block';
+                    } else {
+                        alert("Por favor, responde todas las preguntas antes de enviar.");
+                    }
+                    return;
+                }
+
+                updateTaskStatusInStorageST(TASKS_ST.QUIZ_ATTEMPTED, true);
+                const passed = score === Object.keys(quizDataTaylor).length;
+                updateTaskStatusInStorageST(TASKS_ST.QUIZ_PASSED, passed);
+
+                let progressToSave = getPageProgressFromStorage_ST(PAGE_KEY_ST); // Re-fetch before updating more
+                progressToSave.user_quiz_answers = userAnswersData;
+                progressToSave.quiz_current_score = score;
+                progressToSave.quiz_feedback_active = true; 
+                savePageProgressToStorage_ST(PAGE_KEY_ST, progressToSave);
+                
+                displayQuizFeedbackST(); 
+                calculateAndUpdateOverallProgressST();
+            });
+        }
+        
+        const runButtonST = document.getElementById('run-taylor-code-button');
+        const codeInputST = document.getElementById('taylor-code-input');
+        const codeOutputST = document.getElementById('ts-code-output'); // Corrected ID
+        const graphCanvasST = document.getElementById('taylor-chapra-chart');
+        const chartLoadingMessageST = document.getElementById('chart-loading-message');
+        let pyodideInstanceST = null;
+
+        // --- START: Fullscreen and Font Control Logic for Code Output (Adapted from Regla Falsa) ---
+        const fullscreenButton_ST = document.getElementById('ts-fullscreen-output-button');
+        const codeOutput_ST = document.getElementById('ts-code-output');
+        const outputControlsContainer_ST = document.getElementById('ts-output-controls-container');
+        // const fullscreenIcon_ST = document.getElementById('ts-fullscreen-icon'); // Not directly used in RF logic structure for button innerHTML
+        // const exitFullscreenIcon_ST = document.getElementById('ts-exit-fullscreen-icon'); // Not directly used
+
+        const increaseFontButton_ST = document.getElementById('ts-increase-font-button');
+        const decreaseFontButton_ST = document.getElementById('ts-decrease-font-button');
+        let originalOutputFontSize_ST = '';
+        const MIN_FONT_SIZE_PX_ST = 8;
+        const MAX_FONT_SIZE_PX_ST = 28;
+        const FONT_SIZE_STEP_PX_ST = 1;
+        let stCodeOutputInitialRect = null; // To store initial state for flip-like effect
+
+        // Set initial icon for the fullscreen button
+        if (fullscreenButton_ST) {
+            fullscreenButton_ST.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15" />
+                </svg>`;
+            fullscreenButton_ST.title = "Ver en pantalla completa";
+        }
+
+        // Listener for the fullscreen button of the code output
+        if (fullscreenButton_ST && codeOutput_ST && outputControlsContainer_ST) {
+            fullscreenButton_ST.addEventListener('click', () => {
+                const isFullscreen = codeOutput_ST.classList.contains('ts-output-fullscreen');
+                
+                if (isFullscreen) {
+                    // === EXITING FULLSCREEN ===
+                    outputControlsContainer_ST.style.opacity = '0'; // Fade out container
+                    if(increaseFontButton_ST) increaseFontButton_ST.style.display = 'none'; // Hide buttons immediately
+                    if(decreaseFontButton_ST) decreaseFontButton_ST.style.display = 'none';
+
+                    if (stCodeOutputInitialRect) {
+                        const finalRect = codeOutput_ST.getBoundingClientRect();
+                        const scaleX = stCodeOutputInitialRect.width / finalRect.width;
+                        const scaleY = stCodeOutputInitialRect.height / finalRect.height;
+                        const deltaX = (stCodeOutputInitialRect.left + stCodeOutputInitialRect.width / 2) - (finalRect.left + finalRect.width / 2);
+                        const deltaY = (stCodeOutputInitialRect.top + stCodeOutputInitialRect.height / 2) - (finalRect.top + finalRect.height / 2);
+                        codeOutput_ST.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+                    }
+
+                    setTimeout(() => {
+                        codeOutput_ST.style.transition = 'none'; 
+                        codeOutput_ST.classList.remove('ts-output-fullscreen');
+                        document.body.classList.remove('ts-body-fullscreen-active');
+                        
+                        outputControlsContainer_ST.classList.remove('ts-output-controls-container-fixed');
+                        // Ensure container is visible for non-fullscreen state after transition
+                        outputControlsContainer_ST.style.transition = 'none'; // Temporarily remove transition for opacity reset
+                        outputControlsContainer_ST.style.opacity = '1';
+                        outputControlsContainer_ST.offsetHeight; // Force reflow
+                        outputControlsContainer_ST.style.transition = ''; // Restore original class-based transitions
+
+                        codeOutput_ST.style.transform = '';
+                        if (originalOutputFontSize_ST) {
+                            codeOutput_ST.style.fontSize = originalOutputFontSize_ST;
+                        }
+                        codeOutput_ST.offsetHeight; 
+                        codeOutput_ST.style.transition = ''; 
+
+                        fullscreenButton_ST.innerHTML = `
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15" />
+                            </svg>`;
+                        fullscreenButton_ST.title = "Ver en pantalla completa";
+                        stCodeOutputInitialRect = null; 
+                    }, 500); 
+
+                } else {
+                    // === ENTERING FULLSCREEN ===
+                    originalOutputFontSize_ST = window.getComputedStyle(codeOutput_ST).fontSize;
+                    stCodeOutputInitialRect = codeOutput_ST.getBoundingClientRect(); 
+                    
+                    outputControlsContainer_ST.style.transition = 'none'; // Disable transition for initial opacity set
+                    outputControlsContainer_ST.style.opacity = '0';     // Make container invisible before it moves
+                    outputControlsContainer_ST.offsetHeight; // Force reflow
+                    outputControlsContainer_ST.style.transition = ''; // Re-enable class-based transitions for move
+
+                    codeOutput_ST.style.transition = 'none'; 
+
+                    codeOutput_ST.classList.add('ts-output-fullscreen');
+                    document.body.classList.add('ts-body-fullscreen-active');
+                    outputControlsContainer_ST.classList.add('ts-output-controls-container-fixed'); // Moves container (while invisible)
+                    
+                    const finalRect = codeOutput_ST.getBoundingClientRect(); 
+
+                    const scaleX = stCodeOutputInitialRect.width / finalRect.width;
+                    const scaleY = stCodeOutputInitialRect.height / finalRect.height;
+                    const deltaX = (stCodeOutputInitialRect.left + stCodeOutputInitialRect.width / 2) - (finalRect.left + finalRect.width / 2);
+                    const deltaY = (stCodeOutputInitialRect.top + stCodeOutputInitialRect.height / 2) - (finalRect.top + finalRect.height / 2);
+
+                    codeOutput_ST.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+                    
+                    codeOutput_ST.offsetHeight; 
+
+                    codeOutput_ST.style.transition = ''; 
+                    codeOutput_ST.style.transform = 'translate(0px, 0px) scale(1)'; // Start main zoom
+
+                    fullscreenButton_ST.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9V4.5M15 9h4.5M15 9l5.25-5.25M15 15v4.5M15 15h4.5M15 15l5.25 5.25" />
+                        </svg>`;
+                    fullscreenButton_ST.title = "Salir de pantalla completa";
+                    
+                    setTimeout(() => {
+                        outputControlsContainer_ST.style.opacity = '1'; // Fade in container
+                        if(increaseFontButton_ST) increaseFontButton_ST.style.display = 'inline-flex';
+                        if(decreaseFontButton_ST) decreaseFontButton_ST.style.display = 'inline-flex';
+                    }, 500); 
+                }
+            });
+        }
+
+        if (increaseFontButton_ST && codeOutput_ST) {
+            increaseFontButton_ST.addEventListener('click', () => {
+                if (codeOutput_ST.classList.contains('ts-output-fullscreen')) {
+                    let currentSize = parseFloat(window.getComputedStyle(codeOutput_ST).fontSize);
+                    if (currentSize < MAX_FONT_SIZE_PX_ST) {
+                        codeOutput_ST.style.fontSize = (currentSize + FONT_SIZE_STEP_PX_ST) + 'px';
+                        increaseFontButton_ST.classList.add('ts-font-button-flash-blue');
+                        setTimeout(() => {
+                            increaseFontButton_ST.classList.remove('ts-font-button-flash-blue');
+                        }, 400); 
+                    }
+                }
+            });
+        }
+
+        if (decreaseFontButton_ST && codeOutput_ST) {
+            decreaseFontButton_ST.addEventListener('click', () => {
+                if (codeOutput_ST.classList.contains('ts-output-fullscreen')) {
+                    let currentSize = parseFloat(window.getComputedStyle(codeOutput_ST).fontSize);
+                    if (currentSize > MIN_FONT_SIZE_PX_ST) {
+                        codeOutput_ST.style.fontSize = (currentSize - FONT_SIZE_STEP_PX_ST) + 'px';
+                        decreaseFontButton_ST.classList.add('ts-font-button-flash-red');
+                        setTimeout(() => {
+                            decreaseFontButton_ST.classList.remove('ts-font-button-flash-red');
+                        }, 400); 
+                    }
+                }
+            });
+        }
+        // Ocultar botones de fuente inicialmente
+        if(increaseFontButton_ST) increaseFontButton_ST.style.display = 'none';
+        if(decreaseFontButton_ST) decreaseFontButton_ST.style.display = 'none';
+        // --- END: Fullscreen and Font Control Logic ---
+        
+        // Pyodide Initialization and Execution
+        async function initializePyodideST() {
+            if (window.loadPyodide && !pyodideInstanceST) {
+                if (codeOutputST) codeOutputST.textContent = "Cargando Pyodide...";
+                if (chartLoadingMessageST) chartLoadingMessageST.textContent = "Cargando Pyodide...";
+                try {
+                    pyodideInstanceST = await window.loadPyodide();
+                    if (codeOutputST) codeOutputST.textContent = "Pyodide cargado. Presiona 'Ejecutar Código'.";
+                    if (chartLoadingMessageST) chartLoadingMessageST.textContent = "Pyodide cargado. Generando gráfica...";
+                } catch (error) {
+                    console.error('Error al cargar Pyodide:', error);
+                    if (codeOutputST) codeOutputST.textContent = "Error al cargar Pyodide.";
+                    if (chartLoadingMessageST) chartLoadingMessageST.textContent = "Error al cargar Pyodide para la gráfica.";
+                }
+            }
+            return pyodideInstanceST;
+        }
+        
+        async function runTaylorCode() {
+            const pyodide = await initializePyodideST();
+            if (!pyodide) {
+                if(codeOutputST) codeOutputST.textContent = "Pyodide no inicializado.";
+                return;
+            }
+            if (!codeInputST || !codeOutputST) return;
+            const pythonCode = codeInputST.value;
+            if(codeOutputST) codeOutputST.innerHTML = "<p>Ejecutando código...</p>"; // Usar innerHTML para mensajes
+            if(chartLoadingMessageST) chartLoadingMessageST.textContent = "Generando datos...";
+
+            try {
+                // Limpiar/Reiniciar las variables globales de Pyodide antes de la ejecución del script Python
+                pyodide.globals.set("pyodide_ts_html_output", "");
+                let chartPackageProxy = pyodide.globals.get("pyodide_ts_chart_data_package");
+                if (chartPackageProxy && typeof chartPackageProxy.clear === 'function') {
+                    chartPackageProxy.clear();
+                } else { // Si no es un proxy o no tiene clear, reinicializar
+                    pyodide.globals.set("pyodide_ts_chart_data_package", pyodide.toPy({}));
+                }
+                
+                await pyodide.loadPackagesFromImports(pythonCode);
+                
+                console.log("[Taylor Series] Antes de pyodide.runPythonAsync...");
+                await pyodide.runPythonAsync(pythonCode);
+                console.log("[Taylor Series] Después de pyodide.runPythonAsync.");
+
+                // Recuperar la salida HTML y los datos del gráfico DESPUÉS de la ejecución de Python
+                const htmlResult = pyodide.globals.get("pyodide_ts_html_output");
+                const chartDataForLog = pyodide.globals.get("pyodide_ts_chart_data_package").toJs({ dict_converter: Object.fromEntries });
+
+                console.log("[Taylor Series] Contenido de pyodide_ts_html_output:", htmlResult);
+                console.log("[Taylor Series] Contenido de pyodide_ts_chart_data_package:", chartDataForLog);
+
+                if (codeOutputST) {
+                    if (htmlResult && htmlResult.trim() !== "") {
+                        codeOutputST.innerHTML = htmlResult;
+                    } else {
+                        codeOutputST.innerHTML = "<p>Ejecución completada. No se generó salida HTML visible. Revisa la consola del navegador para más detalles.</p>";
+                    }
+                }
+                
+                updateTaskStatusInStorageST(TASKS_ST.RUN_CODE, true);
+                await drawTaylorChart(); // Llamar para dibujar/actualizar el gráfico
+
+            } catch (error) { 
+                console.error("[Taylor Series] Error durante la ejecución del script Python o procesamiento posterior:", error);
+                if (codeOutputST) {
+                    codeOutputST.innerHTML = `<p style="color:red;">Error en la ejecución (ver consola): ${error.message ? error.message.replace(/</g, "&lt;").replace(/>/g, "&gt;") : String(error).replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`;
+                    if (error.stack) {
+                        codeOutputST.innerHTML += `<pre style="color:pink; font-size:0.8em; white-space:pre-wrap;">${error.stack.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`;
+                    }
+                }
+                if (chartLoadingMessageST) chartLoadingMessageST.textContent = "Error al generar datos. Revisa la consola.";
+            }
+        }
+
+        async function drawTaylorChart() {
+            const pyodide = await initializePyodideST();
+            if (!pyodide) {
+                if(chartLoadingMessageST) chartLoadingMessageST.textContent = 'Pyodide no inicializado para gráfica.';
+                return;
+            }
+            if (!graphCanvasST) return;
+            if(chartLoadingMessageST) chartLoadingMessageST.textContent = 'Generando datos para la gráfica...';
+            try {
+                const finalPythonCodeForChart = `
+import math
+def chapra_polynomial(x): return -0.1*x**4 - 0.15*x**3 - 0.5*x**2 - 0.25*x + 1.2
+def factorial(n):
+    if n == 0: return 1
+    res = 1
+    for i in range(1, n + 1): res *= i
+    return res
+x_values = [i * 0.25 for i in range(-8, 9)]
+y_true = [chapra_polynomial(x) for x in x_values]
+f0, f_prime0, f_double_prime0, f_triple_prime0, f_quad_prime0 = 1.2, -0.25, -1.0, -0.9, -2.4
+y_taylor_0 = [f0 for x in x_values]
+y_taylor_1 = [f0 + f_prime0*x for x in x_values]
+y_taylor_2 = [f0 + f_prime0*x + (f_double_prime0/2)*x**2 for x in x_values]
+y_taylor_3 = [f0 + f_prime0*x + (f_double_prime0/2)*x**2 + (f_triple_prime0/6)*x**3 for x in x_values]
+y_taylor_4 = [f0 + f_prime0*x + (f_double_prime0/2)*x**2 + (f_triple_prime0/6)*x**3 + (f_quad_prime0/24)*x**4 for x in x_values]
+{
+    "x_values": x_values, "y_true": y_true, "y_taylor_0": y_taylor_0, "y_taylor_1": y_taylor_1,
+    "y_taylor_2": y_taylor_2, "y_taylor_3": y_taylor_3, "y_taylor_4": y_taylor_4
+}
+                `;
+                let chartDataPy = await pyodide.runPythonAsync(finalPythonCodeForChart);
+                const chartData = chartDataPy.toJs({ dict_converter: Object.fromEntries });
+                chartDataPy.destroy();
+
+                if (window.taylorChartInstanceST) window.taylorChartInstanceST.destroy();
+                const ctx = graphCanvasST.getContext('2d');
+                window.taylorChartInstanceST = new Chart(ctx, { 
+                    type: 'line', 
+                    data: { 
+                        labels: chartData.x_values.map(x => x.toFixed(2)), 
+                        datasets: [ 
+                            { label: 'Función Verdadera f(x)', data: chartData.y_true, borderColor: 'rgb(54, 162, 235)'},
+                            { label: 'Taylor Orden 0', data: chartData.y_taylor_0, borderColor: 'rgb(255, 99, 132)' }, 
+                            { label: 'Taylor Orden 1', data: chartData.y_taylor_1, borderColor: 'rgb(75, 192, 192)' }, 
+                            { label: 'Taylor Orden 2', data: chartData.y_taylor_2, borderColor: 'rgb(255, 205, 86)' }, 
+                            { label: 'Taylor Orden 3', data: chartData.y_taylor_3, borderColor: 'rgb(153, 102, 255)' }, 
+                            { label: 'Taylor Orden 4 (Exacta)', data: chartData.y_taylor_4, borderColor: 'rgb(255, 159, 64)' } 
+                        ].map(ds => ({...ds, borderWidth: ds.label.includes('Exacta') ? 2 : 1.5, borderDash: ds.label.includes('Orden') && !ds.label.includes('Exacta') ? [5,5] : [], fill: false, tension: 0.1}))
+                    }, 
+                    options: { responsive: true, maintainAspectRatio: false, scales: { x: { title: { display: true, text: 'x' } }, y: { title: { display: true, text: 'f(x)' } } }, plugins: { legend: { position: 'top' }, title: { display: true, text: "Aproximaciones de Serie de Taylor vs Función Original" } } } 
+                });
+                if(chartLoadingMessageST) chartLoadingMessageST.style.display = 'none';
+            } catch (error) {
+                console.error('Error al dibujar gráfica Taylor:', error);
+                if(chartLoadingMessageST) chartLoadingMessageST.textContent = `Error al generar gráfica: ${error.message || String(error)}`;
+            }
+        }
+
+        if (runButtonST) runButtonST.addEventListener('click', runTaylorCode);
+        
+        const conclusionSectionST = document.getElementById('conclusion');
+        if (conclusionSectionST) {
+            const observerOptionsST = { root: null, rootMargin: '0px', threshold: 0.1 }; // Menor threshold para disparar antes
+            const observerCallbackST = (entries, observerInstance) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const currentProgress = getPageProgressFromStorage_ST(PAGE_KEY_ST);
+                        if (!currentProgress[TASKS_ST.READ_THEORY]) {
+                            updateTaskStatusInStorageST(TASKS_ST.READ_THEORY, true);
+                            observerInstance.unobserve(entry.target);
+                        }
+                    }
+                });
+            };
+            const theoryObserverST = new IntersectionObserver(observerCallbackST, observerOptionsST);
+            theoryObserverST.observe(conclusionSectionST);
+        }
+
+        if (mainCompletionButtonST) mainCompletionButtonST.addEventListener('click', handleMainCompletionClickST);
+
+        async function initPageST() {
+            if (runButtonST || graphCanvasST) {
+                await initializePyodideST();
+                if (graphCanvasST && pyodideInstanceST) {
+                   await drawTaylorChart(); 
+                }
+            }
+            const initialProgress = getPageProgressFromStorage_ST(PAGE_KEY_ST);
+            if (initialProgress.quiz_feedback_active || initialProgress.quiz_passed) {
+                displayQuizFeedbackST();
+            }
+            calculateAndUpdateOverallProgressST();
+        }
+
+        initPageST();
+    });
+    </script>
+    <!-- END ST SCRIPT -->
+
+</body>
+</html> 

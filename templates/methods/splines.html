@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Splines de Interpolación - Métodos Numéricos</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+    <header>
+        <h1><a href="../index.html" style="color: inherit; text-decoration: none;">Métodos Numéricos</a></h1>
+        <nav>
+            <ul>
+                <!-- Generado por script.js -->
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <article class="method-content">
+            <h2>Splines de Interpolación</h2>
+            
+            <section id="teoria">
+                <h3>Fundamento Teórico</h3>
+                <p>
+                    La interpolación polinómica global, usando un único polinomio de alto grado para ajustar todos los puntos de datos, puede llevar a oscilaciones indeseadas (fenómeno de Runge) y ser sensible a pequeños cambios en los datos. Los <strong>splines de interpolación</strong> ofrecen una alternativa más robusta y suave al ajustar los datos por tramos utilizando polinomios de bajo grado.
+                </p>
+                <p>
+                    Un spline es una función definida a trozos por polinomios, donde cada "trozo" interpola un subconjunto de los puntos de datos. Para asegurar la suavidad de la curva resultante, se imponen condiciones de continuidad en los puntos de conexión entre los polinomios (llamados "nudos", que en el caso de la interpolación suelen ser los propios puntos de datos). Estas condiciones usualmente se refieren a la igualdad de la función y sus derivadas en los nudos.
+                </p>
+                <p>
+                    Los tipos más comunes de splines son los lineales, cuadráticos y cúbicos.
+                </p>
+            </section>
+
+            <section id="algoritmo">
+                <h3>Tipos de Splines</h3>
+                <h4>1. Splines Lineales</h4>
+                <p>
+                    El spline lineal es el más simple. Consiste en conectar pares consecutivos de puntos de datos \\((x_i, y_i)\\) y \\((x_{i+1}, y_{i+1})\\) mediante segmentos de recta.
+                    Para cada intervalo \\([x_i, x_{i+1}]\\), el spline \\(S_i(x)\\) se define como:
+                </p>
+                <p style="text-align:center;"><em>\\[ S_i(x) = y_i + \\frac{y_{i+1} - y_i}{x_{i+1} - x_i} (x - x_i) \\]</em></p>
+                <p>
+                    Los splines lineales son continuos (\\(C^0\\)), pero sus derivadas (pendientes) son discontinuas en los nudos, lo que resulta en una curva con "esquinas".
+                </p>
+
+                <h4>2. Splines Cuadráticos</h4>
+                <p>
+                    Los splines cuadráticos utilizan polinomios de segundo grado para cada intervalo \\([x_i, x_{i+1}]\\).
+                    \\(S_i(x) = a_i x^2 + b_i x + c_i\\).
+                    Para determinar los coeficientes, se imponen las siguientes condiciones:
+                </p>
+                <ul>
+                    <li>Cada spline debe pasar por los puntos de datos en sus extremos.</li>
+                    <li>Las primeras derivadas de los splines adyacentes deben ser iguales en los nudos interiores (continuidad \\(C^1\\)).</li>
+                </ul>
+                <p>
+                    Esto genera un sistema de ecuaciones. Generalmente, se necesita una condición adicional para determinar todos los coeficientes (por ejemplo, especificar la derivada en el primer punto).
+                </p>
+
+                <h4>3. Splines Cúbicos</h4>
+                <p>
+                    Los splines cúbicos son los más utilizados debido a su suavidad. Utilizan polinomios de tercer grado para cada intervalo:
+                    \\(S_i(x) = a_i x^3 + b_i x^2 + c_i x + d_i\\).
+                    Se imponen las siguientes condiciones:
+                </p>
+                <ul>
+                    <li>Cada spline debe pasar por los puntos de datos en sus extremos: \\(S_i(x_i) = y_i\\) y \\(S_i(x_{i+1}) = y_{i+1}\\).</li>
+                    <li>Las primeras derivadas de los splines adyacentes deben ser iguales en los nudos interiores: \\(S\'_{i-1}(x_i) = S\'_i(x_i)\\).</li>
+                    <li>Las segundas derivadas de los splines adyacentes deben ser iguales en los nudos interiores: \\(S\'\'_{i-1}(x_i) = S\'\'_i(x_i)\\) (continuidad \\(C^2\\)).</li>
+                </ul>
+                <p>
+                    Estas condiciones generan un sistema de ecuaciones para los coeficientes. Se necesitan dos condiciones adicionales, que usualmente se especifican en los extremos de la curva. Algunas opciones comunes son:
+                </p>
+                <ul>
+                    <li><strong>Spline Cúbico Natural:</strong> Las segundas derivadas en los puntos extremos son cero (\\(S\'\'_0(x_0) = 0\\) y \\(S\'\'_{n-1}(x_n) = 0\\)). Esto implica que la curva se aplana en los extremos.</li>
+                    <li><strong>Spline Sujeto (Clamped):</strong> Se especifican las primeras derivadas en los puntos extremos.</li>
+                </ul>
+                <p>
+                    Para un spline cúbico natural con \\(n+1\\) puntos \\((x_0, y_0), \ldots, (x_n, y_n)\\), se forma un sistema de ecuaciones tridiagonal para las segundas derivadas \\(M_i = S\'\'_i(x_i)\\) en los nudos, que luego se usa para encontrar los coeficientes de los polinomios cúbicos.
+                </p>
+            </section>
+
+            <section id="ejemplo">
+                <h3>Ejemplo: Spline Cúbico Natural</h3>
+                <p>
+                    Supongamos que tenemos los siguientes puntos: \\((0,0), (1,1), (2,0)\\).
+                    Buscamos dos polinomios cúbicos:
+                    \\(S_0(x) = a_0 x^3 + b_0 x^2 + c_0 x + d_0\\) para \\(x \in [0,1]\\)
+                    \\(S_1(x) = a_1 (x-1)^3 + b_1 (x-1)^2 + c_1 (x-1) + d_1\\) para \\(x \in [1,2]\\) (forma desplazada para simplificar)
+                </p>
+                <p>
+                    Condiciones:
+                    <ol>
+                        <li>\\(S_0(0) = 0 \Rightarrow d_0 = 0\\)</li>
+                        <li>\\(S_0(1) = 1 \Rightarrow a_0 + b_0 + c_0 + d_0 = 1\\)</li>
+                        <li>\\(S_1(1) = 1 \Rightarrow d_1 = 1\\) (en forma desplazada, esto es y_1)</li>
+                        <li>\\(S_1(2) = 0 \Rightarrow a_1(1)^3 + b_1(1)^2 + c_1(1) + d_1 = 0 \Rightarrow a_1+b_1+c_1+d_1 = 0\\)</li>
+                        <li>Continuidad de primeras derivadas en \\(x=1\\): \\(S\'_0(1) = S\'_1(1)\\)
+                            \\(S\'_0(x) = 3a_0 x^2 + 2b_0 x + c_0 \Rightarrow S\'_0(1) = 3a_0 + 2b_0 + c_0\\)
+                            \\(S\'_1(x) = 3a_1 (x-1)^2 + 2b_1 (x-1) + c_1 \Rightarrow S\'_1(1) = c_1\\)
+                            Así, \\(3a_0 + 2b_0 + c_0 = c_1\\)
+                        </li>
+                        <li>Continuidad de segundas derivadas en \\(x=1\\): \\(S\'\'_0(1) = S\'\'_1(1)\\)
+                            \\(S\'\'_0(x) = 6a_0 x + 2b_0 \Rightarrow S\'\'_0(1) = 6a_0 + 2b_0\\)
+                            \\(S\'\'_1(x) = 6a_1 (x-1) + 2b_1 \Rightarrow S\'\'_1(1) = 2b_1\\)
+                            Así, \\(6a_0 + 2b_0 = 2b_1 \Rightarrow 3a_0 + b_0 = b_1\\)
+                        </li>
+                        <li>Condiciones de spline natural: \\(S\'\'_0(0) = 0\\) y \\(S\'\'_1(2) = 0\\)
+                            \\(S\'\'_0(0) = 2b_0 = 0 \Rightarrow b_0 = 0\\)
+                            \\(S\'\'_1(2) = 6a_1(1) + 2b_1 = 0 \Rightarrow 6a_1 + 2b_1 = 0 \Rightarrow 3a_1 + b_1 = 0\\)
+                        </li>
+                    </ol>
+                </p>
+                <p>
+                    Sustituyendo \\(d_0=0, b_0=0\):
+                    <ol>
+                        <li>De (2): \\(a_0 + c_0 = 1 \Rightarrow c_0 = 1 - a_0\\)</li>
+                        <li>De (6) con \\(b_0=0\): \\(3a_0 = b_1\\)</li>
+                        <li>De (8) con \\(b_1=3a_0\): \\(3a_1 + 3a_0 = 0 \Rightarrow a_1 = -a_0\\)</li>
+                        <li>De (5) con \\(b_0=0, c_0=1-a_0, c_1=3a_0+2b_0+c_0\): \\(c_1 = 3a_0 + 1 - a_0 = 2a_0+1\\)</li>
+                        <li>De (4) con \\(d_1=1, a_1=-a_0, b_1=3a_0, c_1=2a_0+1\):<br>
+                            \\(-a_0 + 3a_0 + (2a_0+1) + 1 = 0\\)<br>
+                            \\(4a_0 + 2 = 0 \Rightarrow a_0 = -1/2\\)
+                        </li>
+                    </ol>
+                    Entonces:
+                    \\(a_0 = -1/2\\) <br>
+                    \\(b_0 = 0\\) <br>
+                    \\(c_0 = 1 - (-1/2) = 3/2\\) <br>
+                    \\(d_0 = 0\\) <br>
+                    \\(a_1 = -a_0 = 1/2\\) <br>
+                    \\(b_1 = 3a_0 = -3/2\\) <br>
+                    \\(c_1 = 2a_0+1 = 2(-1/2)+1 = 0\\) <br>
+                    \\(d_1 = 1\\)
+                </p>
+                <p>
+                    Polinomios:
+                    \\(S_0(x) = -\frac{1}{2} x^3 + \frac{3}{2} x\\) para \\(x \in [0,1]\\) <br>
+                    \\(S_1(x) = \frac{1}{2} (x-1)^3 - \frac{3}{2} (x-1)^2 + 1\\) para \\(x \in [1,2]\\)
+                </p>
+            </section>
+
+            <section id="codigo">
+                <h3>Código de Implementación (Python con SciPy)</h3>
+                <p>La implementación de splines cúbicos desde cero implica resolver un sistema tridiagonal. La biblioteca SciPy ofrece una función conveniente.</p>
+                <div class="code-block">
+                    <pre>
+<code>
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.interpolate import CubicSpline
+
+# Puntos de datos del ejemplo
+x_points = np.array([0, 1, 2])
+y_points = np.array([0, 1, 0])
+
+# Crear el spline cúbico natural (bc_type='natural' es el predeterminado)
+cs = CubicSpline(x_points, y_points, bc_type='natural')
+
+# Puntos para graficar la curva del spline
+x_smooth = np.linspace(x_points.min(), x_points.max(), 200)
+y_smooth = cs(x_smooth)
+
+# Coeficientes de los polinomios S_i(x) = a_i(x-x_i)^3 + b_i(x-x_i)^2 + c_i(x-x_i) + d_i
+# Los coeficientes están en cs.c, donde cs.c[k,i] es el coeficiente de (x-x_i)^(3-k) para el i-ésimo polinomio
+# cs.c[0,i] es a_i, cs.c[1,i] es b_i, cs.c[2,i] es c_i, cs.c[3,i] es d_i
+# Para S_0(x) = a_0 x^3 + b_0 x^2 + c_0 x + d_0, con x_0=0:
+#   d_0 = cs.c[3,0]
+#   c_0 = cs.c[2,0]
+#   b_0 = cs.c[1,0]
+#   a_0 = cs.c[0,0]
+# Para S_1(x) = a_1 (x-1)^3 + b_1 (x-1)^2 + c_1 (x-1) + d_1, con x_1=1:
+#   d_1 = cs.c[3,1]
+#   c_1 = cs.c[2,1]
+#   b_1 = cs.c[1,1]
+#   a_1 = cs.c[0,1]
+
+print("Coeficientes (SciPy forma P_i(x) = c_0i (x-x_i)^3 + c_1i (x-x_i)^2 + ...):")
+# cs.c[k,i] es el coeficiente del término de grado (order-1-k) del i-ésimo polinomio.
+# Para un spline cúbico (order=3), order-1-k va de 3 a 0.
+# cs.c[0,i] -> (x-x_i)^3
+# cs.c[1,i] -> (x-x_i)^2
+# cs.c[2,i] -> (x-x_i)^1
+# cs.c[3,i] -> (x-x_i)^0
+print("Polinomio 0 (para [0,1]):")
+print(f"  a0 (x-0)^3 = {cs.c[0,0]:.4f}") # Corresponde a a0 = -0.5
+print(f"  b0 (x-0)^2 = {cs.c[1,0]:.4f}") # Corresponde a b0 = 0.0
+print(f"  c0 (x-0)^1 = {cs.c[2,0]:.4f}") # Corresponde a c0 = 1.5
+print(f"  d0 (x-0)^0 = {cs.c[3,0]:.4f}") # Corresponde a d0 = 0.0
+
+print("\\nPolinomio 1 (para [1,2]):")
+print(f"  a1 (x-1)^3 = {cs.c[0,1]:.4f}") # Corresponde a a1 = 0.5
+print(f"  b1 (x-1)^2 = {cs.c[1,1]:.4f}") # Corresponde a b1 = -1.5
+print(f"  c1 (x-1)^1 = {cs.c[2,1]:.4f}") # Corresponde a c1 = 0.0
+print(f"  d1 (x-1)^0 = {cs.c[3,1]:.4f}") # Corresponde a d1 = 1.0
+
+# Graficar
+plt.figure(figsize=(8, 5))
+plt.plot(x_smooth, y_smooth, label='Spline Cúbico Natural (SciPy)')
+plt.plot(x_points, y_points, 'o', label='Puntos de Datos')
+plt.xlabel('x')
+plt.ylabel('y')
+plt.title('Interpolación con Spline Cúbico Natural')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+# Verificar valores en los puntos
+print(f"\\nValor del spline en x=0: {cs(0):.4f} (esperado: 0)")
+print(f"Valor del spline en x=1: {cs(1):.4f} (esperado: 1)")
+print(f"Valor del spline en x=2: {cs(2):.4f} (esperado: 0)")
+
+# Verificar segundas derivadas en los extremos (deben ser cercanas a cero para spline natural)
+# cs.derivative(nu=2)(x) calcula la segunda derivada
+print(f"Segunda derivada en x=0: {cs.derivative(nu=2)(0):.4f} (esperado: 0 para natural)")
+print(f"Segunda derivada en x=2: {cs.derivative(nu=2)(2):.4f} (esperado: 0 para natural)")
+
+</code>
+                    </pre>
+                </div>
+                 <div class="interactive-graphics" style="text-align:left; padding-left: 0;">
+                     <h4>Ejecución de Código en Línea (Placeholder)</h4>
+                     <p>Permitir al usuario ingresar puntos (x,y) y ver el spline resultante (lineal, cuadrático o cúbico).</p>
+                </div>
+            </section>
+
+            <section id="graficas">
+                <h3>Visualización del Spline</h3>
+                <div class="interactive-graphics" id="splines-graph-container">
+                    <p><em>(Placeholder: Aquí se podría mostrar una gráfica generada con el código anterior o una herramienta interactiva para explorar cómo cambian los splines con diferentes puntos o condiciones de contorno.)</em></p>
+                </div>
+            </section>
+
+            <section id="videos">
+                <h3>Videos Explicativos</h3>
+                <div class="video-embed">
+                    <p><em>(Placeholder para embed de YouTube sobre Splines de Interpolación.)</em></p>
+                </div>
+            </section>
+            
+            <section id="conclusion">
+                <h3>Conclusión y Aplicaciones</h3>
+                <p>
+                    Los splines de interpolación, especialmente los cúbicos, son una herramienta poderosa para obtener curvas suaves que pasan exactamente por un conjunto de puntos dados. Evitan las oscilaciones de los polinomios de alto grado y proporcionan una interpolación visualmente agradable y con buenas propiedades de continuidad.
+                </p>
+                <p>
+                    <strong>Ventajas:</strong>
+                    <ul>
+                        <li>Producen curvas suaves (especialmente los cúbicos con continuidad \\(C^2\\)).</li>
+                        <li>Evitan el fenómeno de Runge asociado a la interpolación polinómica global.</li>
+                        <li>Son computacionalmente eficientes una vez que se han determinado los coeficientes.</li>
+                        <li>Flexibles: se pueden ajustar las condiciones de contorno (natural, sujeto, etc.).</li>
+                    </ul>
+                </p>
+                <p>
+                    <strong>Desventajas:</strong>
+                    <ul>
+                        <li>La determinación de los coeficientes puede ser más compleja que un único polinomio (implica resolver sistemas de ecuaciones).</li>
+                        <li>La elección del tipo de spline y las condiciones de contorno pueden afectar el resultado.</li>
+                    </ul>
+                </p>
+                <p>
+                    <strong>Aplicaciones:</strong>
+                    <ul>
+                        <li>Diseño gráfico por computadora (CAD/CAM) para definir curvas y superficies suaves.</li>
+                        <li>Análisis de datos y visualización para interpolar entre mediciones discretas.</li>
+                        <li>Animación para crear trayectorias suaves.</li>
+                        <li>Robótica para la planificación de movimientos.</li>
+                        <li>Ingeniería para modelar formas y procesos.</li>
+                    </ul>
+                </p>
+            </section>
+
+            <section id="progreso-metodo">
+                <h3>Tu Progreso</h3>
+                <button id="completion-splines" class="completion-button" onclick="toggleMethodCompletion('splines', this)">Marcar como Completado</button>
+            </section>
+
+            <section id="cuestionario">
+                <h3>Cuestionario: Splines de Interpolación</h3>
+                <form id="quiz-splines">
+                    <div class="quiz-question">
+                        <p><strong>1. ¿Cuál es la principal ventaja de usar splines sobre un único polinomio de alto grado para la interpolación?</strong></p>
+                        <label><input type="radio" name="q1-splines" value="a"> Son más fáciles de calcular a mano.</label><br>
+                        <label><input type="radio" name="q1-splines" value="b"> Siempre producen un error de interpolación menor.</label><br>
+                        <label><input type="radio" name="q1-splines" value="c"> Evitan oscilaciones indeseadas (fenómeno de Runge) y son más estables.</label><br> <!-- Correcta -->
+                        <label><input type="radio" name="q1-splines" value="d"> Solo funcionan para datos equiespaciados.</label><br>
+                    </div>
+                     <div class="quiz-question">
+                        <p><strong>2. ¿Qué nivel de continuidad (\\(C^k\\)) se garantiza típicamente en los nudos interiores para un spline cúbico?</strong></p>
+                        <label><input type="radio" name="q2-splines" value="a"> \\(C^0\\) (continuidad de la función).</label><br>
+                        <label><input type="radio" name="q2-splines" value="b"> \\(C^1\\) (continuidad de la función y primera derivada).</label><br>
+                        <label><input type="radio" name="q2-splines" value="c"> \\(C^2\\) (continuidad de la función, primera y segunda derivada).</label><br> <!-- Correcta -->
+                        <label><input type="radio" name="q2-splines" value="d"> \\(C^3\\) (continuidad hasta la tercera derivada).</label><br>
+                    </div>
+                     <div class="quiz-question">
+                        <p><strong>3. Un spline cúbico "natural" impone qué condiciones en los puntos extremos de la curva?</strong></p>
+                        <label><input type="radio" name="q3-splines" value="a"> Las primeras derivadas son cero.</label><br>
+                        <label><input type="radio" name="q3-splines" value="b"> Las segundas derivadas son cero.</label><br> <!-- Correcta -->
+                        <label><input type="radio" name="q3-splines" value="c"> Los valores de la función son cero.</label><br>
+                        <label><input type="radio" name="q3-splines" value="d"> Las terceras derivadas son cero.</label><br>
+                    </div>
+                     <div class="quiz-question">
+                        <p><strong>4. ¿Qué tipo de spline se obtiene al simplemente conectar puntos de datos adyacentes con segmentos de recta?</strong></p>
+                        <label><input type="radio" name="q4-splines" value="a"> Spline cuadrático.</label><br>
+                        <label><input type="radio" name="q4-splines" value="b"> Spline cúbico.</label><br>
+                        <label><input type="radio" name="q4-splines" value="c"> Spline lineal.</label><br> <!-- Correcta -->
+                        <label><input type="radio" name="q4-splines" value="d"> Spline de Hermite.</label><br>
+                    </div>
+                    <button type="submit">Enviar Cuestionario</button>
+                </form>
+            </section>
+
+        </article>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 Plataforma Educativa de Métodos Numéricos. <a href="../index.html" style="color: #ecf0f1;">Volver al inicio</a></p>
+    </footer>
+    
+    <script src="../script.js"></script> 
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Este script se encarga de poblar la navegación si aún no está poblada
+            // y de manejar el estado del botón de completado.
+            // La lógica de navegación principal está en script.js
+            const navUl = document.querySelector('header nav ul');
+            const methods = [ // Esta lista es solo para este script local si script.js falla o para referencia rápida.
+                    { name: "Serie de Taylor", id: "serie-taylor" },
+                    { name: "Bisección", id: "biseccion" },
+                    { name: "Regla Falsa", id: "regla-falsa" },
+                    { name: "Punto Fijo", id: "punto-fijo" },
+                    { name: "Newton-Raphson", id: "newton-raphson" },
+                    { name: "Secante", id: "secante" },
+                    { name: "Raíces Múltiples", id: "raices-multiples" },
+                    { name: "Eliminación Gaussiana", id: "eliminacion-gaussiana"}, 
+                    { name: "Método de la Inversa", id: "metodo-inversa"}, 
+                    { name: "Regla de Cramer", id: "regla-cramer"}, 
+                    { name: "Método de Montante", id: "metodo-montante"},
+                    { name: "Splines de Interpolación", id: "splines"}, // Asegurarse que el ID es 'splines'
+                    { name: "Gauss-Jordan", id: "gauss-jordan" },
+                    { name: "Jacobi", id: "jacobi" },
+                    { name: "Gauss-Seidel", id: "gauss-seidel" },
+                    { name: "Interpolación Lineal", id: "interpolacion-lineal" },
+                    { name: "Interpolación Cuadrática", id: "interpolacion-cuadratica" },
+                    { name: "Polinomio de Newton", id: "polinomio-newton" },
+                    { name: "Polinomio de Lagrange", id: "polinomio-lagrange" },
+                    { name: "Diferenciación Numérica", id: "diferenciacion-numerica" },
+                    { name: "Integración Numérica", id: "integracion-numerica" },
+                    { name: "Método de Euler", id: "metodo-euler" },
+                    { name: "Runge-Kutta", id: "runge-kutta" },
+                    { name: "Ajuste de Curvas", id: "ajuste-curvas" }
+                    // Añadir más métodos según sea necesario
+                ];
+
+            if (navUl && navUl.children.length === 1 && navUl.firstElementChild.textContent.includes("Generado")) {
+                navUl.innerHTML = ''; // Limpiar placeholder
+                 // Enlace a la página principal/lista de métodos
+                const homeLi = document.createElement('li');
+                const homeLink = document.createElement('a');
+                homeLink.textContent = 'Inicio (Todos los Métodos)';
+                homeLink.href = '../index.html#method-cards-container';
+                homeLi.appendChild(homeLink);
+                navUl.appendChild(homeLi);
+
+                methods.forEach(method => {
+                    const li = document.createElement('li');
+                    const a = document.createElement('a');
+                    a.textContent = method.name;
+                    a.href = `${method.id}.html`; // Asume que todas las páginas de método están en el mismo directorio
+                     if (window.location.pathname.endsWith(`${method.id}.html`)) {
+                        a.classList.add('active-nav-link');
+                    }
+                    li.appendChild(a);
+                    navUl.appendChild(li);
+                });
+            }
+            
+            const pageKey = 'splines'; // Clave única para esta página de método
+            const button = document.getElementById('completion-' + pageKey);
+            if (button && localStorage.getItem(pageKey) === 'true') {
+                button.textContent = 'Completado ✓';
+                button.classList.add('completed');
+            }
+
+            // Re-renderizar MathJax si es necesario
+            if (typeof MathJax !== 'undefined' && typeof MathJax.typesetPromise === 'function') {
+                MathJax.typesetPromise();
+            }
+        });
+    </script>
+    <script type="text/javascript" id="MathJax-script" async
+        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+    </script>
+</body>
+</html> 

@@ -1,0 +1,2275 @@
+<!-- TEST_COMMENT_SIDEBAR_APPLY_V3 -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Newton-Raphson - Métodos Numéricos</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Vue 3 CDN -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- <link rel="stylesheet" href="../style.css"> --> <!-- Comentado para priorizar Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script> <!-- Tailwind CSS CDN -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'], // Establecer Inter como fuente sans por defecto
+                    },
+                    colors: {
+                        'custom-blue': '#242A38',
+                        'custom-red': '#E94560',
+                        'custom-gray-bg': '#F3F4F6',
+                        'sidebar-bg': '#FFFFFF',
+                        'sidebar-text': '#4B5563',
+                        'sidebar-hover-bg': '#FEF2F2',
+                    }
+                }
+            },
+            plugins: [
+                function({ addVariant }) {
+                    addVariant('has-[:checked]:', '&:has(input[type="radio"]:checked)')
+                }
+            ]
+        }
+    </script>
+    <!-- Configuración de MathJax -->
+    <script>
+        window.MathJax = {
+            tex: {
+                packages: {'[+]': ['input/mml', 'output/chtml']}
+            },
+            chtml: { 
+                matchFontHeight: false
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <!-- Pyodide y Chart.js -->
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- Scripts de Skulpt eliminados -->
+    <style>
+        @keyframes animatedRainbowBorder {
+            0% { background-position: 0% center; }
+            100% { background-position: 200% center; }
+        }
+
+        .animate-rainbow-border {
+            position: relative; /* Necesario para el posicionamiento del pseudo-elemento */
+            z-index: 0; /* Asegura que el pseudo-elemento pueda estar detrás */
+        }
+
+        .animate-rainbow-border::before {
+            content: '';
+            position: absolute;
+            z-index: -1; /* Se posiciona detrás del contenido del elemento principal */
+            top: -2px;   /* Crea un "borde" de 2px */
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            border-radius: 9999px; /* Equivalente a rounded-full de Tailwind */
+            background: linear-gradient(
+                90deg, 
+                #ff0000, /* Rojo */
+                #ffff00, /* Amarillo */
+                #00ff00, /* Verde */
+                #00ffff, /* Cian */
+                #007bff, /* Azul */
+                #8a2be2, /* Púrpura */
+                #ff00ff, /* Magenta */
+                #ff0000  /* Rojo de nuevo para un bucle suave */
+            );
+            background-size: 200% 100%; /* El doble del ancho para que el gradiente se "mueva" */
+            animation: animatedRainbowBorder 3s linear infinite;
+        }
+
+        /* Estilo para tablas en la sección de ejemplo */
+        .example-table {
+            width: auto; /* Ajustar ancho automáticamente o definir uno específico */
+            margin-left: auto;
+            margin-right: auto;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+        }
+        .example-table th, .example-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .example-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        .long-equation-container {
+            max-width: 100%;
+            overflow-x: auto;
+            padding-bottom: 10px; /* Espacio para la barra de scroll si aparece */
+        }
+        /* Estilos para el cuestionario con radio buttons */
+        /* Ocultar el radio button original */
+        .quiz-question input[type="radio"] {
+            display: none;
+        }
+        .quiz-question input[type="radio"]:checked + label {
+            background-color: #ff0000; /* This was a very aggressive red, changed in Tailwind with has-[:checked] */
+            color: #fff;
+        }
+        /* Estilos adicionales si son necesarios, por ejemplo, para scroll-mt */
+        :root {
+            --scroll-mt: 96px; /* Valor por defecto, igual al usado en el JS de Vue para el offset del scroll */
+        }
+
+        /* START: Styles for Fullscreen and Font Control (Newton-Raphson) */
+        .nr-output-fullscreen {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 9990 !important; 
+            background-color: #111827 !important; /* bg-gray-900 */
+            padding: 20px !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+            overflow-y: auto !important;
+            max-height: 100vh !important;
+        }
+        .nr-body-fullscreen-active {
+            overflow: hidden !important;
+        }
+        .nr-output-controls-container-fixed {
+            position: fixed !important;
+            top: 10px !important;
+            right: 10px !important;
+            z-index: 9995 !important;
+            display: flex !important;
+            gap: 0.25rem !important;
+        }
+        .nr-font-button {
+            background-color: #374151; /* gray-700 */
+            color: white;
+            padding: 4px 8px; /* text-xs implies roughly this */
+            border-radius: 0.375rem; /* rounded-md */
+            font-size: 0.75rem; /* text-xs */
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+            border: 1px solid #4B5563; /* gray-600 */
+            min-width: 30px; /* Ensure buttons have some width */
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .nr-font-button:hover {
+            background-color: #4B5563; /* gray-600 */
+        }
+        .nr-font-button-flash-red {
+            animation: nr-flash-red 0.3s ease-in-out;
+        }
+        .nr-font-button-flash-blue {
+            animation: nr-flash-blue 0.3s ease-in-out;
+        }
+        @keyframes nr-flash-red {
+            0% { background-color: #EF4444; } /* red-500 */
+            100% { background-color: #374151; } /* gray-700 */
+        }
+        @keyframes nr-flash-blue {
+            0% { background-color: #3B82F6; } /* blue-500 */
+            100% { background-color: #374151; } /* gray-700 */
+        }
+        /* END: Styles for Fullscreen and Font Control (Newton-Raphson) */
+    </style>
+</head>
+<body class="bg-custom-gray-bg text-gray-700 font-sans antialiased">
+    <div id="app">
+        <header class="bg-custom-blue text-white shadow-md">
+            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                <h1 class="text-xl font-semibold"><a href="/" class="hover:text-gray-300">Métodos Numéricos</a></h1>
+                <nav><a href="../index.html#method-cards-container" class="text-sm px-4 py-2 rounded-md hover:bg-gray-700 transition-colors duration-150">Volver a Métodos</a></nav>
+            </div>
+        </header>
+
+        <div class="container mx-auto mt-8 mb-8 flex flex-col lg:flex-row lg:space-x-8 px-4">
+            <left-sidebar></left-sidebar>
+            <main class="w-full flex-1 min-w-0 bg-white shadow-xl rounded-lg p-6 md:p-8 order-2 mb-6 lg:mb-0">
+                <article class="method-content">
+                    <h2 class="text-3xl font-bold mb-6 text-gray-800 border-b border-gray-200 pb-4">Método de Newton-Raphson</h2>
+                    
+                    <section id="teoria" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Fundamento Teórico</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            El método de Newton-Raphson es un método abierto ampliamente utilizado para encontrar las raíces de una ecuación \(f(x) = 0\). Se basa en la idea de que, si se tiene una estimación inicial de la raíz (\(x_i\)), se puede trazar una tangente desde el punto \([x_i, f(x_i)]\) en la curva de la función. El punto donde esta tangente cruza el eje x (\(x_{i+1}\)) usualmente representa una estimación mejorada de la raíz.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            La primera derivada en \(x\) es equivalente a la pendiente:
+                        </p>
+                        <div class="long-equation-container">
+                            \[f'(x_i) = \frac{f(x_i) - 0}{x_i - x_{i+1}}\]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mt-4 mb-4">
+                            Reordenando esta ecuación, se obtiene la fórmula de Newton-Raphson:
+                        </p>
+                        <div class="long-equation-container">
+                            \[x_{i+1} = x_i - \frac{f(x_i)}{f'(x_i)}\]
+                        </div>
+
+                        <h4 class="text-xl font-semibold mt-6 mb-3 text-gray-700">Derivación Alternativa (basada en la Serie de Taylor)</h4>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            La expansión de la serie de Taylor de \(f(x)\) alrededor de \(x_i\) es:
+                        </p>
+                        <div class="long-equation-container">
+                            \[f(x_{i+1}) \approx f(x_i) + f'(x_i)(x_{i+1} - x_i)\]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mt-4 mb-4">
+                            Si \(x_{i+1}\) es la raíz, entonces \(f(x_{i+1}) = 0\). Por lo tanto:
+                        </p>
+                        <div class="long-equation-container">
+                            \[0 \approx f(x_i) + f'(x_i)(x_{i+1} - x_i)\]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mt-4 mb-4">
+                            Resolviendo para \(x_{i+1}\), se obtiene la misma fórmula de Newton-Raphson.
+                        </p>
+
+                        <h4 class="text-xl font-semibold mt-6 mb-3 text-gray-700">Análisis de Error y Convergencia Cuadrática</h4>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Si se utiliza la expansión completa de la serie de Taylor y se asume que \(x_r\) es la raíz verdadera (\(f(x_r)=0\)), se puede demostrar que el error en la iteración \(i+1\) (\(E_{t,i+1} = x_r - x_{i+1}\)) está relacionado con el error en la iteración \(i\) (\(E_{t,i} = x_r - x_i\)) de la siguiente manera:
+                        </p>
+                        <div class="long-equation-container">
+                            \[E_{t,i+1} \approx -\frac{f''(x_r)}{2 f'(x_r)} (E_{t,i})^2\]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mt-4 mb-4">
+                            Esto indica que el error es aproximadamente proporcional al cuadrado del error anterior, lo que se conoce como <strong>convergencia cuadrática</strong>. Esto significa que el número de cifras significativas correctas se duplica aproximadamente con cada iteración, haciendo que el método sea muy rápido cuando converge.
+                        </p>
+
+                        <h4 class="text-xl font-semibold mt-6 mb-3 text-gray-700">Puntos Débiles del Método (Pitfalls)</h4>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            A pesar de su eficiencia, el método de Newton-Raphson puede tener un mal desempeño o fallar en ciertas situaciones:
+                        </p>
+                        <ol class="list-decimal list-inside space-y-2 pl-4 text-gray-600 leading-relaxed">
+                            <li><strong>Convergencia lenta:</strong> Para ciertas funciones (por ejemplo, \(f(x) = x^{10} - 1\) con un mal valor inicial), la convergencia puede ser muy lenta.</li>
+                            <li><strong>Puntos de inflexión:</strong> Si un punto de inflexión (\(f''(x) = 0\)) ocurre cerca de una raíz, las iteraciones pueden divergir en lugar de converger.</li>
+                            <li><strong>Máximos o mínimos locales:</strong> Las iteraciones pueden oscilar alrededor de un máximo o mínimo local sin encontrar la raíz.</li>
+                            <li><strong>Salto a otra raíz:</strong> Una estimación inicial cercana a una raíz puede "saltar" a una ubicación varias raíces más lejana si se encuentran pendientes cercanas a cero.</li>
+                            <li><strong>División por cero:</strong> Si la derivada \(f'(x_i)\) es igual a cero en alguna iteración, ocurre una división por cero y el método falla. Gráficamente, esto significa que la tangente es horizontal y nunca cruza el eje x.</li>
+                        </ol>
+                    </section>
+
+                    <section id="algoritmo" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Pasos del Algoritmo</h3>
+                        <ol class="list-decimal list-inside space-y-3 pl-4 text-gray-600 leading-relaxed">
+                            <li>Evaluar la derivada de la función, \(f'(x)\), analíticamente.</li>
+                            <li>Elegir una estimación inicial de la raíz, \(x_i\).</li>
+                            <li>Calcular los valores de la función \(f(x_i)\) y su derivada \(f'(x_i)\) con la estimación actual.</li>
+                            <li>Calcular la nueva estimación de la raíz, \(x_{i+1}\), utilizando la fórmula de Newton-Raphson:
+                                <div class="long-equation-container my-2">
+                                    \[x_{i+1} = x_i - \frac{f(x_i)}{f'(x_i)}\]
+                                </div>
+                            </li>
+                            <li>Calcular el error relativo porcentual aproximado (\(\epsilon_a\)):
+                                <div class="long-equation-container my-2">
+                                    \[\epsilon_a = \left| \frac{x_{i+1} - x_i}{x_{i+1}} \right| \times 100\%\]
+                                </div>
+                            </li>
+                            <li>Comparar el error calculado \(\epsilon_a\) con un criterio de error preestablecido, \(\epsilon_s\).</li>
+                            <li>Si \(\epsilon_a < \epsilon_s\), se considera que se ha encontrado una raíz suficientemente precisa y el algoritmo termina.</li>
+                            <li>De lo contrario, se asigna el valor de la nueva estimación a la estimación actual (\(x_i = x_{i+1}\)) y se repite el proceso desde el paso 3.</li>
+                            <li>Es crucial incluir un límite máximo de iteraciones para evitar bucles infinitos en caso de que el método no converja.</li>
+                            <li>Se debe verificar en cada iteración si \(f'(x_i)\) es muy cercano a cero. Si lo es, el método puede divergir o fallar, y se debe detener o manejar adecuadamente.</li>
+                        </ol>
+                    </section>
+
+                    <section id="ejemplo" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Ejemplo Paso a Paso</h3>
+                        <p class="text-gray-600 leading-relaxed mb-3">
+                            <strong>Problema (Ejemplo 6.3, Chapra 7ed, pág. 152):</strong> Usar el método de Newton-Raphson para estimar la raíz de la función \(f(x) = e^{-x} - x\), empleando una estimación inicial de \(x_0 = 0\).
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-2"><strong>Solución:</strong></p>
+                        <p class="text-gray-600 leading-relaxed mb-2">
+                            La primera derivada de la función es:
+                        </p>
+                        <div class="long-equation-container">
+                            \[f'(x) = -e^{-x} - 1\]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mt-3 mb-2">
+                            Sustituyendo la función y su derivada en la fórmula de Newton-Raphson:
+                        </p>
+                        <div class="long-equation-container">
+                            \[x_{i+1} = x_i - \frac{e^{-x_i} - x_i}{-e^{-x_i} - 1}\]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mt-3 mb-4">
+                            Comenzando con una estimación inicial de \(x_0 = 0\), esta ecuación iterativa se aplica para calcular las siguientes aproximaciones:
+                        </p>
+                        <div class="overflow-x-auto">
+                            <table class="example-table">
+                                <thead>
+                                    <tr>
+                                        <th>Iteración (i)</th>
+                                        <th>\(x_i\)</th>
+                                        <th>Error Verdadero Relativo Porcentual (\(\epsilon_t\)\%)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td>0</td><td>0.000000000</td><td>100</td></tr>
+                                    <tr><td>1</td><td>0.500000000</td><td>11.8</td></tr>
+                                    <tr><td>2</td><td>0.566311003</td><td>0.147</td></tr>
+                                    <tr><td>3</td><td>0.567143165</td><td>0.0000220</td></tr>
+                                    <tr><td>4</td><td>0.567143290</td><td>&lt; 10<sup>-8</sup></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mt-2">
+                            La raíz verdadera es aproximadamente 0.56714329. Como se observa, el método converge muy rápidamente.
+                        </p>
+                    </section>
+
+                    <section id="codigo" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Código de Implementación (Python) - Ejecutable</h3>
+                        <div class="code-editor-container bg-gray-50 p-4 rounded-lg shadow-inner">
+                            <textarea id="newton-raphson-code-input" class="code-input w-full h-[600px] p-3 border border-gray-300 rounded-md font-mono text-sm" style="resize: vertical;">import math
+import inspect  # Para intentar obtener la representación de la función
+
+# 1. Define tu función f(x) y su derivada f'(x)
+def funcion_ejemplo_nr(x):
+    # Ejemplo Chapra: f(x) = e^(-x) - x
+    return math.exp(-x) - x
+    # Otro ejemplo: f(x) = x^3 - x - 1
+    # return x**3 - x - 1
+
+def derivada_funcion_ejemplo_nr(x):
+    # Derivada para e^(-x) - x  =>  -e^(-x) - 1
+    return -math.exp(-x) - 1
+    # Derivada para x^3 - x - 1 => 3x^2 - 1
+    # return 3*x**2 - 1
+
+# 2. Implementación del método de Newton–Raphson mejorada
+def metodo_newton_raphson_enhanced(func, func_prime, x0, tol, max_iter_val):
+    html_parts = []
+    iter_data_for_chart = []
+    
+    xi = float(x0)  # Asegurar que x0 es flotante
+
+    # Encabezado general del HTML
+    html_parts.append(
+        '<div style="text-align: center; font-weight: bold; margin-bottom:10px; '
+        'font-size:1.1em;">MÉTODO DE NEWTON–RAPHSON</div>'
+    )
+    try:
+        func_source = inspect.getsource(func)
+        func_repr = func_source.split("return")[1].split("\n")[0].strip() if "return" in func_source else "No disponible"
+    except:
+        func_repr = "f(x) (definida en Python)"
+    html_parts.append(
+        f'<p style="text-align:center; margin-bottom:5px;">Función: '
+        f'{func_repr.replace("**", "<sup>").replace("*", "")}</p>'
+    )
+    html_parts.append(f'<p style="text-align:center; margin-bottom:5px;">Valor Inicial (x₀): {xi:.7g}</p>')
+    html_parts.append(f'<p style="text-align:center; margin-bottom:15px;">Tolerancia (Error %): {tol:.2e}%</p>')
+
+    html_parts.append(
+        '<table border="1" style="width:100%; border-collapse: collapse; margin-bottom:15px; '
+        'font-size: 0.85em;">'
+    )
+    html_parts.append('<thead><tr>')
+    headers = ["Iter", "xᵢ", "f(xᵢ)", "f\' (xᵢ)", "xᵢ₊₁", "Error Apróx. (%)"]
+    for h in headers:
+        html_parts.append(
+            f'<th style="padding:4px; text-align:center; background-color:#f0f0f0; color:#333;">{h}</th>'
+        )
+    html_parts.append('</tr></thead><tbody>')
+
+    raiz_final_aprox = None
+    
+    f_xi_inicial = func(xi)
+    f_prime_xi_inicial = func_prime(xi)
+    iter_data_for_chart.append({
+        'iter': 0,
+        'xi': xi,
+        'f_xi': f_xi_inicial,
+        'f_prime_xi': f_prime_xi_inicial,
+        'error': None
+    })
+    
+    for i in range(max_iter_val):
+        fxi = func(xi)
+        f_prime_xi = func_prime(xi)
+
+        html_parts.append(f'<tr><td style="text-align:center;">{i+1}</td>')
+        html_parts.append(f'<td style="text-align:right; padding-right:5px;">{xi:.8g}</td>')
+        html_parts.append(f'<td style="text-align:right; padding-right:5px;">{fxi:.4e}</td>')
+        html_parts.append(f'<td style="text-align:right; padding-right:5px;">{f_prime_xi:.4e}</td>')
+
+        if abs(f_prime_xi) < 1e-12:
+            html_parts.append(
+                '<td colspan="2" style="text-align:center; color:orange;">'
+                'Derivada cercana a cero. Método falla.</td></tr>'
+            )
+            iter_data_for_chart.append({
+                'iter': i + 1,
+                'xi': xi,
+                'f_xi': fxi,
+                'f_prime_xi': f_prime_xi,
+                'error': float('inf'),
+                'status': 'deriv_cero'
+            })
+            raiz_final_aprox = xi
+            break 
+
+        xi_plus_1 = xi - fxi / f_prime_xi
+        
+        if xi_plus_1 != 0:
+            error_relativo_calculado = abs((xi_plus_1 - xi) / xi_plus_1) * 100
+        elif xi != 0:
+            error_relativo_calculado = float('inf')
+        else:
+            error_relativo_calculado = 0.0
+        
+        html_parts.append(f'<td style="text-align:right; padding-right:5px;">{xi_plus_1:.8g}</td>')
+        html_parts.append(f'<td style="text-align:right; padding-right:5px;">{error_relativo_calculado:.4f}</td></tr>')
+        
+        iter_data_for_chart.append({
+            'iter': i + 1,
+            'xi': xi_plus_1,
+            'f_xi': func(xi_plus_1),
+            'f_prime_xi': func_prime(xi_plus_1),
+            'error': error_relativo_calculado
+        })
+
+        if error_relativo_calculado < tol:
+            raiz_final_aprox = xi_plus_1
+            html_parts.append('</tbody></table>')
+            html_parts.append(
+                f'<div style="text-align:center; color:green; margin-top:10px; padding:5px;">'
+                f'Convergencia alcanzada en {i+1} iteraciones. Error < {tol:.1e}%</div>'
+            )
+            break
+        
+        xi = xi_plus_1
+        raiz_final_aprox = xi
+
+        if i == max_iter_val - 1:
+            html_parts.append('</tbody></table>')
+            html_parts.append(
+                f'<div style="text-align:center; color:orange; margin-top:10px; padding:5px;">'
+                f'Máximo de {max_iter_val} iteraciones alcanzado.</div>'
+            )
+            break
+            
+    if not html_parts[-1].strip().startswith('</tbody'):
+        html_parts.append('</tbody></table>')
+
+    if raiz_final_aprox is not None:
+        f_en_raiz = func(raiz_final_aprox)
+        html_parts.append(
+            '<div style="text-align:center; margin-top:15px; padding:8px; '
+            'background-color:#e8f5e9; border:1px solid #a5d6a7; border-radius:4px; color: #000000;">'
+        )
+        html_parts.append(
+            f'<b>Resumen:</b> Raíz aproximada final: <b>{raiz_final_aprox:.8g}</b><br>'
+            f'Valor de f(raíz) ≈ {f_en_raiz:.4e}</div>'
+        )
+    else:
+        html_parts.append(
+            '<div style="text-align:center; color:red; margin-top:10px; padding:5px;">'
+            'No se pudo determinar una raíz con los parámetros dados.</div>'
+        )
+        
+    # Preparación de datos para gráfica (sin HTML)
+    chart_package = {
+        "iterations": iter_data_for_chart,
+        "final_root": raiz_final_aprox,
+        "x_func_vals": [],
+        "y_func_vals": []
+    }
+    # Lógica para llenar x_func_vals y y_func_vals
+    # (Similar a otros métodos, necesitaríamos un rango y la función de ejemplo)
+    # Para este ejemplo, lo dejaremos simple y JS puede graficar solo las iteraciones.
+    # Si se quiere graficar la función, Python necesitaría saber el rango.
+    # Por ahora, esta parte de chart_package se deja para que JS la maneje
+    # o se puede expandir aquí si se define un rango de ploteo estándar.
+
+    # Ejemplo de llenado básico si se quisiera (JS probablemente ya lo hace mejor):
+    # if raiz_final_aprox is not None:
+    #     x_min_plot = raiz_final_aprox - 2.0
+    #     x_max_plot = raiz_final_aprox + 2.0
+    # else: # Fallback si no hay raíz
+    #     x_min_plot = float(x0) - 2.0 if x0 is not None else -2.0
+    #     x_max_plot = float(x0) + 2.0 if x0 is not None else 2.0
+    
+    # num_plot_points = 100
+    # if x_min_plot < x_max_plot:
+    #    plot_step = (x_max_plot - x_min_plot) / (num_plot_points - 1)
+    #    for i_plot in range(num_plot_points):
+    #        x_val_plot = x_min_plot + i_plot * plot_step
+    #        chart_package["x_func_vals"].append(x_val_plot)
+    #        try:
+    #            chart_package["y_func_vals"].append(func(x_val_plot))
+    #        except Exception:
+    #            chart_package["y_func_vals"].append(None)
+
+
+    return "".join(html_parts), chart_package
+
+# Parámetros de prueba
+x0_param_nr = 0.0
+tolerancia_param_nr = 1e-5 # Esto es 0.001%
+max_iter_param_nr = 15
+
+# Variables de salida globales en entorno Pyodide/JS
+# Pyodide/JS debe haberlas declarado con pyodide.globals.set() antes de correr este script
+# para que este script pueda asignarles valores.
+# Ejemplo en JS: pyodide.globals.set('pyodide_nr_html_output', '');
+#               pyodide.globals.set('pyodide_nr_chart_data_package', pyodide.toPy({}));
+
+if __name__ == "__main__":
+    # Se usarán los parámetros definidos globalmente en este script si no se pasan.
+    # En un entorno real con UI, estos podrían ser reemplazados por inputs del usuario
+    # que se pasarían a metodo_newton_raphson_enhanced.
+
+    # Para Pyodide, asegurar que las variables globales existan antes de asignarlas.
+    # Esta es una forma de hacerlo si las variables globales son definidas por Python mismo
+    # y luego leídas por JS. Si JS las define, entonces Python simplemente las asigna.
+    
+    # python_script_globals = globals()
+
+    # if 'a_param_nr_ui' in python_script_globals: current_x0 = float(python_script_globals['a_param_nr_ui'])
+    # else: current_x0 = x0_param_nr
+    
+    # if 'tol_param_nr_ui' in python_script_globals: current_tol = float(python_script_globals['tol_param_nr_ui'])
+    # else: current_tol = tolerancia_param_nr
+
+    # if 'max_iter_param_nr_ui' in python_script_globals: current_max_iter = int(python_script_globals['max_iter_param_nr_ui'])
+    # else: current_max_iter = max_iter_param_nr
+
+    # Para este caso, asumimos que los parámetros del script son los que se usarán.
+    current_x0 = x0_param_nr
+    current_tol = tolerancia_param_nr
+    current_max_iter = max_iter_param_nr
+
+    html_output_str, chart_data_dict = metodo_newton_raphson_enhanced(
+        funcion_ejemplo_nr,
+        derivada_funcion_ejemplo_nr,
+        current_x0,
+        current_tol,
+        current_max_iter
+    )
+    
+    # Estas asignaciones funcionarán si 'pyodide_nr_html_output' y 
+    # 'pyodide_nr_chart_data_package' fueron pre-declaradas en el scope global de Pyodide por JS.
+    # e.g., pyodide.globals.set('pyodide_nr_html_output', '')
+    #       pyodide.globals.set('pyodide_nr_chart_data_package', pyodide.toPy({}))
+    # Si no, Python las creará como nuevas globales en su propio scope.
+    
+    global pyodide_nr_html_output
+    pyodide_nr_html_output = html_output_str
+    
+    global pyodide_nr_chart_data_package
+    pyodide_nr_chart_data_package = chart_data_dict
+                            </textarea>
+                            <button id="run-nr-code-button" class="run-button mt-4 px-5 py-2.5 bg-custom-red text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 font-medium text-sm transition-colors duration-150">Ejecutar Código</button>
+                            
+                            <div class="relative"> <!-- Contenedor relativo para el título y la salida -->
+                                <div id="nr-output-controls-container" class="absolute top-2 right-2 z-10 flex items-center space-x-1 transition-all duration-500 ease-out" style="opacity: 1;">
+                                    <button id="nr-decrease-font-button" title="Disminuir fuente" class="nr-font-button p-1.5" style="display: none;">
+                                        aa
+                                    </button>
+                                    <button id="nr-increase-font-button" title="Aumentar fuente" class="nr-font-button p-1.5" style="display: none;">
+                                        AA
+                                    </button>
+                                    <button id="nr-fullscreen-output-button" title="Ver en pantalla completa" class="bg-gray-700 hover:bg-gray-600 text-white p-1.5 rounded-md text-xs nr-font-button" style="min-width: 30px;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <h4 class="mt-5 mb-2 text-lg font-semibold text-gray-700">Salida:</h4>
+                                <pre id="newton-raphson-code-output" class="code-output bg-gray-900 text-white p-4 pt-10 rounded-md min-h-[100px] whitespace-pre-wrap text-xs leading-relaxed max-h-96 overflow-y-auto font-mono transition-all duration-500 ease-out">Presiona "Ejecutar Código" para ver la salida.</pre>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="graficas" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Gráficas Interactivas</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            <!-- Descripción de la gráfica para Newton-Raphson -->
+                            La siguiente gráfica ilustra la convergencia del método Newton-Raphson para la función de ejemplo. 
+                            Muestra la función \(f(x)\), las aproximaciones sucesivas de la raíz (\(x_i\)), la tangente en cada aproximación (si es implementable de forma sencilla), y la raíz final encontrada.
+                            Interactúa con la gráfica para explorar los datos. (Nota: La visualización de tangentes puede ser compleja y se omitirá si no es trivial con los datos actuales).
+                            <!-- Fin de la descripción de la gráfica -->
+                        </p>
+                        <div class="interactive-graphics w-full h-96 bg-white p-4 rounded-lg shadow-md">
+                            <canvas id="newton-raphson-chart"></canvas>
+                            <p id="chart-loading-message" class="text-center text-gray-600 italic mt-2">Cargando gráfica...</p>
+                        </div>
+                    </section>
+
+                    <section id="videos" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Videos Explicativos</h3>
+                        <div class="video-embed w-full h-96">
+                            <iframe class="w-full h-full rounded-lg shadow-lg" src="https://www.youtube.com/embed/T6oiUlufZPs" title="Video de Newton-Raphson" frameborder="0" allowfullscreen></iframe>
+                        </div>
+                    </section>
+
+                    <section id="conclusion" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Conclusión y Aplicaciones</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            El método de Newton-Raphson es una técnica poderosa y eficiente para encontrar raíces cuando la estimación inicial está cerca de la raíz verdadera y la derivada de la función es evaluable y no es cero en la vecindad de la raíz. Su característica más destacada es la convergencia cuadrática, lo que significa que generalmente requiere pocas iteraciones para alcanzar una alta precisión.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Sin embargo, su principal desventaja es la necesidad de calcular la derivada de la función, \(f'(x)\), lo cual no siempre es factible o sencillo analíticamente. Además, el método es sensible a la estimación inicial; una mala elección puede llevar a convergencia lenta, oscilaciones, divergencia o convergencia hacia una raíz no deseada. Puede fallar si la derivada \(f'(x)\) es cercana a cero cerca de la raíz, o si existen puntos de inflexión o múltiples raíces en la región de interés.
+                        </p>
+                    </section>
+
+                    <section id="referencias" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Referencias y Lecturas Adicionales</h3>
+                        <ul class="list-disc list-inside space-y-2 pl-4 text-gray-600 leading-relaxed">
+                            <li>Chapra, S. C., & Canale, R. P. (2015). <em>Numerical Methods for Engineers</em> (7th ed.). McGraw-Hill Education.</li>
+                            <li>Burden, R. L., & Faires, J. D. (2011). <em>Numerical Analysis</em> (9th ed.). Brooks/Cole, Cengage Learning.</li>
+                            <li>Ralston, A., & Rabinowitz, P. (2001). <em>A First Course in Numerical Analysis</em> (2nd ed.). Dover Publications. (Originalmente publicado en 1978 por McGraw-Hill).</li>
+                        </ul>
+                    </section>
+                    
+                    <section id="cuestionario" class="scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Cuestionario: Método de Newton-Raphson</h3>
+                        <form id="quiz-newton-raphson" class="space-y-6 bg-gray-50 p-6 rounded-lg shadow-inner">
+                            <!-- Pregunta 1 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">1. ¿Cuál es la principal característica de la convergencia del método de Newton-Raphson?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 1</legend>
+                                    <div class="space-y-2">
+                                        <label for="q1-opt1-nr" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt1-nr" name="question-1" type="radio" value="Lineal" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Lineal</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt2-nr" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt2-nr" name="question-1" type="radio" value="Cuadrática" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Cuadrática</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt3-nr" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt3-nr" name="question-1" type="radio" value="Cúbica" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Cúbica</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-1-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+                            <!-- Pregunta 2 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">2. ¿Qué información adicional requiere el método de Newton-Raphson en comparación con el método de bisección o falsa posición?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 2</legend>
+                                    <div class="space-y-2">
+                                        <label for="q2-opt1-nr" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt1-nr" name="question-2" type="radio" value="Dos estimaciones iniciales que encierren la raíz." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Dos estimaciones iniciales que encierren la raíz.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt2-nr" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt2-nr" name="question-2" type="radio" value="La derivada de la función." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">La derivada de la función.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt3-nr" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt3-nr" name="question-2" type="radio" value="El valor de la segunda derivada de la función." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">El valor de la segunda derivada de la función.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-2-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+                            <!-- Pregunta 3 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">3. ¿En qué situación el método de Newton-Raphson puede fallar o tener problemas significativos de convergencia?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 3</legend>
+                                    <div class="space-y-2">
+                                        <label for="q3-opt1-nr" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt1-nr" name="question-3" type="radio" value="Cuando la función es perfectamente lineal." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Cuando la función es perfectamente lineal.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt2-nr" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt2-nr" name="question-3" type="radio" value="Cuando la derivada de la función se acerca a cero cerca de la raíz." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Cuando la derivada de la función se acerca a cero cerca de la raíz.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt3-nr" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt3-nr" name="question-3" type="radio" value="Cuando se utiliza una tolerancia muy pequeña." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Cuando se utiliza una tolerancia muy pequeña.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-3-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+                            <button type="submit" class="mt-6 w-full px-6 py-3 bg-custom-red text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors duration-150">
+                                Enviar Respuestas
+                            </button>
+                        </form>
+                        <div id="quiz-feedback-newton-raphson" class="quiz-feedback-message mt-4 p-3 rounded-md text-sm" style="display: none;"></div>
+                    </section>
+
+                </article>
+            </main>
+
+            <aside class="w-full lg:w-1/4 bg-sidebar-bg shadow-xl rounded-lg p-6 self-start sticky top-8 order-3 space-y-6">
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-4">Perfil</h3>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex-shrink-0">
+                           <svg class="w-12 h-12 text-gray-400 bg-gray-100 rounded-full p-1 ring-1 ring-gray-200" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-800 text-md">Estudiante Modelo</p>
+                            <p class="text-sm text-gray-500">Aprendiz Activo</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pb-6 border-b border-gray-200 space-y-3">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide">Progreso en Método de Newton-Raphson</h3>
+                    
+                    <ul class="space-y-2 text-sm">
+                        <li class="flex items-center">
+                            <span id="task-read-theory-status" class="task-status-icon mr-2 text-gray-400">
+                                <!-- Icono se actualiza por JS -->
+                            </span>
+                            <span class="text-gray-600">Leer la teoría completa</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-run-code-status" class="task-status-icon mr-2 text-gray-400">
+                                <!-- Icono se actualiza por JS -->
+                            </span>
+                            <span class="text-gray-600">Ejecutar el código Python</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-attempted-status" class="task-status-icon mr-2 text-gray-400">
+                                <!-- Icono se actualiza por JS -->
+                            </span>
+                            <span class="text-gray-600">Intentar el cuestionario</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-passed-status" class="task-status-icon mr-2 text-gray-400">
+                                <!-- Icono se actualiza por JS -->
+                            </span>
+                            <span class="text-gray-600">Aprobar el cuestionario</span>
+                        </li>
+                    </ul>
+
+                    <div class="flex items-center justify-between mb-1 mt-3">
+                       <span class="text-xs font-medium text-custom-red">Progreso General</span>
+                       <span class="text-xs font-medium text-custom-red right-sidebar-progress-text">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div class="bg-custom-red h-3 rounded-full right-sidebar-progress-bar transition-width duration-500 ease-in-out" style="width: 0%"></div>
+                    </div>
+                    
+                    <button id="completion-newton-raphson-sidebar" class="mt-4 w-full completion-button px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 font-medium text-sm transition-colors duration-150">Marcar Todo Completado</button>
+                </div>
+
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Recursos y Notas</h3>
+                    <p class="text-sm text-gray-600">
+                        <a href="https://archive.org/details/numerical-methods-for-engineers-7th-edit" target="_blank" rel="noopener noreferrer" class="hover:text-custom-red hover:underline">
+                            Métodos Numéricos para Ingenieros 7ma Edición de Chapra (Referencia General)
+                        </a>
+                    </p>
+                    <img src="https://images.cdn3.buscalibre.com/fit-in/360x360/97/ff/97ffa61a8adb147e569e12c4f1f797b3.jpg" alt="Portada del libro Métodos Numéricos para Ingenieros de Chapra" class="mt-2 w-full rounded-md shadow-sm">
+                </div>
+
+                <div>
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Siguiente Paso</h3>
+                    <a href="../methods/secante.html" class="group flex items-center text-sm font-medium text-custom-red hover:text-red-700 transition-colors duration-150">
+                       <span>Explorar Método de Secante</span> 
+                       <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform duration-150" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </a>
+                </div>
+            </aside>
+        </div>
+
+        <footer class="bg-custom-blue text-gray-300 text-center p-6 mt-12">
+            <p class="text-sm">&copy; 2025 Métodos Numéricos Interactivos. Todos los derechos reservados.</p>
+            <p class="text-xs mt-2">Un proyecto de <a href="https://michelletorres.mx" target="_blank" class="underline hover:text-gray-300">Michelle Torres</a></p>
+        </footer>
+    </div>
+
+    <script type="module">
+        import { createApp, ref, onMounted, onUnmounted, computed, watch } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
+        
+        const METHOD_KEY = "newton-raphson";
+        const METHOD_NAME_TITLE_CASE = "Newton-Raphson";
+
+        // Definición del componente LeftSidebar
+        const LeftSidebar = { // Definición del componente LeftSidebar para Vue
+        props: {
+            pageThemeColor: { type: String, default: 'red' }, // Color base del tema (e.g., 'red', 'blue')
+            pageGradientFrom: { type: String, default: 'from-red-500' }, // Clase para inicio de gradiente
+            pageGradientTo: { type: String, default: 'to-red-700' },     // Clase para fin de gradiente
+            pageActiveTextColor: { type: String, default: 'text-custom-red' } // Texto activo para links, usa el color base
+        },
+        template: `{% raw %}
+            <aside 
+                :class="[
+                    'bg-gradient-to-b', pageGradientFrom, pageGradientTo,
+                    'shadow-xl', 'rounded-lg', 'p-4',
+                    'flex', 'flex-col',
+                    'transition-all', 'duration-300', 'ease-in-out',
+                    'order-1', 
+                    isCollapsed ? 'w-full lg:w-20' : 'w-full lg:w-64',
+                    'self-start', 
+                    'lg:sticky', 'lg:top-8', 
+                    'lg:max-h-[calc(100vh-4rem)]', // Altura máxima considerando 2rem (top-8) * 2 para arriba y abajo
+                    'overflow-y-auto' // Scroll si el contenido excede la altura máxima
+                ]"
+                aria-label="Sidebar de navegación del método">
+                <div :class="['flex justify-between items-center mb-4 border-b pb-3', 'border-' + pageThemeColor + '-400']">
+                    <h3 v-show="!isCollapsed" class="text-lg font-semibold text-white select-none">Contenido</h3>
+                    <button @click="toggleCollapse" :class="['p-1.5 ml-2 text-white rounded focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-75', 'hover:bg-' + pageThemeColor + '-600']" :aria-label="isCollapsed ? 'Expandir menú' : 'Colapsar menú'">
+                        <svg v-if="!isCollapsed" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5" />
+                        </svg>
+                        <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5m-6-15l7.5 7.5-7.5 7.5" />
+                        </svg>
+                    </button>
+                </div>
+                <nav v-show="!isCollapsed" class="flex-grow">
+                    <ul class="space-y-1">
+                        <li v-for="item in navItems" :key="item.id">
+                            <a :href="item.href"
+                               @click.prevent="smoothScroll(item.href)"
+                               :class="[
+                                   'nav-link block px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 flex items-center',
+                                   isActive(item.id) ? ['bg-white shadow-sm font-semibold', pageActiveTextColor] : ['text-' + pageThemeColor + '-100', 'hover:text-white', 'hover:bg-' + pageThemeColor + '-600']
+                               ]">
+                                <span v-html="item.iconSVG" class="mr-3 translate-y-px"></span>
+                                <span>{{ item.text }}</span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+                <nav v-show="isCollapsed" class="mt-4 flex-grow">
+                     <ul class="space-y-1">
+                        <li v-for="item in navItems" :key="item.id + '-collapsed'">
+                            <a :href="item.href"
+                               @click.prevent="smoothScroll(item.href)"
+                               :title="item.text"
+                               :aria-label="item.text"
+                               :class="[
+                                   'nav-link-collapsed block py-2 pl-2.5 pr-1.5 rounded-md transition-colors duration-150 flex justify-center items-center',
+                                   isActive(item.id) ? ['bg-white shadow-sm', pageActiveTextColor] : ['text-' + pageThemeColor + '-100', 'hover:text-white', 'hover:bg-' + pageThemeColor + '-600']
+                               ]">
+                                <span v-html="item.iconSVG" class="w-6 h-6 translate-y-px"></span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </aside>
+        {% endraw %}`,
+        setup(props) {
+            const isCollapsed = ref(false);
+            const activeSectionId = ref(null);
+            // navItems se define aquí o se pasa como prop si varía mucho entre páginas
+            const navItems = ref([
+                { id: 'teoria', text: 'Fundamento Teórico', href: '#teoria', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>' },
+                { id: 'algoritmo', text: 'Pasos del Algoritmo', href: '#algoritmo', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" /></svg>' },
+                { id: 'ejemplo', text: 'Ejemplo Detallado', href: '#ejemplo', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>' },
+                { id: 'codigo', text: 'Implementación (Python)', href: '#codigo', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" /></svg>' },
+                { id: 'graficas', text: 'Gráficas Interactivas', href: '#graficas', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>' },
+                { id: 'videos', text: 'Videos Explicativos', href: '#videos', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.75.75 0 010 1.656l-5.603 3.113A.75.75 0 019 15.95V9.05a.75.75 0 011.307-.588l5.603 3.112z" /></svg>' },
+                { id: 'conclusion-metodo', text: 'Conclusión y Aplicaciones', href: '#conclusion-metodo', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' },
+                { id: 'referencias', text: 'Referencias', href: '#referencias', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 3.75V16.5L12 14.25L7.5 16.5V3.75m9 0H18A2.25 2.25 0 0120.25 6v12A2.25 2.25 0 0118 20.25H6A2.25 2.25 0 013.75 18V6A2.25 2.25 0 016 3.75h1.5m9 0h-9" /></svg>' },
+                { id: 'cuestionario', text: 'Cuestionario', href: '#cuestionario', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' }
+            ]); // Asegúrate de que estos navItems sean los correctos para todas las páginas o ajústalos.
+
+            let sections = []; // Para el scroll-spy
+
+            const toggleCollapse = () => {
+                isCollapsed.value = !isCollapsed.value;
+            };
+
+            const isActive = (id) => {
+                return activeSectionId.value === id;
+            };
+            
+            const smoothScroll = (targetHref) => {
+                const targetId = targetHref.substring(1);
+                const targetElement = document.getElementById(targetId);
+                if (targetElement) {
+                    targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+                    history.pushState(null, null, targetHref); 
+                }
+            };
+
+            const handleScroll = () => {
+                if (!sections || sections.length === 0) return;
+                const scrollMarginTopValue = parseInt(getComputedStyle(sections[0]).scrollMarginTop) || 96; 
+                let newActiveSectionId = null;
+                for (let i = 0; i < sections.length; i++) {
+                    const section = sections[i];
+                    const sectionTopBoundary = section.offsetTop - scrollMarginTopValue;
+                    const sectionBottomBoundary = sectionTopBoundary + section.offsetHeight;
+                    if (window.scrollY >= sectionTopBoundary && window.scrollY < sectionBottomBoundary) {
+                        newActiveSectionId = section.id;
+                        break;
+                    }
+                }
+                if (newActiveSectionId === null && sections.length > 0) {
+                    for (let i = sections.length - 1; i >= 0; i--) {
+                        const section = sections[i];
+                        if ((section.offsetTop - scrollMarginTopValue) <= window.scrollY + 5) {
+                            newActiveSectionId = section.id;
+                            break;
+                        }
+                    }
+                }
+                 if (newActiveSectionId === null && sections.length > 0 && window.scrollY < (sections[0].offsetTop - scrollMarginTopValue)) {
+                    newActiveSectionId = sections[0].id;
+                 }
+                if (activeSectionId.value !== newActiveSectionId) {
+                    activeSectionId.value = newActiveSectionId;
+                }
+            };
+
+            onMounted(() => {
+                nextTick(() => {
+                    sections = Array.from(document.querySelectorAll('main article section[id]'));
+                    handleScroll(); 
+                    window.addEventListener('scroll', handleScroll, { passive: true });
+                });
+            });
+
+            onUnmounted(() => {
+                window.removeEventListener('scroll', handleScroll);
+            });
+
+            return {
+                isCollapsed,
+                toggleCollapse,
+                navItems,
+                isActive,
+                smoothScroll,
+                activeSectionId,
+                // pageThemeColor, pageGradientFrom, pageGradientTo, pageActiveTextColor // Expuestas desde props
+            };
+        }
+    };
+
+        // Eliminar la definición anterior de RightSidebar y el app.setup() complejo
+        // const RightSidebar = { ... }; // Ya no es un componente Vue
+
+        const app = createApp({ /* El setup principal ahora es mucho más simple o vacío */ 
+            setup() {
+                 // La lógica de progress, currentSection, etc., ya no se maneja aquí para LeftSidebar
+                 // Esas props se eliminaron de la llamada a <left-sidebar> y LeftSidebar las maneja internamente
+                return {}; 
+            }
+        });
+
+        // Registrar componentes globalmente
+        app.component('left-sidebar', LeftSidebar);
+        // RightSidebar ya no es un componente Vue, por lo que no se registra.
+
+        // Configurar Vue para ignorar elementos de MathJax
+        app.config.compilerOptions.isCustomElement = tag => tag.startsWith('mjx-');
+
+        app.mount('#app');
+        
+        // Eliminar la función updateGlobalProgress() de aquí, ya que estará en el script no modular.
+    </script>
+
+    <script>
+        // Definiciones de variables/constantes que necesitan ser accesibles por funciones fuera de DOMContentLoaded
+        const pageKey = 'newton-raphson'; // Clave única para esta página
+        const TASKS = ['read_theory', 'run_code', 'quiz_attempted', 'quiz_passed'];
+        const TOTAL_TASKS = TASKS.length;
+        let mainCompletionButton = null; // Se asignará en DOMContentLoaded
+        
+        const isAuthenticatedJinjaString = "{{ (current_user is not none)|tojson }}";
+        window.userIsAuthenticated = JSON.parse(isAuthenticatedJinjaString || "false");
+        console.log("[DEBUG] isAuthenticatedJinjaString:", isAuthenticatedJinjaString);
+        console.log("[DEBUG] window.userIsAuthenticated after parse:", window.userIsAuthenticated);
+        
+        // Variables para los íconos de progreso
+        const ICON_PENDING = '<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0-4.418-4.03-8-9-8S3 7.582 3 12c0 1.454.402 2.813 1.098 3.977L3 21l5.023-1.098A8.902 8.902 0 0012 21c4.97 0 9-3.582 9-9z"></path></svg>';
+        const ICON_COMPLETED = '<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>';
+        const ICON_IN_PROGRESS = '<svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path></svg>';
+
+        // Respuestas correctas y feedback específico para el cuestionario de Newton-Raphson
+        const quizData = {
+            'question-1': {
+                correct: 'Cuadrática',
+                feedbacks: {
+                    'Lineal': 'Incorrecto. La convergencia lineal es más lenta; Newton-Raphson es conocido por su rápida convergencia cuadrática.',
+                    'Cúbica': 'Incorrecto. Aunque existen métodos con convergencia cúbica, la característica estándar de Newton-Raphson es la cuadrática.'
+                }
+            },
+            'question-2': {
+                correct: 'La derivada de la función.',
+                feedbacks: {
+                    'Dos estimaciones iniciales que encierren la raíz.': 'Incorrecto. Eso es para métodos cerrados como bisección. Newton-Raphson es un método abierto y no requiere que la raíz esté encerrada.',
+                    'El valor de la segunda derivada de la función.': 'Incorrecto. La segunda derivada se usa en el análisis de error o en variantes del método, pero no es un requisito para la fórmula básica de Newton-Raphson.'
+                }
+            },
+            'question-3': {
+                correct: 'Cuando la derivada de la función se acerca a cero cerca de la raíz.',
+                feedbacks: {
+                    'Cuando la función es perfectamente lineal.': 'Incorrecto. Si la función es lineal (y no horizontal), Newton-Raphson encuentra la raíz en una sola iteración.',
+                    'Cuando se utiliza una tolerancia muy pequeña.': 'Incorrecto. Una tolerancia muy pequeña solo exige más precisión y puede llevar a más iteraciones, pero no es una causa intrínseca de fallo del método.'
+                }
+            }
+        };
+
+        // IDs de elementos HTML (para evitar errores de tipeo)
+        const PYTHON_CODE_TEXTAREA_ID = 'newton-raphson-code-input';
+        const RUN_PYTHON_BUTTON_ID = 'run-nr-code-button'; // Corrected ID
+        const PYTHON_CODE_OUTPUT_ID = 'newton-raphson-code-output';
+        const CHART_CANVAS_ID = 'newton-raphson-chart';
+        const QUIZ_FORM_ID = 'quiz-newton-raphson';
+        const COMPLETION_BUTTON_SIDEBAR_ID = 'completion-newton-raphson-sidebar';
+        const CONCLUSION_SECTION_ID = 'conclusion'; // Para el IntersectionObserver
+
+        let pyodideInstance = null;
+        let chartInstance = null;
+
+        // --- Funciones Globales (accesibles antes de DOMContentLoaded) ---
+        async function getTaskProgress(pKey) {
+            const defaults = { overall_progress: 0, user_quiz_answers: {} };
+            TASKS.forEach(task => defaults[task] = false);
+            
+            // Si el usuario está autenticado, intentar obtener el progreso del servidor
+            if (window.userIsAuthenticated) {
+                try {
+                    const response = await fetch(`/api/load_progress/${pKey}`);
+                    if (!response.ok) {
+                        console.warn(`Error al cargar progreso del servidor para ${pKey}: ${response.status}`);
+                        // Si hay error, continuamos con localStorage como fallback
+                    } else {
+                        const serverResponse = await response.json();
+                        console.log("[GET PROGRESS DEBUG] Raw serverResponse from API:", JSON.stringify(serverResponse));
+                
+                        // Extraer el objeto progress del objeto response
+                        const progressData = serverResponse.progress || {};
+                        console.log("[GET PROGRESS DEBUG] Extracted progress data:", JSON.stringify(progressData));
+                
+                        if (progressData && typeof progressData === 'object' && Object.keys(progressData).length > 0) {
+                            console.log(`[GET PROGRESS DEBUG] Progreso cargado del servidor para ${pKey}:`, progressData);
+                            // Limpieza de datos para evitar problemas con valores antiguos
+                            const cleanedServerProgress = { ...defaults, ...progressData };
+                            return cleanedServerProgress;
+                        } else {
+                            // Si la API devuelve ok pero el progreso está vacío (ej. nuevo usuario), 
+                            // devolvemos los defaults y NO recurrimos a localStorage.
+                            console.log(`[GET PROGRESS DEBUG] Server progress for ${pKey} is empty/invalid. Returning defaults. Not falling back to localStorage.`);
+                            return defaults;
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Error en fetch al cargar progreso para ${pKey}:`, error);
+                    // En caso de error de red en el fetch, recurriremos a localStorage
+                }
+            }
+            
+            // Fallback a localStorage SOLO si !USER_IS_AUTHENTICATED o si el fetch de arriba falló
+            console.log("[GET PROGRESS DEBUG] Attempting localStorage fallback for " + pKey + " (User Authenticated: " + window.userIsAuthenticated + ")");
+            try {
+                const stored = localStorage.getItem(pKey);
+                if (stored) {
+                    const localProgress = JSON.parse(stored);
+                    console.log("[GET PROGRESS DEBUG] Cleaned localStorage progress:", JSON.stringify(localProgress));
+                    return { ...defaults, ...localProgress };
+                }
+            } catch (e) {
+                console.warn("localStorage no disponible o datos corruptos. Usando valores por defecto.", e);
+            }
+            
+            console.log("[GET PROGRESS DEBUG] Returning pure defaults as no server or valid local progress found.");
+            return defaults;
+        }
+        
+        async function saveTaskProgress(pKey, progress) {
+            // Si el usuario está autenticado, guardar en el servidor
+            if (window.userIsAuthenticated) {
+                try {
+                    const response = await fetch('/api/save_progress', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ page_key: pKey, progress_data: progress }),
+                    });
+                    if (response.ok) {
+                        console.log(`Progreso guardado en servidor para ${pKey}`);
+                    } else {
+                        console.warn(`Error al guardar progreso en servidor para ${pKey}: ${response.status}`);
+                    }
+                } catch (e) {
+                    console.error(`Error en fetch al guardar progreso para ${pKey}:`, e);
+                }
+            }
+            
+            // Guardar siempre en localStorage como respaldo o para modo offline
+            try {
+                localStorage.setItem(pKey, JSON.stringify(progress));
+                window.dispatchEvent(new CustomEvent('nrPageProgressSaved', { detail: { pageKey: pKey, progress } }));
+            } catch (e) {
+                console.warn("localStorage no disponible. El progreso no se guardará.", e);
+            }
+        }
+
+        async function handleMarkAllMouseEnter() {
+            if (mainCompletionButton && mainCompletionButton.dataset.isUndo === "true") {
+                mainCompletionButton.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+                mainCompletionButton.classList.add('bg-red-600', 'hover:bg-red-700');
+            }
+        }
+
+        async function handleMarkAllMouseLeave() {
+            if (mainCompletionButton && mainCompletionButton.dataset.isUndo === "true") {
+                mainCompletionButton.classList.remove('bg-red-600', 'hover:bg-red-700');
+                mainCompletionButton.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+            }
+        }
+
+        async function updateMainCompletionButtonState() {
+            if (!mainCompletionButton) return;
+            const progress = await getTaskProgress(pageKey);
+            let allTasksCompleted = TASKS.every(task => progress[task] === true);
+
+            mainCompletionButton.removeEventListener('mouseenter', handleMarkAllMouseEnter);
+            mainCompletionButton.removeEventListener('mouseleave', handleMarkAllMouseLeave);
+            mainCompletionButton.classList.remove('bg-green-600', 'hover:bg-green-700', 'bg-yellow-500', 'hover:bg-yellow-600', 'bg-red-600', 'hover:bg-red-700');
+            mainCompletionButton.disabled = false;
+
+            if (allTasksCompleted) {
+                mainCompletionButton.textContent = 'Deshacer Completado';
+                mainCompletionButton.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+                mainCompletionButton.dataset.isUndo = "true";
+                mainCompletionButton.addEventListener('mouseenter', handleMarkAllMouseEnter);
+                mainCompletionButton.addEventListener('mouseleave', handleMarkAllMouseLeave);
+            } else {
+                mainCompletionButton.textContent = 'Marcar Todo Completado';
+                mainCompletionButton.classList.add('bg-green-600', 'hover:bg-green-700');
+                mainCompletionButton.dataset.isUndo = "false";
+            }
+        }
+
+        // --- Lógica Principal que se ejecuta después de que el DOM esté completamente cargado ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log("[DEBUG] USER_IS_AUTHENTICATED (inside DOMContentLoaded):", window.userIsAuthenticated);
+            const USER_IS_AUTHENTICATED = window.userIsAuthenticated === true;
+            console.log("[DEBUG] const USER_IS_AUTHENTICATED evaluated to:", USER_IS_AUTHENTICATED);
+            
+            // Resetea el scroll si hay un hash (evita saltos a secciones por IDs)
+            if (window.location.hash) {
+                window.scrollTo(0, 0);
+                history.replaceState(null, '', window.location.pathname + window.location.search);
+            }
+
+            // Obtención de elementos del DOM
+            const runButton = document.getElementById(RUN_PYTHON_BUTTON_ID);
+            const codeInput = document.getElementById(PYTHON_CODE_TEXTAREA_ID);
+            const codeOutput = document.getElementById(PYTHON_CODE_OUTPUT_ID);
+            const graphCanvas = document.getElementById(CHART_CANVAS_ID);
+            const chartLoadingMessage = document.getElementById('chart-loading-message'); // Asumiendo que existe un ID similar
+            mainCompletionButton = document.getElementById(COMPLETION_BUTTON_SIDEBAR_ID);
+            const quizForm = document.getElementById(QUIZ_FORM_ID);
+            const conclusionSection = document.getElementById(CONCLUSION_SECTION_ID);
+            const overallProgressText = document.querySelector('.right-sidebar-progress-text');
+            const overallProgressBar = document.querySelector('.right-sidebar-progress-bar');
+            const taskStatusIcons = {
+                read_theory: document.getElementById('task-read-theory-status'),
+                run_code: document.getElementById('task-run-code-status'),
+                quiz_attempted: document.getElementById('task-quiz-attempted-status'),
+                quiz_passed: document.getElementById('task-quiz-passed-status'),
+            };
+
+            // --- Funciones Internas a DOMContentLoaded ---
+            async function updateTaskStatusInStorage(pKey, taskName, isCompleted) {
+                const currentProgress = await getTaskProgress(pKey);
+                if (currentProgress.hasOwnProperty(taskName) && currentProgress[taskName] !== isCompleted) {
+                    currentProgress[taskName] = isCompleted;
+                    if (taskName === 'quiz_attempted' && !isCompleted) {
+                        currentProgress.quiz_passed = false;
+                        currentProgress.user_quiz_answers = {};
+                    }
+                    await saveTaskProgress(pKey, currentProgress);
+                    await calculateAndUpdateOverallProgress(pKey);
+                }
+            }
+
+            function renderTaskStatus(taskName, isCompleted, isAttemptedAndNotPassed = false) {
+                const iconElement = taskStatusIcons[taskName];
+                if (iconElement) {
+                    let newIconHTML = ICON_PENDING;
+                    if (isCompleted) newIconHTML = ICON_COMPLETED;
+                    else if (isAttemptedAndNotPassed) newIconHTML = ICON_IN_PROGRESS;
+                    iconElement.innerHTML = newIconHTML;
+                }
+            }
+
+            async function calculateAndUpdateOverallProgress(pKey) {
+                const progress = await getTaskProgress(pKey);
+                let completedTasks = 0;
+                if (!progress) return;
+
+                TASKS.forEach(task => {
+                    let isCompletedCurrentTask = progress[task] === true;
+                    if (progress.hasOwnProperty(task)) {
+                        if (isCompletedCurrentTask) completedTasks++;
+                        let isQuizAttemptedAndNotPassed = task === 'quiz_passed' && progress['quiz_attempted'] === true && !isCompletedCurrentTask;
+                        renderTaskStatus(task, isCompletedCurrentTask, isQuizAttemptedAndNotPassed);
+                    } else {
+                        renderTaskStatus(task, false);
+                    }
+                });
+                
+                const percentage = TOTAL_TASKS > 0 ? (completedTasks / TOTAL_TASKS) * 100 : 0;
+                progress.overall_progress = percentage;
+                await saveTaskProgress(pKey, progress);
+
+                const isHundredPercent = percentage.toFixed(0) === '100';
+                if (overallProgressBar) {
+                    overallProgressBar.style.width = `${percentage.toFixed(0)}%`;
+                    if (isHundredPercent) overallProgressBar.classList.add('animate-rainbow-border');
+                    else overallProgressBar.classList.remove('animate-rainbow-border');
+                }
+                if (overallProgressText) overallProgressText.textContent = `${percentage.toFixed(0)}%`;
+                await updateMainCompletionButtonState();
+            }
+
+            async function displayQuizFeedback(pKey, currentQuizData) { // Recibe currentQuizData
+                const progress = await getTaskProgress(pKey);
+                const userAnswers = progress.user_quiz_answers || {};
+                const quizFormElem = document.getElementById(QUIZ_FORM_ID);
+                if (!quizFormElem) return;
+
+                const displayFeedbackDiv = document.getElementById(`quiz-feedback-${pKey}`); 
+                const submitButton = quizFormElem.querySelector('button[type="submit"]');
+
+                const baseOptionClasses = ['border-gray-300', 'hover:border-gray-400'];
+                const checkedOptionClasses = ['has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red'];
+
+                quizFormElem.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                    wrapper.classList.remove(
+                        'bg-green-50', 'border-green-400', 'text-green-700', 
+                        'bg-green-100', 'border-green-500', 'ring-2', 'ring-green-500', 'text-green-800', 'font-semibold', 
+                        'bg-red-100', 'border-red-500', 'ring-2', 'ring-red-500', 'text-red-800', 'font-semibold',
+                        'has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red'
+                    );
+                    wrapper.classList.add(...baseOptionClasses);
+                    const feedbackIcon = wrapper.querySelector('.feedback-icon-placeholder span');
+                    if (feedbackIcon) feedbackIcon.innerHTML = '';
+                    const optionTextSpan = wrapper.querySelector('.option-text');
+                    if (optionTextSpan) {
+                        optionTextSpan.classList.remove('font-semibold', 'text-green-700', 'text-green-800', 'text-red-700');
+                        optionTextSpan.classList.add('text-gray-700');
+                    }
+                });
+                // Limpiar todos los feedbacks específicos de preguntas antes de re-evaluar
+                Object.keys(currentQuizData).forEach(questionName => {
+                    const specificFeedbackDiv = document.getElementById(`${questionName}-specific-feedback`);
+                    if (specificFeedbackDiv) {
+                        specificFeedbackDiv.innerHTML = '';
+                        specificFeedbackDiv.style.display = 'none';
+                    }
+                });
+
+                const showDetailedFeedback = progress.quiz_attempted === true && Object.keys(userAnswers).length > 0;
+
+                for (const [questionName, questionData] of Object.entries(currentQuizData)) { // Usar questionData
+                    const userAnswerValue = userAnswers[questionName];
+                    const radioInputs = quizFormElem.querySelectorAll(`input[name="${questionName}"]`);
+                    const specificFeedbackDiv = document.getElementById(`${questionName}-specific-feedback`);
+                    
+                    radioInputs.forEach(input => {
+                        const wrapper = input.closest('.quiz-option-wrapper');
+                        if (!wrapper) return;
+                        const feedbackIconSpan = wrapper.querySelector('.feedback-icon-placeholder span');
+                        const optionTextSpan = wrapper.querySelector('.option-text');
+
+                        input.checked = (input.value === userAnswerValue); 
+
+                        if (showDetailedFeedback) { 
+                            optionTextSpan.classList.remove('font-semibold'); 
+                            wrapper.classList.remove('text-gray-700', 'text-green-800', 'text-red-800'); 
+                            optionTextSpan.classList.add('text-gray-700');
+
+                            const isCorrectOption = (input.value === questionData.correct); // Usar questionData.correct
+                            const isSelectedByUser = input.checked;
+
+                            if (isCorrectOption) {
+                                wrapper.classList.add('bg-green-50', 'border-green-400');
+                                optionTextSpan.classList.add('text-green-700');
+                                if (isSelectedByUser) {
+                                    wrapper.classList.remove('bg-green-50', 'border-green-400'); 
+                                    wrapper.classList.add('bg-green-100', 'border-green-500', 'ring-2', 'ring-green-500');
+                                    optionTextSpan.classList.add('font-semibold', 'text-green-800');
+                                    optionTextSpan.classList.remove('text-green-700', 'text-gray-700');
+                                    if (feedbackIconSpan) feedbackIconSpan.innerHTML = '✔️';
+                                } else {
+                                    if (feedbackIconSpan) feedbackIconSpan.innerHTML = '👍';
+                                }
+                            } else if (isSelectedByUser) { 
+                                wrapper.classList.add('bg-red-100', 'border-red-500', 'ring-2', 'ring-red-500');
+                                optionTextSpan.classList.add('font-semibold', 'text-red-700');
+                                optionTextSpan.classList.remove('text-gray-700');
+                                if (feedbackIconSpan) feedbackIconSpan.innerHTML = '❌';
+                                // Mostrar feedback específico para esta respuesta incorrecta
+                                if (specificFeedbackDiv && questionData.feedbacks && questionData.feedbacks[input.value]) {
+                                    specificFeedbackDiv.innerHTML = questionData.feedbacks[input.value];
+                                    specificFeedbackDiv.style.display = 'block';
+                                }
+                            }
+                        } else {
+                            wrapper.classList.add(...checkedOptionClasses);
+                        }
+                    });
+                }
+
+
+                if (progress.quiz_passed === true) {
+                    quizFormElem.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = true);
+                    if (submitButton) { submitButton.disabled = true; submitButton.textContent = 'Cuestionario Aprobado';}
+                    if (displayFeedbackDiv) { 
+                        let score = 0; 
+                        for (const q of Object.keys(currentQuizData)) { // Usar currentQuizData
+                            if (userAnswers[q] === currentQuizData[q].correct) score++; 
+                        }
+                        displayFeedbackDiv.textContent = `¡Excelente! Aprobado. ${score}/${Object.keys(currentQuizData).length} correctas.`;
+                        displayFeedbackDiv.className = 'quiz-feedback-message mt-4 p-3 rounded-md text-sm bg-green-100 text-green-700 border border-green-300';
+                        displayFeedbackDiv.style.display = 'block';
+                    }
+                } else if (showDetailedFeedback) { 
+                    quizFormElem.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false); 
+                    if (submitButton) { 
+                        submitButton.disabled = false; 
+                        submitButton.textContent = 'Intentar de Nuevo'; 
+                    }
+                    if (displayFeedbackDiv) { 
+                        let score = 0; 
+                        for (const qName of Object.keys(currentQuizData)) { // Usar currentQuizData
+                            if (userAnswers[qName] === currentQuizData[qName].correct) score++; 
+                        }
+                        displayFeedbackDiv.textContent = `Resultado: ${score} de ${Object.keys(currentQuizData).length} correctas. Revisa tus respuestas e intenta de nuevo.`;
+                        displayFeedbackDiv.className = 'quiz-feedback-message mt-4 p-3 rounded-md text-sm bg-yellow-100 text-yellow-700 border border-yellow-300';
+                        displayFeedbackDiv.style.display = 'block';
+                    }
+                } else { 
+                    quizFormElem.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                    if (submitButton) { submitButton.disabled = false; submitButton.textContent = 'Enviar Respuestas'; }
+                    if (displayFeedbackDiv) { 
+                        displayFeedbackDiv.textContent = '';
+                        displayFeedbackDiv.style.display = 'none';
+                    }
+                    if (!Object.keys(userAnswers).length) { 
+                        quizFormElem.reset();
+                        quizFormElem.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                            wrapper.classList.add(...checkedOptionClasses);
+                        });
+                    }
+                }
+            }
+
+            async function initializePyodideIfNeeded() {
+                if (!pyodideInstance) {
+                    if(codeOutput) codeOutput.textContent = "Cargando Pyodide y dependencias...";
+                    try {
+                        pyodideInstance = await window.loadPyodide();
+                        // Pre-declare global variables that Python will fill
+                        pyodideInstance.globals.set('pyodide_nr_html_output', '');
+                        pyodideInstance.globals.set('pyodide_nr_chart_data_package', pyodideInstance.toPy({}));
+
+                        // Load micropip and other packages if still needed.
+                        await pyodideInstance.loadPackage("micropip");
+                        const micropip = pyodideInstance.pyimport("micropip");
+                        // numpy and matplotlib might be needed if Python script generates extensive plot data for f(x)
+                        // For now, keeping them commented as per previous step, can be un-commented if Python uses them.
+                        // await micropip.install(['numpy', 'matplotlib']); 
+                        
+                         if(codeOutput) codeOutput.textContent = "Pyodide listo. Puedes ejecutar el código.";
+                    } catch (error) {
+                        console.error("Error al inicializar Pyodide:", error);
+                        if(codeOutput) codeOutput.textContent = "Error al cargar Pyodide. Revisa la consola.";
+                        throw error; 
+                    }
+                }
+                return pyodideInstance;
+            }
+
+            async function runCodeNow() {
+                if (!codeInput || !codeOutput || !runButton) return;
+                try {
+                    await initializePyodideIfNeeded();
+                    const pythonCode = codeInput.value;
+                    codeOutput.innerHTML = "<p>Ejecutando código...</p>"; // Use innerHTML for messages
+                    runButton.disabled = true;
+
+                    // Ensure global Python variables are (re)set before execution
+                    pyodideInstance.globals.set('pyodide_nr_html_output', '');
+                    let chartDataProxy = pyodideInstance.globals.get('pyodide_nr_chart_data_package');
+                    if (chartDataProxy && typeof chartDataProxy.clear === 'function') {
+                        chartDataProxy.clear();
+                    } else {
+                        pyodideInstance.globals.set('pyodide_nr_chart_data_package', pyodideInstance.toPy({}));
+                    }
+                    
+                    await pyodideInstance.loadPackagesFromImports(pythonCode);
+                    // No need to capture stdout/stderr if Python writes directly to html_output
+                    // pyodideInstance.setStdout({ batched: (msg) => { /* ... */ } });
+                    // pyodideInstance.setStderr({ batched: (msg) => { /* ... */ } });
+                    
+                    await pyodideInstance.runPythonAsync(pythonCode);
+
+                    const htmlResult = pyodideInstance.globals.get('pyodide_nr_html_output');
+                    const chartDataPackagePy = pyodideInstance.globals.get('pyodide_nr_chart_data_package');
+                    
+                    if (htmlResult && typeof htmlResult === 'string') {
+                        codeOutput.innerHTML = htmlResult;
+                    } else {
+                        codeOutput.innerHTML = "<p>Ejecución completada. No se generó salida HTML o la variable 'pyodide_nr_html_output' no es una cadena.</p>";
+                    }
+
+                    if (chartDataPackagePy) {
+                        const chartDataJs = chartDataPackagePy.toJs({ dict_converter: Object.fromEntries });
+                        // chartDataPackagePy.destroy(); // Destroy after use if it's a PyProxy
+
+                        if (chartLoadingMessage) chartLoadingMessage.style.display = 'block'; // Show loading before drawing
+                        await drawChartJsGraph(chartDataJs); 
+                        if (chartLoadingMessage) chartLoadingMessage.style.display = 'none';
+                    } else {
+                        if (chartLoadingMessage) chartLoadingMessage.textContent = "Datos para la gráfica no encontrados (pyodide_nr_chart_data_package).";
+                        if (chartInstance) chartInstance.destroy(); // Clear old chart if no new data
+                    }
+                    updateTaskStatusInStorage(pageKey, 'run_code', true);
+
+                } catch (error) {
+                    codeOutput.innerHTML = `<p style="color:red;">Error en ejecución: ${error.message || String(error)}</p>`;
+                    if (error.stack) {
+                        codeOutput.innerHTML += `<pre style="color:pink; font-size:0.8em; white-space:pre-wrap;">${error.stack.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`;
+                    }
+                    console.error("Error en runCodeNow (Newton-Raphson):", error);
+                } finally {
+                    runButton.disabled = false;
+                }
+            }
+
+            async function drawChartJsGraph(chartData) { // Accept chartData as argument
+                if (!graphCanvas) return;
+                // chartLoadingMessage logic handled in runCodeNow
+
+                try {
+                    // initializePyodideIfNeeded is called by runCodeNow, so pyodideInstance should be ready
+                    // However, if Python script needs to be run for f(x) plot points, it might be needed here.
+                    // For now, assume Python provides all necessary plot points in chartData.
+
+                    const dataToUse = chartData || { iterations: [], final_root: null, x_func_vals: [], y_func_vals: [], initial_x0: null, func_repr_for_chart: "f(x)", deriv_repr_for_chart: "f'(x)"};
+                    
+                    if (chartInstance) chartInstance.destroy();
+                    const ctx = graphCanvas.getContext('2d');
+                    const datasets = [];
+
+                    // 1. Plot f(x) - Assuming Python provides x_func_vals and y_func_vals
+                    // The Python script was:
+                    // # chart_package = { ... "x_func_vals": [], "y_func_vals": [] }
+                    // # ... (commented out logic to fill them)
+                    // So, we need to plot f(x) based on iter_data_for_chart if x_func_vals is empty.
+                    let minX = dataToUse.initial_x0 !== null ? dataToUse.initial_x0 : (dataToUse.iterations.length > 0 ? dataToUse.iterations[0].xi : -2);
+                    let maxX = dataToUse.initial_x0 !== null ? dataToUse.initial_x0 : (dataToUse.iterations.length > 0 ? dataToUse.iterations[dataToUse.iterations.length - 1].xi : 2);
+
+                    if (dataToUse.iterations && dataToUse.iterations.length > 0) {
+                        const xValuesFromIter = dataToUse.iterations.map(iter => iter.xi);
+                        if (dataToUse.final_root !== null) xValuesFromIter.push(dataToUse.final_root);
+                        minX = Math.min(...xValuesFromIter, minX);
+                        maxX = Math.max(...xValuesFromIter, maxX);
+                    }
+                    const range = maxX - minX;
+                    minX -= range * 0.2 || 1; // Add some padding or default
+                    maxX += range * 0.2 || 1;
+                    
+                    if (!(dataToUse.x_func_vals && dataToUse.x_func_vals.length > 0)) {
+                        // Generate points for f(x) if not provided by Python
+                        const numPlotPoints = 100;
+                        dataToUse.x_func_vals = [];
+                        dataToUse.y_func_vals = [];
+                        if (minX < maxX) {
+                             const plotStep = (maxX - minX) / (numPlotPoints - 1);
+                             for (let i = 0; i < numPlotPoints; i++) {
+                                const xVal = minX + i * plotStep;
+                                dataToUse.x_func_vals.push(xVal);
+                                try {
+                                    // Call Python's function_ejemplo_nr(x) via Pyodide
+                                    if (pyodideInstance && pyodideInstance.globals.has('funcion_ejemplo_nr')) {
+                                        const yVal = pyodideInstance.globals.get('funcion_ejemplo_nr')(xVal);
+                                        dataToUse.y_func_vals.push(yVal);
+                                    } else {
+                                        dataToUse.y_func_vals.push(null); // Function not found
+                                    }
+                                } catch (e) {
+                                    console.warn(`Error evaluating f(${xVal}) for plot:`, e);
+                                    dataToUse.y_func_vals.push(null);
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (dataToUse.x_func_vals && dataToUse.x_func_vals.length > 0 && dataToUse.y_func_vals && dataToUse.y_func_vals.length > 0) {
+                        const validFuncPoints = dataToUse.x_func_vals.map((val, index) => ({x: val, y: dataToUse.y_func_vals[index]})).filter(p => p.y !== null && !isNaN(p.y));
+                        datasets.push({
+                            label: dataToUse.func_repr_for_chart || 'f(x)',
+                            data: validFuncPoints,
+                            borderColor: 'rgb(54, 162, 235)', 
+                            borderWidth: 2, fill: false, tension: 0.1, type: 'line', order: 3, pointRadius: 0
+                        });
+                    }
+                    
+                    if (dataToUse.iterations && dataToUse.iterations.length > 0) {
+                        dataToUse.iterations.forEach((iter, index) => {
+                            if (iter.xi === undefined || iter.f_xi === undefined) return; // Skip if data is malformed
+
+                            // Iteration point (xi, f(xi))
+                            datasets.push({
+                                label: iter.iter === 0 ? `(x₀, f(x₀))` : `Iter ${iter.iter}: (xᵢ, f(xᵢ))`,
+                                data: [{ x: iter.xi, y: iter.f_xi }],
+                                backgroundColor: iter.iter === 0 ? 'rgba(150, 150, 150, 0.9)' : `hsl(${(index * 50 + 20) % 360}, 70%, 60%)`,
+                                pointRadius: iter.iter === 0 ? 6 : 5,
+                                type: 'scatter',
+                                order: 1 
+                            });
+
+                            // Tangent line
+                            if (iter.f_prime_xi !== null && Math.abs(iter.f_prime_xi) > 1e-12) {
+                                const x_next_approx_on_tangent = iter.xi - (iter.f_xi / iter.f_prime_xi);
+                                datasets.push({
+                                    label: `Tangente Iter ${iter.iter}`,
+                                    data: [ { x: iter.xi, y: iter.f_xi }, { x: x_next_approx_on_tangent, y: 0 } ],
+                                    borderColor: `hsla(${(index * 50 + 20) % 360}, 70%, 45%, 0.65)`,
+                                    borderWidth: 1.5, borderDash: [4,4], type: 'line', fill: false, order: 2, pointRadius: 0,
+                                });
+                            }
+                        });
+                    }
+
+                    if (dataToUse.final_root !== null && dataToUse.final_root !== undefined) {
+                        datasets.push({
+                            label: `Raíz Final (${dataToUse.final_root.toFixed(6)})`,
+                            data: [{ x: dataToUse.final_root, y: 0 }],
+                            backgroundColor: 'rgb(255, 99, 132)', 
+                            pointRadius: 8, pointStyle: 'star', type: 'scatter', order: 0
+                        });
+                    }
+                    
+                    chartInstance = new Chart(ctx, {
+                        type: 'scatter', 
+                        data: { datasets: datasets },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            scales: {
+                                x: { title: { display: true, text: 'x' }, type: 'linear' }, 
+                                y: { title: { display: true, text: 'f(x)' }, type: 'linear', grid: { zeroLineColor: 'rgba(0,0,0,0.8)', zeroLineWidth:1.5 }}
+                            },
+                            plugins: { 
+                                legend: { 
+                                    position: 'top',
+                                    labels: { 
+                                        filter: (item) => !(item.text.startsWith('Tangente Iter')) || (dataToUse.iterations && dataToUse.iterations.length <= 4) 
+                                    }
+                                }, 
+                                title: { display: true, text: "Convergencia del Método de Newton-Raphson", font: {size: 15} } 
+                            }
+                        }
+                    });
+                } catch (error) {
+                    if (chartLoadingMessage) chartLoadingMessage.textContent = `Error al graficar: ${error.message || String(error)}`;
+                    console.error("Error en drawChartJsGraph:", error);
+                }
+            }
+
+            async function handleMainCompletionClick() {
+    // Desactivar el botón mientras se procesa para evitar múltiples clics
+    if (mainCompletionButton) mainCompletionButton.disabled = true;
+    
+    try {
+        console.log('[TOGGLE DEBUG NR] Iniciando acción de toggleCompletion');
+        const progress = await getTaskProgress(pageKey);
+        let allCurrentlyCompleted = TASKS.every(task => progress[task] === true);
+        let markAllAs = !allCurrentlyCompleted;
+        
+        console.log('[TOGGLE DEBUG NR] Estado inicial - allCurrentlyCompleted:', allCurrentlyCompleted, 'markAllAs:', markAllAs);
+        console.log('[TOGGLE DEBUG NR] Progreso inicial:', JSON.stringify(progress));
+        
+        // Actualizar el progreso directamente en lugar de hacer múltiples llamadas
+        // que podrían interferir entre sí
+        const updatedProgress = { ...progress };
+        
+        // Actualizar todas las tareas a la vez
+        TASKS.forEach(taskName => {
+            updatedProgress[taskName] = markAllAs;
+        });
+        
+        console.log('[TOGGLE DEBUG NR] Progreso después de actualizar tareas:', JSON.stringify(updatedProgress));
+        
+        if (markAllAs) { // Marcar todo como completado
+            updatedProgress.quiz_attempted = true;
+            updatedProgress.quiz_passed = true;
+            updatedProgress.overall_progress = 100; // Asegurar que el progreso total es 100%
+            
+            // Auto-completar quiz con respuestas correctas
+            updatedProgress.user_quiz_answers = {};
+            
+            // Completar el cuestionario con todas las respuestas correctas
+            Object.keys(quizData).forEach(questionName => {
+                updatedProgress.user_quiz_answers[questionName] = quizData[questionName].correct;
+                
+                // Marcar también visualmente las respuestas correctas en el formulario
+                if (quizForm) {
+                    const correctAnswer = quizData[questionName].correct;
+                    const radioInput = quizForm.querySelector(`input[name="${questionName}"][value="${correctAnswer}"]`);
+                    if (radioInput) radioInput.checked = true;
+                }
+            });
+            
+            console.log('[TOGGLE DEBUG NR] Respuestas correctas asignadas:', JSON.stringify(updatedProgress.user_quiz_answers));
+            
+            // Guardar cambios y actualizar UI
+            await saveTaskProgress(pageKey, updatedProgress);
+            console.log('[TOGGLE DEBUG NR] Progreso guardado (completado):', JSON.stringify(updatedProgress));
+            
+            // Actualizar la visualización del quiz
+            if (quizForm) await displayQuizFeedback(pageKey, quizData);
+            
+        } else { // Deshacer completado
+            updatedProgress.user_quiz_answers = {};
+            updatedProgress.quiz_attempted = false;
+            updatedProgress.quiz_passed = false;
+            updatedProgress.overall_progress = 0;
+            
+            // Guardar cambios
+            await saveTaskProgress(pageKey, updatedProgress);
+            console.log('[TOGGLE DEBUG NR] Progreso guardado (reseteado):', JSON.stringify(updatedProgress));
+            
+            // Actualizar UI
+            if (quizForm) {
+                quizForm.reset();
+                quizForm.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                const submitButton = quizForm.querySelector('button[type="submit"]');
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Enviar Respuestas';
+                }
+                
+                // Limpiar feedback general del quiz
+                const feedbackDiv = document.getElementById(`quiz-feedback-${pageKey}`);
+                if (feedbackDiv) {
+                    feedbackDiv.textContent = '';
+                    feedbackDiv.style.display = 'none';
+                }
+                
+                // Limpiar todos los feedbacks específicos de preguntas
+                Object.keys(quizData).forEach(questionName => {
+                    const specificFeedbackDiv = document.getElementById(`${questionName}-specific-feedback`);
+                    if (specificFeedbackDiv) {
+                        specificFeedbackDiv.innerHTML = '';
+                        specificFeedbackDiv.style.display = 'none';
+                    }
+                });
+                
+                // Re-renderizar el feedback del quiz para limpiarlo visualmente
+                await displayQuizFeedback(pageKey, quizData);
+            }
+        }
+        
+        // Actualizar barra de progreso y estado de botón
+        await calculateAndUpdateOverallProgress(pageKey);
+        await updateMainCompletionButtonState();
+        
+        // Eliminada la notificación alert para mejorar la experiencia de usuario
+        console.log(markAllAs ? 'Todas las tareas marcadas como completadas.' : 'Se ha deshecho el completado.');
+        
+    } catch (error) {
+        console.error('[TOGGLE ERROR NR]', error);
+        // Mantener el alert de error para informar al usuario de problemas
+        alert('Ocurrió un error al procesar la acción. Por favor, intenta nuevamente.');
+    } finally {
+        // Reactivar el botón
+        if (mainCompletionButton) {
+            mainCompletionButton.disabled = false;
+        }
+    }
+}
+
+            // --- Inicialización y Conexión de Eventos ---
+            if (runButton || graphCanvas) {
+                (async () => { // Autoejecutable asíncrona para Pyodide y gráfica inicial
+                // ... 
+                    try {
+                        if (graphCanvas) await drawChartJsGraph(); // Dibujar gráfica vacía primero
+                        // Pyodide se inicializará bajo demanda por runCodeNow o drawChartJsGraph si es necesario
+                    } catch (error) {
+                        console.error("Error en inicialización asíncrona (Pyodide/Gráfica):", error);
+                        if (chartLoadingMessage) chartLoadingMessage.textContent = 'Error al iniciar componentes interactivos.';
+                        if (codeOutput) codeOutput.textContent = 'Error al iniciar entorno Python.';
+                    }
+                })();
+            }
+            
+            if (runButton) runButton.addEventListener('click', runCodeNow);
+
+            if (conclusionSection) {
+                const observerOptions = { root: null, rootMargin: '0px', threshold: 0.5 };
+                const observerCallback = async (entries, observerInstance) => {
+                    for (const entry of entries) {
+                        if (entry.isIntersecting) {
+                            const currentProgress = await getTaskProgress(pageKey);
+                            if (!currentProgress.read_theory) {
+                                await updateTaskStatusInStorage(pageKey, 'read_theory', true);
+                                observerInstance.unobserve(entry.target);
+                            }
+                        }
+                    }
+                };
+                const theoryObserver = new IntersectionObserver(observerCallback, observerOptions);
+                theoryObserver.observe(conclusionSection);
+            }
+
+            if (quizForm) {
+                    const initialProgress = await getTaskProgress(pageKey);
+                    const feedbackDivId = `quiz-feedback-${pageKey}`; 
+
+                    // Mostrar feedback inicial si existe (ej. página recargada después de un intento)
+                    await displayQuizFeedback(pageKey, quizData); // Usar quizData
+                    
+                    displayQuizFeedback(pageKey, quizData); // Usar quizData
+                    
+                    quizForm.addEventListener('submit', async function(event) {
+                        event.preventDefault();
+                        const formData = new FormData(quizForm);
+                        let allAnswered = true;
+                        const submitButton = quizForm.querySelector('button[type="submit"]');
+                        
+                        if (submitButton && submitButton.textContent === "Cuestionario Aprobado") {
+                            return; // Ya aprobado, no hacer nada
+                        }
+                        if (submitButton && submitButton.textContent === "Intentar de Nuevo") {
+                            // Reiniciar el cuestionario, sin perder el estado de intento
+                            quizForm.reset();
+                            Object.keys(quizData).forEach(questionName => {
+                                const specificFeedbackDiv = document.getElementById(`${questionName}-specific-feedback`);
+                                if (specificFeedbackDiv) {
+                                    specificFeedbackDiv.innerHTML = '';
+                                    specificFeedbackDiv.style.display = 'none';
+                                }
+                            });
+                            
+                            const progress = await getTaskProgress(pageKey);
+                            progress.user_quiz_answers = {};
+                            progress.quiz_attempted = true; // Mantener el estado de intento
+                            progress.quiz_passed = false;
+                            await saveTaskProgress(pageKey, progress);
+                            
+                            quizForm.querySelectorAll('input[type="radio"]').forEach(radio => {
+                                radio.disabled = false;
+                                // Asegurar que los radio buttons muestren estilos al ser seleccionados
+                                radio.addEventListener('change', function() {
+                                    const wrapper = this.closest('.quiz-option-wrapper');
+                                    if (wrapper) {
+                                        wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                                    }
+                                });
+                            });
+                            quizForm.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                                wrapper.classList.remove(
+                                    'bg-green-50', 'border-green-400', 'text-green-700', 
+                                    'bg-green-100', 'border-green-500', 'ring-2', 'ring-green-500', 'text-green-800', 'font-semibold', 
+                                    'bg-red-100', 'border-red-500', 'ring-2', 'ring-red-500', 'text-red-800', 'font-semibold'
+                                );
+                                // Resetear también los textos internos
+                                const optionTextSpan = wrapper.querySelector('.option-text');
+                                if (optionTextSpan) {
+                                    optionTextSpan.classList.remove('font-semibold', 'text-green-700', 'text-green-800', 'text-red-700', 'text-red-800');
+                                    optionTextSpan.classList.add('text-gray-700');
+                                }
+                                wrapper.classList.add('border-gray-300', 'hover:border-gray-400', 'has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                                const feedbackIcon = wrapper.querySelector('.feedback-icon-placeholder span');
+                                if (feedbackIcon) feedbackIcon.innerHTML = '';
+                            });
+                            
+                            submitButton.textContent = "Enviar Respuestas";
+                            const feedbackDivId = `quiz-feedback-${pageKey}`; 
+                            const feedbackDiv = document.getElementById(feedbackDivId);
+                            if (feedbackDiv) {
+                                feedbackDiv.style.display = 'none';
+                            }
+                            
+                            return;
+                        }
+                        
+                        // Validar que todas las preguntas estén respondidas
+                        Object.keys(quizData).forEach(questionName => {
+                            if (!formData.get(questionName)) allAnswered = false;
+                        });
+                        
+                        if (!allAnswered) {
+                            alert('Por favor responde todas las preguntas.');
+                            return;
+                        }
+                        
+                        // Procesar respuestas
+                        let score = 0;
+                        const answeredQuestions = {};
+                        Object.keys(quizData).forEach(questionName => {
+                            const answered = formData.get(questionName);
+                            answeredQuestions[questionName] = answered;
+                            if (answered === quizData[questionName].correct) score++;
+                        });
+                        
+                        // Guardar respuestas en storage
+                        const progress = await getTaskProgress(pageKey);
+                        progress.user_quiz_answers = answeredQuestions;
+                        progress.quiz_attempted = true;
+                        progress.quiz_passed = (score === Object.keys(quizData).length); // Todas correctas = aprobado
+                        await saveTaskProgress(pageKey, progress);
+                        
+                        await updateTaskStatusInStorage(pageKey, 'quiz_attempted', true); // Marcarlo como intentado
+                        if (progress.quiz_passed) {
+                            await updateTaskStatusInStorage(pageKey, 'quiz_passed', true); // Si aprobó, marcarlo
+                        }
+                        
+                        // Calcular y actualizar progreso general visible
+                        await calculateAndUpdateOverallProgress(pageKey);
+                        
+                        // Mostrar feedback
+                        await displayQuizFeedback(pageKey, quizData);
+                    });
+                }
+
+            if (mainCompletionButton) {
+                mainCompletionButton.addEventListener('click', handleMainCompletionClick);
+            }
+            
+            calculateAndUpdateOverallProgress(pageKey); // Llamada inicial para establecer el estado de la UI
+        });
+    </script>
+
+    <!-- START NR SCRIPT (Newton-Raphson Specific Logic) -->
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const NR_CODE_INPUT_ID = 'newton-raphson-code-input';
+        const NR_RUN_BUTTON_ID = 'run-newton-raphson-code-button';
+        const NR_CODE_OUTPUT_ID = 'newton-raphson-code-output';
+        const NR_CHART_ID = 'newton-raphson-chart';
+        const NR_CHART_LOADING_MSG_ID = 'chart-loading-message'; // Shared with general progress script, ensure it's distinct if needed
+
+        // Pyodide instance specific to Newton-Raphson
+        window.pyodideInstance_NR_Global = null; 
+
+        const codeInputNR = document.getElementById(NR_CODE_INPUT_ID);
+        const runButtonNR = document.getElementById(NR_RUN_BUTTON_ID);
+        const codeOutputNR = document.getElementById(NR_CODE_OUTPUT_ID);
+        const chartCanvasNR = document.getElementById(NR_CHART_ID);
+        const chartLoadingMessageNR = document.getElementById(NR_CHART_LOADING_MSG_ID); // Re-confirming, could be the same general one
+
+        async function initializePyodide_NR() {
+            if (window.pyodideInstance_NR_Global) {
+                console.log("Pyodide (NR) ya está inicializado.");
+                return window.pyodideInstance_NR_Global;
+            }
+
+            if (codeOutputNR) codeOutputNR.innerHTML = "<p>Cargando entorno Python (Newton-Raphson)...</p>";
+            if (chartLoadingMessageNR) chartLoadingMessageNR.textContent = "Cargando entorno para gráfica (NR)...";
+            console.log("Iniciando Pyodide para Newton-Raphson...");
+
+            try {
+                // Ensure loadPyodide is available globally
+                if (typeof loadPyodide === "undefined") {
+                    console.error("loadPyodide no está definido. Asegúrate de que el script de Pyodide esté cargado.");
+                    if (codeOutputNR) codeOutputNR.innerHTML = "<p>Error: Script de Pyodide no encontrado.</p>";
+                    return null;
+                }
+
+                window.pyodideInstance_NR_Global = await loadPyodide();
+                console.log("Pyodide (NR) cargado exitosamente.");
+
+                // Initialize global Python variables that the Python script will use for output
+                console.log("Estableciendo variables globales de Python para Newton-Raphson...");
+                window.pyodideInstance_NR_Global.globals.set('pyodide_nr_html_output', '');
+                // For the chart data package, it's better to initialize as an empty PyProxy dict
+                // so Python can populate it directly.
+                window.pyodideInstance_NR_Global.globals.set('pyodide_nr_chart_data_package', window.pyodideInstance_NR_Global.toPy({}));
+                console.log("Variables globales de Python (NR) establecidas.");
+
+                if (codeOutputNR) codeOutputNR.innerHTML = "<p>Entorno Python (NR) listo. Presiona 'Ejecutar Código'.</p>";
+                if (chartLoadingMessageNR && chartLoadingMessageNR.textContent.includes("Cargando")) {
+                     // Only update if it was a loading message, to avoid overwriting "run code to generate"
+                    chartLoadingMessageNR.textContent = "Entorno para gráfica (NR) listo.";
+                }
+                return window.pyodideInstance_NR_Global;
+
+            } catch (error) {
+                console.error('Error al cargar Pyodide para Newton-Raphson:', error);
+                if (codeOutputNR) codeOutputNR.innerHTML = "<p>Error cargando entorno Python (NR). Revisa la consola.</p>";
+                if (chartLoadingMessageNR) chartLoadingMessageNR.textContent = "Error al cargar Pyodide para gráfica (NR).";
+                window.pyodideInstance_NR_Global = null; // Reset on error
+                return null;
+            }
+        }
+
+        // Call initialization
+        initializePyodide_NR();
+
+        // runCodeNow_NR and drawChart_NR will be added in subsequent steps
+        let nrChartInstance = null; // Chart instance specific to Newton-Raphson
+
+        async function runCodeNow_NR() {
+            const pyodide = await initializePyodide_NR(); // Ensure Pyodide is ready
+            if (!pyodide) {
+                if (codeOutputNR) codeOutputNR.innerHTML = "<p>Error: Pyodide (NR) no inicializado. No se puede ejecutar el código.</p>";
+                return;
+            }
+
+            if (!codeInputNR || !codeOutputNR || !runButtonNR) {
+                console.error("Elementos de la UI para Newton-Raphson no encontrados.");
+                return;
+            }
+
+            const pythonCode = codeInputNR.value;
+            codeOutputNR.innerHTML = "<p>Ejecutando código Newton-Raphson...</p>";
+            runButtonNR.disabled = true;
+            if (chartLoadingMessageNR) chartLoadingMessageNR.textContent = "Generando datos para la gráfica (NR)...";
+            if (chartCanvasNR && nrChartInstance) { /* Optionally hide or show loading on canvas */ }
+
+            try {
+                // Ensure global Python variables are reset before each run
+                console.log("Reinicializando variables globales de Python (NR) antes de la ejecución...");
+                pyodide.globals.set('pyodide_nr_html_output', '');
+                // Clear the existing PyProxy dict for chart data, then re-create it if necessary
+                let chartDataProxy = pyodide.globals.get('pyodide_nr_chart_data_package');
+                if (chartDataProxy && typeof chartDataProxy.clear === 'function') {
+                    chartDataProxy.clear();
+                } else { // If it wasn't a proxy or didn't exist, set a new one
+                    pyodide.globals.set('pyodide_nr_chart_data_package', pyodide.toPy({}));
+                }
+                console.log("Variables globales de Python (NR) reinicializadas.");
+
+                await pyodide.loadPackagesFromImports(pythonCode);
+                console.log("Paquetes de Python (NR) cargados desde importaciones.");
+                
+                console.log("Ejecutando script principal de Python (NR)...");
+                await pyodide.runPythonAsync(pythonCode);
+                console.log("Script de Python (NR) ejecutado.");
+
+                const htmlResult = pyodide.globals.get("pyodide_nr_html_output");
+                if (htmlResult && typeof htmlResult === 'string') {
+                    codeOutputNR.innerHTML = htmlResult;
+                } else {
+                    codeOutputNR.innerHTML = "<p>Ejecución completada. No se generó salida HTML o el tipo es incorrecto.</p>";
+                }
+                
+                // Attempt to draw the chart
+                await drawChart_NR();
+
+                // Update progress tracking
+                updateTaskStatusInStorage(pageKey, 'run_code', true);
+
+            } catch (error) {
+                console.error("Error ejecutando el código Python (NR) o procesando la salida:", error);
+                codeOutputNR.innerHTML = `<p style=\"color:red;\">Error: ${error.message ? error.message.replace(/</g, "&lt;").replace(/>/g, "&gt;") : String(error).replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`;
+                if (error.stack) {
+                     codeOutputNR.innerHTML += `<pre style=\"color:pink; font-size:0.8em; white-space:pre-wrap;\">${error.stack.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`;
+                }
+                if (chartLoadingMessageNR) chartLoadingMessageNR.textContent = "Error al generar datos para gráfica (NR).";
+            } finally {
+                runButtonNR.disabled = false;
+            }
+        }
+
+        async function drawChart_NR() {
+            const pyodide = await initializePyodide_NR();
+            if (!pyodide) {
+                if(chartLoadingMessageNR) chartLoadingMessageNR.textContent = 'Pyodide (NR) no inicializado para gráfica.';
+                return;
+            }
+            if (!chartCanvasNR) {
+                console.warn("Canvas para gráfica Newton-Raphson no encontrado.");
+                return;
+            }
+
+            if(chartLoadingMessageNR) chartLoadingMessageNR.textContent = 'Generando gráfica Newton-Raphson...';
+
+            try {
+                if (!pyodide.globals.has("pyodide_nr_chart_data_package")) {
+                    if(chartLoadingMessageNR) chartLoadingMessageNR.textContent = 'Datos para gráfica (NR) no encontrados. Ejecute el código principal.';
+                    console.warn("pyodide_nr_chart_data_package no está en Pyodide globals (NR).");
+                    if (nrChartInstance) nrChartInstance.destroy();
+                    return;
+                }
+                
+                const chartDataPackagePy = pyodide.globals.get("pyodide_nr_chart_data_package");
+                const chartData = chartDataPackagePy.toJs({ dict_converter: Object.fromEntries });
+                // chartDataPackagePy.destroy(); // Destroy if no longer needed, or if it's a copy
+
+                if (!chartData || typeof chartData !== 'object' || !chartData.iterations || !chartData.x_func_vals) {
+                    if(chartLoadingMessageNR) chartLoadingMessageNR.textContent = 'Formato de datos para gráfica (NR) incorrecto.';
+                    console.warn("Formato de datos del gráfico (NR) incorrecto o incompleto:", chartData);
+                    if (nrChartInstance) nrChartInstance.destroy();
+                    return;
+                }
+
+                if (nrChartInstance) {
+                    nrChartInstance.destroy();
+                }
+
+                const datasets = [];
+                // 1. Plot f(x)
+                if (chartData.x_func_vals && chartData.y_func_vals) {
+                     const validFuncPoints = chartData.x_func_vals
+                        .map((val, index) => ({x: val, y: chartData.y_func_vals[index]}))
+                        .filter(p => p.y !== null && typeof p.x === 'number' && typeof p.y === 'number');
+
+                    datasets.push({
+                        label: 'f(x)',
+                        data: validFuncPoints,
+                        borderColor: 'rgb(54, 162, 235)', // Blue
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.1,
+                        type: 'line',
+                        order: 3, // Draw f(x) behind tangents and points
+                        pointRadius: 0, // No points for the main function line
+                    });
+                }
+
+                // 2. Plot tangent lines and points for each iteration
+                if (chartData.iterations) {
+                    chartData.iterations.forEach((iter, index) => {
+                        if (iter.xi != null && iter.f_xi != null && iter.f_prime_xi != null) {
+                            // Point (xi, f(xi))
+                            datasets.push({
+                                label: `Punto Iter ${iter.iter} (xᵢ, f(xᵢ))`,
+                                data: [{ x: iter.xi, y: iter.f_xi }],
+                                backgroundColor: `hsl(${(index * 60) % 360}, 70%, 50%)`, // Vary color
+                                pointRadius: 5,
+                                type: 'scatter',
+                                order: 1 
+                            });
+
+                            // Tangent line: y = f(xi) + f'(xi)*(x - xi)
+                            // We need two points to draw the tangent. Let's pick points around xi.
+                            // Choose a small delta for plotting the tangent line segment
+                            let delta = 1.0; // Default delta
+                            if (chartData.x_func_vals && chartData.x_func_vals.length > 1) {
+                                const range = Math.max(...chartData.x_func_vals) - Math.min(...chartData.x_func_vals);
+                                delta = Math.max(0.1, range / 10); // Adjust delta based on function plot range
+                            }
+                            if (iter.status === 'deriv_cero' && iter.f_prime_xi === 0) {
+                                // Horizontal tangent: y = f(xi)
+                                datasets.push({
+                                    label: `Tangente Iter ${iter.iter} (horizontal)`,
+                                    data: [
+                                        { x: iter.xi - delta, y: iter.f_xi },
+                                        { x: iter.xi + delta, y: iter.f_xi }
+                                    ],
+                                    borderColor: `hsla(${(index * 60) % 360}, 70%, 50%, 0.5)`,
+                                    borderWidth: 1.5,
+                                    borderDash: [4, 4],
+                                    type: 'line',
+                                    fill: false,
+                                    order: 2,
+                                    pointRadius: 0,
+                                });
+                            } else if (iter.f_prime_xi != null && iter.f_prime_xi !== 0) { // Check for non-zero derivative
+                                const x_tangent_intersec = iter.xi - iter.f_xi / iter.f_prime_xi; // This is x_i+1
+                                datasets.push({
+                                    label: `Tangente Iter ${iter.iter}`,
+                                    data: [
+                                        { x: iter.xi, y: iter.f_xi }, // Start at (xi, f(xi))
+                                        { x: x_tangent_intersec, y: 0 } // End at (xi+1, 0)
+                                    ],
+                                    borderColor: `hsla(${(index * 60) % 360}, 70%, 50%, 0.5)`,
+                                    borderWidth: 1.5,
+                                    borderDash: [4, 4],
+                                    type: 'line',
+                                    fill: false,
+                                    order: 2,
+                                    pointRadius: 0,
+                                });
+                                // Point (xi+1, 0) - the new approximation on x-axis
+                                datasets.push({
+                                    label: `xᵢ₊₁ Iter ${iter.iter}`,
+                                    data: [{ x: x_tangent_intersec, y: 0 }],
+                                    backgroundColor: `hsl(${(index * 60 + 30) % 360}, 80%, 60%)`, // Slightly different color
+                                    pointRadius: 5,
+                                    pointStyle: 'triangle',
+                                    type: 'scatter',
+                                    order: 1 
+                                });
+                            }
+                        }
+                    });
+                }
+                
+                // 3. Plot final root
+                if (chartData.final_root != null) {
+                    datasets.push({
+                        label: `Raíz Final (${chartData.final_root.toFixed(6)})`,
+                        data: [{ x: chartData.final_root, y: 0 }],
+                        backgroundColor: 'rgb(255, 0, 0)', // Bright red
+                        pointRadius: 8,
+                        pointStyle: 'star',
+                        type: 'scatter',
+                        order: 0 // Draw on top
+                    });
+                }
+
+                const ctxNR = chartCanvasNR.getContext('2d');
+                nrChartInstance = new Chart(ctxNR, {
+                    type: 'scatter', // Default type, individual datasets can override
+                    data: { datasets: datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: { title: { display: true, text: 'x' }, type: 'linear' },
+                            y: { title: { display: true, text: 'f(x)' }, type: 'linear', grid: { zeroLineColor: 'rgba(0,0,0,0.8)', zeroLineWidth: 1.5 } }
+                        },
+                        plugins: { legend: { position: 'top' }, title: { display: true, text: "Convergencia del Método de Newton-Raphson" } }
+                    }
+                });
+
+                if(chartLoadingMessageNR) chartLoadingMessageNR.style.display = 'none';
+                if(chartCanvasNR) chartCanvasNR.style.display = 'block';
+
+            } catch (error) {
+                console.error("Error dibujando gráfica Newton-Raphson:", error);
+                if(chartLoadingMessageNR) chartLoadingMessageNR.textContent = `Error al generar gráfica (NR): ${error.message || String(error)}`;
+                if (nrChartInstance) nrChartInstance.destroy(); // Cleanup on error
+            }
+        }
+
+        if (runButtonNR) {
+            runButtonNR.addEventListener('click', runCodeNow_NR);
+        }
+
+        // --- START: Fullscreen and Font Control Logic for Newton-Raphson ---
+        const nrFullscreenButton = document.getElementById('nr-fullscreen-output-button');
+        const nrCodeOutputPre = document.getElementById(NR_CODE_OUTPUT_ID); // Should be the <pre> tag
+        const nrOutputControlsContainer = document.getElementById('nr-output-controls-container');
+        const nrIncreaseFontButton = document.getElementById('nr-increase-font-button');
+        const nrDecreaseFontButton = document.getElementById('nr-decrease-font-button');
+        
+        let nrOriginalOutputFontSize = '';
+        const NR_MIN_FONT_SIZE_PX = 8;
+        const NR_MAX_FONT_SIZE_PX = 28;
+        const NR_FONT_SIZE_STEP_PX = 1;
+        let nrCodeOutputInitialRect = null;
+
+        if (nrFullscreenButton && nrCodeOutputPre && nrOutputControlsContainer) {
+            nrFullscreenButton.addEventListener('click', () => {
+                const isFullscreen = nrCodeOutputPre.classList.contains('nr-output-fullscreen');
+                
+                if (isFullscreen) { // EXITING
+                    nrOutputControlsContainer.style.opacity = '0';
+                    if(nrIncreaseFontButton) nrIncreaseFontButton.style.display = 'none';
+                    if(nrDecreaseFontButton) nrDecreaseFontButton.style.display = 'none';
+
+                    if (nrCodeOutputInitialRect) {
+                        const finalRect = nrCodeOutputPre.getBoundingClientRect();
+                        const scaleX = nrCodeOutputInitialRect.width / finalRect.width;
+                        const scaleY = nrCodeOutputInitialRect.height / finalRect.height;
+                        const deltaX = (nrCodeOutputInitialRect.left + nrCodeOutputInitialRect.width / 2) - (finalRect.left + finalRect.width / 2);
+                        const deltaY = (nrCodeOutputInitialRect.top + nrCodeOutputInitialRect.height / 2) - (finalRect.top + finalRect.height / 2);
+                        nrCodeOutputPre.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+                    }
+                    setTimeout(() => {
+                        nrCodeOutputPre.style.transition = 'none';
+                        nrCodeOutputPre.classList.remove('nr-output-fullscreen');
+                        document.body.classList.remove('nr-body-fullscreen-active');
+                        nrOutputControlsContainer.classList.remove('nr-output-controls-container-fixed');
+                        nrOutputControlsContainer.style.transition = 'none';
+                        nrOutputControlsContainer.style.opacity = '1';
+                        nrOutputControlsContainer.offsetHeight; // Reflow
+                        nrOutputControlsContainer.style.transition = ''; // Restore class-based
+                        nrCodeOutputPre.style.transform = '';
+                        if (nrOriginalOutputFontSize) nrCodeOutputPre.style.fontSize = nrOriginalOutputFontSize;
+                        nrCodeOutputPre.offsetHeight; // Reflow
+                        nrCodeOutputPre.style.transition = ''; // Restore class-based
+                        nrFullscreenButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15" /></svg>`;
+                        nrFullscreenButton.title = "Ver en pantalla completa";
+                        nrCodeOutputInitialRect = null;
+                    }, 500);
+                } else { // ENTERING
+                    nrOriginalOutputFontSize = window.getComputedStyle(nrCodeOutputPre).fontSize;
+                    nrCodeOutputInitialRect = nrCodeOutputPre.getBoundingClientRect();
+                    nrOutputControlsContainer.style.transition = 'none';
+                    nrOutputControlsContainer.style.opacity = '0';
+                    nrOutputControlsContainer.offsetHeight; // Reflow
+                    nrOutputControlsContainer.style.transition = ''; // Restore
+                    nrCodeOutputPre.style.transition = 'none';
+                    nrCodeOutputPre.classList.add('nr-output-fullscreen');
+                    document.body.classList.add('nr-body-fullscreen-active');
+                    nrOutputControlsContainer.classList.add('nr-output-controls-container-fixed');
+                    const finalRect = nrCodeOutputPre.getBoundingClientRect();
+                    const scaleX = nrCodeOutputInitialRect.width / finalRect.width;
+                    const scaleY = nrCodeOutputInitialRect.height / finalRect.height;
+                    const deltaX = (nrCodeOutputInitialRect.left + nrCodeOutputInitialRect.width / 2) - (finalRect.left + finalRect.width / 2);
+                    const deltaY = (nrCodeOutputInitialRect.top + nrCodeOutputInitialRect.height / 2) - (finalRect.top + finalRect.height / 2);
+                    nrCodeOutputPre.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+                    nrCodeOutputPre.offsetHeight; // Reflow
+                    nrCodeOutputPre.style.transition = ''; // Restore
+                    nrCodeOutputPre.style.transform = 'translate(0px, 0px) scale(1)';
+                    nrFullscreenButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9V4.5M15 9h4.5M15 9l5.25-5.25M15 15v4.5M15 15h4.5M15 15l5.25 5.25" /></svg>`;
+                    nrFullscreenButton.title = "Salir de pantalla completa";
+                    setTimeout(() => {
+                        nrOutputControlsContainer.style.opacity = '1';
+                        if(nrIncreaseFontButton) nrIncreaseFontButton.style.display = 'inline-flex';
+                        if(nrDecreaseFontButton) nrDecreaseFontButton.style.display = 'inline-flex';
+                    }, 500);
+                }
+            });
+        }
+
+        if (nrIncreaseFontButton && nrCodeOutputPre) {
+            nrIncreaseFontButton.addEventListener('click', () => {
+                if (nrCodeOutputPre.classList.contains('nr-output-fullscreen')) {
+                    let currentSize = parseFloat(window.getComputedStyle(nrCodeOutputPre).fontSize);
+                    if (currentSize < NR_MAX_FONT_SIZE_PX) {
+                        nrCodeOutputPre.style.fontSize = (currentSize + NR_FONT_SIZE_STEP_PX) + 'px';
+                        nrIncreaseFontButton.classList.add('nr-font-button-flash-blue');
+                        setTimeout(() => nrIncreaseFontButton.classList.remove('nr-font-button-flash-blue'), 300);
+                    }
+                }
+            });
+        }
+
+        if (nrDecreaseFontButton && nrCodeOutputPre) {
+            nrDecreaseFontButton.addEventListener('click', () => {
+                if (nrCodeOutputPre.classList.contains('nr-output-fullscreen')) {
+                    let currentSize = parseFloat(window.getComputedStyle(nrCodeOutputPre).fontSize);
+                    if (currentSize > NR_MIN_FONT_SIZE_PX) {
+                        nrCodeOutputPre.style.fontSize = (currentSize - NR_FONT_SIZE_STEP_PX) + 'px';
+                        nrDecreaseFontButton.classList.add('nr-font-button-flash-red');
+                        setTimeout(() => nrDecreaseFontButton.classList.remove('nr-font-button-flash-red'), 300);
+                    }
+                }
+            });
+        }
+         // --- END: Fullscreen and Font Control Logic ---
+
+    });
+    </script>
+    <!-- END NR SCRIPT -->
+
+</body>
+</html> 

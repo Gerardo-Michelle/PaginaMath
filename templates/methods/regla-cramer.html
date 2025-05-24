@@ -1,0 +1,1748 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Regla de Cramer - Métodos Numéricos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'custom-blue': '#242A38', // Main header/footer bg
+                        'custom-red': '#E94560', // Sidebar, accents
+                        'custom-gray-bg': '#F3F4F6', // Page background
+                        'sidebar-bg': '#FFFFFF', // Right sidebar bg
+                        'sidebar-text': '#4B5563',
+                        'sidebar-hover-bg': '#FEF2F2', // For hover in right sidebar if needed
+                    }
+                }
+            }
+        }
+    </script>
+    <script>
+        window.MathJax = {
+            tex: { packages: {'[+]': ['input/mml', 'output/chtml']} },
+            chtml: { matchFontHeight: false },
+            options: { ignoreHtmlClass: 'tex2jax_ignore', processHtmlClass: 'tex2jax_process' }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        /* Styles from gauss-jordan.html, adapted with 'rc' prefix for Regla Cramer */
+        @keyframes animatedRainbowBorder { 0% { background-position: 0% center; } 100% { background-position: 200% center; } }
+        .animate-rainbow-border::before {
+            content: ''; position: absolute; z-index: -1; top: -2px; left: -2px; right: -2px; bottom: -2px;
+            border-radius: 9999px;
+            background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #007bff, #8a2be2, #ff00ff, #ff0000);
+            background-size: 200% 100%;
+            animation: animatedRainbowBorder 3s linear infinite;
+        }
+        .animate-rainbow-border { position: relative; z-index: 0; }
+        .correct-answer-rc { border-color: #10B981; background-color: #D1FAE5; }
+        .incorrect-answer-rc { border-color: #EF4444; background-color: #FEE2E2; }
+
+        .rc-output-fullscreen {
+            position: fixed !important; top: 0 !important; left: 0 !important;
+            width: 100vw !important; height: 100vh !important;
+            z-index: 9990 !important; background-color: #111827 !important;
+            padding: 20px !important; margin: 0 !important; border-radius: 0 !important;
+            overflow-y: auto !important; max-height: 100vh !important;
+        }
+        .rc-body-fullscreen-active { overflow: hidden !important; }
+        .rc-output-controls-container-fixed {
+            position: fixed !important; top: 15px !important; right: 15px !important;
+            z-index: 9999 !important; display: flex !important;
+            align-items: center !important; gap: 0.25rem !important;
+        }
+        .rc-font-button-flash-red { animation: rc-flash-red 0.4s ease-out; }
+        @keyframes rc-flash-red { 0% { background-color: #EF4444; } 100% { background-color: #374151; } }
+        .rc-font-button-flash-blue { animation: rc-flash-blue 0.4s ease-out; }
+        @keyframes rc-flash-blue { 0% { background-color: #3B82F6; } 100% { background-color: #374151; } }
+
+        .matrix-table { border-collapse: collapse; margin: 10px auto; font-family: monospace; font-size:0.9em; }
+        .matrix-table th, .matrix-table td { border: 1px solid #555; padding: 6px 10px; text-align: right; }
+        .matrix-table th { background-color: #333; font-weight:normal; }
+        .matrix-separator { border-right: 2px solid #999 !important; }
+        .step-description { margin-top:15px; margin-bottom:5px; font-style: italic; text-align:center; font-size:0.9em;}
+
+        /* D3 Visualization Styles for Regla de Cramer */
+        #rc-d3-svg-container .matrix-cell rect {
+            stroke: #b0bec5; stroke-width: 1px; fill: white; shape-rendering: crispEdges;
+        }
+        #rc-d3-svg-container .matrix-cell text {
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+            text-anchor: middle; dominant-baseline: central; fill: #263238; font-size: 0.85em;
+            pointer-events: none;
+        }
+        #rc-d3-svg-container .highlight-matrix rect {
+            fill: #E3F2FD !important; /* Light blue for active matrix */
+            stroke: #90CAF9 !important;
+        }
+         #rc-d3-svg-container .highlight-det-calc rect {
+            fill: #FFF9C4 !important; /* Light yellow for determinant calculation */
+        }
+        #rc-d3-svg-container .highlight-final-result rect {
+             fill: #C8E6C9 !important; /* Light green for final result */
+        }
+        #rc-d3-svg-container .matrix-column-separator {
+            stroke: #78909c; stroke-width: 1.5px; stroke-dasharray: 3 2;
+        }
+        #rc-d3-svg-container .det-value-text {
+            font-size: 1.1em; font-weight: bold; fill: #1E88E5;
+            text-anchor: middle;
+        }
+        #rc-d3-svg-container .formula-text {
+            font-size: 1em; fill: #424242;
+            text-anchor: middle;
+        }
+        /* Ensure main content area doesn't hide behind sticky header initially if MathJax causes reflow */
+        main article section:first-child { margin-top: 1rem; }
+        main article section { scroll-margin-top: 6rem; /* Adjust based on actual header height */ }
+
+    </style>
+</head>
+<body class="bg-custom-gray-bg text-gray-700 font-sans antialiased">
+    <div id="app-rc">
+        <header class="bg-custom-blue text-white shadow-md sticky top-0 z-50">
+            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                <h1 class="text-xl font-semibold"><a href="../index.html" class="hover:text-gray-300">Métodos Numéricos</a></h1>
+                <nav><a href="../index.html#method-cards-container" class="text-sm px-4 py-2 rounded-md hover:bg-gray-700 transition-colors duration-150">Volver a Métodos</a></nav>
+            </div>
+        </header>
+
+        <div class="container mx-auto mt-8 mb-8 flex flex-col lg:flex-row lg:space-x-8 px-4">
+            <left-sidebar-rc></left-sidebar-rc>
+            <main class="w-full flex-1 min-w-0 bg-white shadow-xl rounded-lg p-6 md:p-8 order-2 mb-6 lg:mb-0">
+                <article class="method-content">
+                    <h2 class="text-3xl font-bold mb-6 text-gray-800 border-b border-gray-200 pb-4">Regla de Cramer</h2>
+
+                    <section id="teoria-rc" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Fundamento Teórico</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            La Regla de Cramer es un teorema del álgebra lineal que da la solución de un sistema de ecuaciones lineales \(Ax=b\) en términos de determinantes. Es aplicable cuando la matriz de coeficientes \(A\) es cuadrada y su determinante es no nulo (\(\det(A) \neq 0\)), lo que garantiza una solución única.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-2">Para un sistema de \(n\) ecuaciones lineales con \(n\) incógnitas:</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[
+                        \begin{array}{ccccccccc}
+                        a_{11}x_1 & + & a_{12}x_2 & + & \cdots & + & a_{1n}x_n & = & b_1 \\
+                        a_{21}x_1 & + & a_{22}x_2 & + & \cdots & + & a_{2n}x_n & = & b_2 \\
+                        \vdots & & \vdots & & \ddots & & \vdots & & \vdots \\
+                        a_{n1}x_1 & + & a_{n2}x_2 & + & \cdots & + & a_{nn}x_n & = & b_n
+                        \end{array}
+                        \]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mb-2">La Regla de Cramer establece que cada incógnita \(x_j\) se puede encontrar como:</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">\[ x_j = \frac{\det(A_j)}{\det(A)} \]</div>
+                        <p class="text-gray-600 leading-relaxed mb-2">donde:</p>
+                        <ul class="list-disc list-inside space-y-2 pl-4 text-gray-600 mb-4">
+                            <li>\(\det(A)\) es el determinante de la matriz de coeficientes \(A\).</li>
+                            <li>\(\det(A_j)\) es el determinante de la matriz \(A_j\), que se forma reemplazando la \(j\)-ésima columna de \(A\) con el vector de términos independientes \(b\).</li>
+                        </ul>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Es decir, para encontrar \(x_1\), se reemplaza la primera columna de \(A\) por \(b\) y se calcula \(\det(A_1)\). Para \(x_2\), se reemplaza la segunda columna de \(A\) por \(b\) y se calcula \(\det(A_2)\), y así sucesivamente.
+                        </p>
+
+                        <h4 class="text-xl font-semibold mb-3 text-gray-700">Cálculo de Determinantes</h4>
+                        <p class="text-gray-600 leading-relaxed mb-2">El cálculo de determinantes es un paso crucial. Para matrices \(2 \times 2\):</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        Si \(A = \begin{pmatrix} a & b \\ c & d \end{pmatrix}\), entonces \(\det(A) = ad - bc\).
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mb-2">Para matrices \(3 \times 3\) (usando la regla de Sarrus o expansión por cofactores):</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        Si \(A = \begin{pmatrix} a & b & c \\ d & e & f \\ g & h & i \end{pmatrix}\), \(\det(A) = a(ei - fh) - b(di - fg) + c(dh - eg)\).
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Para matrices de orden superior (\(n \times n\)), el determinante se calcula típicamente mediante la expansión por cofactores a lo largo de una fila o columna:
+                            <br>
+                            \(\det(A) = \sum_{j=1}^{n} (-1)^{i+j} a_{ij} M_{ij}\) (expansión por la fila \(i\))
+                            <br>
+                            donde \(M_{ij}\) es el menor del elemento \(a_{ij}\) (el determinante de la submatriz obtenida al eliminar la fila \(i\) y la columna \(j\)).
+                            El cálculo de determinantes de matrices grandes mediante expansión por cofactores es computacionalmente muy costoso (\(O(n!)\) en el peor de los casos). Métodos basados en la triangularización de la matriz (como la eliminación gaussiana) son mucho más eficientes (\(O(n^3)\)).
+                        </p>
+
+                        <h4 class="text-xl font-semibold mb-3 text-gray-700">Consideraciones:</h4>
+                        <p class="text-gray-600 leading-relaxed">
+                            Aunque la Regla de Cramer es teóricamente elegante y útil para derivaciones, no es un método práctico para resolver sistemas de ecuaciones lineales de tamaño considerable debido al alto costo computacional del cálculo de múltiples determinantes. Métodos como la eliminación gaussiana son mucho más eficientes para \(n > 3\) o \(n > 4\).
+                            Además, es sensible a errores de redondeo si \(\det(A)\) es muy cercano a cero.
+                        </p>
+                    </section>
+
+                    <section id="algoritmo-rc" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Pasos del Algoritmo</h3>
+                        <ol class="list-decimal list-inside space-y-3 pl-4 text-gray-600 leading-relaxed">
+                            <li>Dado un sistema \(Ax=b\) con \(n\) ecuaciones y \(n\) incógnitas.</li>
+                            <li>Calcular el determinante de la matriz de coeficientes, \(\det(A)\).</li>
+                            <li>Si \(\det(A) = 0\), la Regla de Cramer no es aplicable para encontrar una solución única (el sistema puede tener infinitas soluciones o ninguna). Se debe verificar si \(\det(A_j)\) también son cero.
+                                <ul class="list-disc list-inside space-y-1 pl-6 mt-1 text-sm">
+                                    <li>Si \(\det(A)=0\) y al menos un \(\det(A_j) \neq 0\), el sistema es inconsistente (no tiene solución).</li>
+                                    <li>Si \(\det(A)=0\) y todos los \(\det(A_j) = 0\), el sistema tiene infinitas soluciones (es dependiente) o es inconsistente de una manera más sutil que Cramer puede no detectar directamente. Se requieren otros métodos como Gauss-Jordan para un análisis completo.</li>
+                                </ul>
+                            </li>
+                            <li>Para cada incógnita \(x_j\) (desde \(j=1\) hasta \(n\)):
+                                <ol type="a" class="list-[lower-alpha] list-inside space-y-2 pl-6 mt-2">
+                                    <li>Formar la matriz \(A_j\) reemplazando la \(j\)-ésima columna de \(A\) con el vector \(b\).</li>
+                                    <li>Calcular el determinante de \(A_j\), es decir, \(\det(A_j)\).</li>
+                                    <li>Calcular \(x_j = \frac{\det(A_j)}{\det(A)}\).</li>
+                                </ol>
+                            </li>
+                            <li>El conjunto de valores \(x_1, x_2, \ldots, x_n\) es la solución del sistema.</li>
+                        </ol>
+                    </section>
+
+                    <section id="ejemplo-rc" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Ejemplo Paso a Paso</h3>
+                        <p class="text-gray-600 leading-relaxed mb-3"><strong>Problema 1:</strong> Resolver el sistema:</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ \begin{aligned} x_1 + x_2 + x_3 &= 6 \\ 2x_2 + 5x_3 &= -4 \\ 2x_1 + 5x_2 - x_3 &= 27 \end{aligned} \]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mb-2">Matriz de coeficientes \(A\) y vector \(b\):</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ A = \begin{pmatrix} 1 & 1 & 1 \\ 0 & 2 & 5 \\ 2 & 5 & -1 \end{pmatrix}, \quad b = \begin{pmatrix} 6 \\ -4 \\ 27 \end{pmatrix} \]
+                        </div>
+
+                        <p class="font-medium text-gray-700 mb-1"><strong>1. Calcular \(\det(A)\):</strong></p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \(\det(A) = 1((2)(-1) - (5)(5)) - 1((0)(-1) - (5)(2)) + 1((0)(5) - (2)(2))\) <br>
+                        \(\det(A) = 1(-2 - 25) - 1(0 - 10) + 1(0 - 4)\) <br>
+                        \(\det(A) = 1(-27) - 1(-10) + 1(-4) = -27 + 10 - 4 = -21\)
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mb-2">Como \(\det(A) = -21 \neq 0\), el sistema tiene una solución única.</p>
+
+                        <p class="font-medium text-gray-700 mb-1 mt-4"><strong>2. Calcular \(\det(A_1)\) para \(x_1\):</strong></p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \(A_1 = \begin{pmatrix} 6 & 1 & 1 \\ -4 & 2 & 5 \\ 27 & 5 & -1 \end{pmatrix}\) <br>
+                        \(\det(A_1) = 6((2)(-1) - (5)(5)) - 1((-4)(-1) - (5)(27)) + 1((-4)(5) - (2)(27))\) <br>
+                        \(\det(A_1) = 6(-2 - 25) - 1(4 - 135) + 1(-20 - 54)\) <br>
+                        \(\det(A_1) = 6(-27) - 1(-131) + 1(-74) = -162 + 131 - 74 = -105\) <br>
+                        \(x_1 = \frac{\det(A_1)}{\det(A)} = \frac{-105}{-21} = 5\)
+                        </div>
+
+                        <p class="font-medium text-gray-700 mb-1 mt-4"><strong>3. Calcular \(\det(A_2)\) para \(x_2\):</strong></p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \(A_2 = \begin{pmatrix} 1 & 6 & 1 \\ 0 & -4 & 5 \\ 2 & 27 & -1 \end{pmatrix}\) <br>
+                        \(\det(A_2) = 1((-4)(-1) - (5)(27)) - 6((0)(-1) - (5)(2)) + 1((0)(27) - (-4)(2))\) <br>
+                        \(\det(A_2) = 1(4 - 135) - 6(0 - 10) + 1(0 + 8)\) <br>
+                        \(\det(A_2) = 1(-131) - 6(-10) + 1(8) = -131 + 60 + 8 = -63\) <br>
+                        \(x_2 = \frac{\det(A_2)}{\det(A)} = \frac{-63}{-21} = 3\)
+                        </div>
+
+                        <p class="font-medium text-gray-700 mb-1 mt-4"><strong>4. Calcular \(\det(A_3)\) para \(x_3\):</strong></p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \(A_3 = \begin{pmatrix} 1 & 1 & 6 \\ 0 & 2 & -4 \\ 2 & 5 & 27 \end{pmatrix}\) <br>
+                        \(\det(A_3) = 1((2)(27) - (-4)(5)) - 1((0)(27) - (-4)(2)) + 6((0)(5) - (2)(2))\) <br>
+                        \(\det(A_3) = 1(54 + 20) - 1(0 + 8) + 6(0 - 4)\) <br>
+                        \(\det(A_3) = 1(74) - 1(8) + 6(-4) = 74 - 8 - 24 = 42\) <br>
+                        \(x_3 = \frac{\det(A_3)}{\det(A)} = \frac{42}{-21} = -2\)
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mt-3"><strong>Solución: \(x_1 = 5, x_2 = 3, x_3 = -2\)</strong>.</p>
+
+                        <p class="text-gray-600 leading-relaxed mb-3"><strong>Problema 2 (con solución única):</strong></p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ \begin{aligned} x_1 + 2x_2 &= 5 \\ 3x_1 - x_2 &= 1 \end{aligned} \]
+                        </div>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ A = \begin{pmatrix} 1 & 2 \\ 3 & -1 \end{pmatrix}, \quad b = \begin{pmatrix} 5 \\ 1 \end{pmatrix} \]
+                        </div>
+                        <p class="font-medium text-gray-700 mb-1"><strong>1. Calcular \(\det(A)\):</strong></p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \(\det(A) = (1)(-1) - (2)(3) = -1 - 6 = -7\)
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mb-2">Como \(\det(A) \neq 0\), hay solución única.</p>
+
+                        <p class="font-medium text-gray-700 mb-1"><strong>2. Para \(x_1\):</strong></p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \(A_1 = \begin{pmatrix} 5 & 2 \\ 1 & -1 \end{pmatrix}\) <br>
+                        \(\det(A_1) = (5)(-1) - (2)(1) = -5 - 2 = -7\) <br>
+                        \(x_1 = \frac{\det(A_1)}{\det(A)} = \frac{-7}{-7} = 1\)
+                        </div>
+
+                        <p class="font-medium text-gray-700 mb-1"><strong>3. Para \(x_2\):</strong></p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \(A_2 = \begin{pmatrix} 1 & 5 \\ 3 & 1 \end{pmatrix}\) <br>
+                        \(\det(A_2) = (1)(1) - (5)(3) = 1 - 15 = -14\) <br>
+                        \(x_2 = \frac{\det(A_2)}{\det(A)} = \frac{-14}{-7} = 2\)
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mt-3">Solución: \(x_1 = 1, x_2 = 2\).</p>
+                    </section>
+
+                    <section id="codigo-rc" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Código de Implementación (Python)</h3>
+                        <p class="text-gray-600 leading-relaxed mb-3">
+                            El siguiente código implementa la Regla de Cramer. Modifica `A_matrix` y `b_vector` para resolver tu sistema.
+                        </p>
+                        <div class="code-editor-container bg-gray-50 p-4 rounded-lg shadow-inner">
+                            <textarea id="rc-code-input" class="code-input w-full h-[600px] p-3 border border-gray-300 rounded-md font-mono text-sm" style="resize: none;">
+import numpy as np
+
+def format_matrix_for_html(matrix, precision=5):
+    # Similar to gauss-jordan but without pivot highlighting
+    html = '<table class="matrix-table" style="font-size: 0.85em; margin: 5px auto;">' # Smaller font for Aj
+    for i, row in enumerate(matrix):
+        html += '<tr>'
+        for j, val in enumerate(row):
+            current_val_display = val
+            if abs(val) < 1e-9 :
+                 current_val_display = 0.0
+
+            if isinstance(current_val_display, float):
+                formatted_val = f"{current_val_display:.{precision}f}"
+                if formatted_val.replace("0", "").replace(".", "").replace("-","") == "": # all zeros after decimal
+                    formatted_val = "0.00000" if "." in formatted_val else "0"
+                if formatted_val.endswith('.' + '0' * precision): # if it's like 3.00000, make it 3
+                    formatted_val = str(int(round(current_val_display)))
+            else:
+                formatted_val = str(current_val_display)
+            html += f'<td>{formatted_val}</td>'
+        html += '</tr>'
+    html += '</table>'
+    return html
+
+def regla_cramer_solve_pyodide(A_matrix_str, b_vector_str):
+    html_log_parts = []
+    visualization_steps = []
+
+    try:
+        A_list = eval(A_matrix_str)
+        b_list = eval(b_vector_str)
+        A = np.array(A_list, dtype=float)
+        b_vec = np.array(b_list, dtype=float) # Keep as 1D for column replacement
+    except Exception as e:
+        error_msg = f'<p style="color: red; text-align:center;">Error parseando entradas: {e}. Asegúrate que A y b estén en formato Python, ej: [[1,2],[3,4]] y [5,6].</p>'
+        return None, error_msg, []
+
+    if A.shape[0] != A.shape[1]:
+        return None, '<p style="color: red; text-align:center;">Error: La matriz A debe ser cuadrada.</p>', []
+    if A.shape[0] != len(b_vec):
+        return None, '<p style="color: red; text-align:center;">Error: Dimensiones de A y b no compatibles.</p>', []
+
+    n = A.shape[0]
+
+    html_log_parts.append('<p class="step-description">Matriz A y Vector b iniciales:</p>')
+    html_log_parts.append('<div style="display:flex; justify-content:center; align-items:start; gap:20px;">')
+    html_log_parts.append(f'<div>A = {format_matrix_for_html(A)}</div>')
+    html_log_parts.append(f'<div>b = {format_matrix_for_html(b_vec.reshape(-1,1))}</div>') # display b as column
+    html_log_parts.append('</div>')
+    visualization_steps.append({
+        "matrix_A": A.tolist(), "vector_b": b_vec.tolist(), "operation_type": "initial",
+        "description": "Matriz A y vector b iniciales."
+    })
+
+    det_A = np.linalg.det(A)
+    html_log_parts.append(f'<p class="step-description">1. Calculando determinante de A:</p>')
+    html_log_parts.append(f'<p style="text-align:center;">det(A) = {det_A:.5f}</p>')
+    visualization_steps.append({
+        "matrix_A": A.tolist(), "vector_b": b_vec.tolist(), "det_A_value": det_A,
+        "operation_type": "det_A_calc", "description": f"Calculando det(A). det(A) = {det_A:.5f}"
+    })
+
+    # Threshold for considering determinant as zero
+    zero_threshold = 1e-9 
+
+    if abs(det_A) < zero_threshold:
+        # Check determinants of Aj matrices for consistency/dependency
+        all_det_Aj_zero = True
+        for j_col_check in range(n):
+            A_j_check = A.copy()
+            A_j_check[:, j_col_check] = b_vec
+            det_A_j_check = np.linalg.det(A_j_check)
+            if abs(det_A_j_check) > zero_threshold:
+                all_det_Aj_zero = False
+                desc_inconsistent = f"Sistema inconsistente: det(A) = {det_A:.5f} (≈0) y det(A{j_col_check+1}) = {det_A_j_check:.5f} (≠0)."
+                html_log_parts.append(f'<p style="color: red; text-align:center;">{desc_inconsistent} No hay solución.</p>')
+                visualization_steps.append({
+                    "matrix_A": A.tolist(), "vector_b": b_vec.tolist(), "det_A_value": det_A,
+                    "matrix_Aj": A_j_check.tolist(), "det_Aj_value": det_A_j_check, "var_index": j_col_check,
+                    "operation_type": "inconsistent_system", "description": desc_inconsistent
+                })
+                return None, "".join(html_log_parts), visualization_steps
+        
+        # If we reach here, det(A) is zero and all det(Aj) are zero
+        desc_dependent = f"det(A) = {det_A:.5f} (≈0) y todos los det(A_j) ≈ 0. El sistema no tiene solución única (infinitas soluciones o inconsistente)."
+        html_log_parts.append(f'<p style="color: orange; text-align:center;">{desc_dependent} Regla de Cramer no concluyente para solución única.</p>')
+        visualization_steps.append({
+            "matrix_A": A.tolist(), "vector_b": b_vec.tolist(), "det_A_value": det_A,
+            "operation_type": "dependent_system", "description": desc_dependent
+        })
+        return None, "".join(html_log_parts), visualization_steps # Indicate no unique solution
+
+    x_solution = np.zeros(n)
+    html_log_parts.append(f'<p class="step-description">2. Calculando x_j para cada variable:</p>')
+    
+    for j in range(n):
+        A_j = A.copy()
+        A_j[:, j] = b_vec # Replace j-th column of A with b
+
+        html_log_parts.append(f'<p style="text-align:center; margin-top:10px;">Para x<sub>{j+1}</sub>, formamos A<sub>{j+1}</sub>:</p>')
+        html_log_parts.append(format_matrix_for_html(A_j))
+        visualization_steps.append({
+            "matrix_A": A.tolist(), "vector_b": b_vec.tolist(), "det_A_value": det_A,
+            "matrix_Aj": A_j.tolist(), "var_index": j,
+            "operation_type": "form_Aj", "description": f"Formando A<sub>{j+1}</sub> para calcular x<sub>{j+1}</sub>."
+        })
+
+        det_A_j = np.linalg.det(A_j)
+        html_log_parts.append(f'<p style="text-align:center;">det(A<sub>{j+1}</sub>) = {det_A_j:.5f}</p>')
+        visualization_steps.append({
+            "matrix_A": A.tolist(), "vector_b": b_vec.tolist(), "det_A_value": det_A,
+            "matrix_Aj": A_j.tolist(), "det_Aj_value": det_A_j, "var_index": j,
+            "operation_type": "det_Aj_calc", "description": f"Calculando det(A<sub>{j+1}</sub>). det(A<sub>{j+1}</sub>) = {det_A_j:.5f}"
+        })
+
+        x_solution[j] = det_A_j / det_A
+        html_log_parts.append(f'<p style="text-align:center; font-weight:bold;">x<sub>{j+1}</sub> = det(A<sub>{j+1}</sub>) / det(A) = {det_A_j:.5f} / {det_A:.5f} = {x_solution[j]:.5f}</p>')
+        visualization_steps.append({
+            "matrix_A": A.tolist(), "vector_b": b_vec.tolist(), "det_A_value": det_A,
+            "matrix_Aj": A_j.tolist(), "det_Aj_value": det_A_j, "var_index": j, "x_j_value": x_solution[j],
+            "operation_type": "calc_xj", "description": f"Calculando x<sub>{j+1}</sub> = {det_A_j:.5f} / {det_A:.5f} = {x_solution[j]:.5f}"
+        })
+
+    html_log_parts.append(f'<p style="color: green; text-align:center; font-weight:bold; margin-top:15px;">Proceso completado.</p>')
+    visualization_steps.append({
+        "solution_vector": x_solution.tolist(), "operation_type": "final_solution",
+        "description": f"Solución final: x = [{', '.join([f'{val:.5f}' for val in x_solution])}]"
+    })
+    
+    return x_solution, "".join(html_log_parts), visualization_steps
+
+# --- Parámetros Ejemplo ---
+# default_A_matrix_str_rc = "[[1, 2], [3, -1]]"
+# default_b_vector_str_rc = "[5, 1]"
+default_A_matrix_str_rc = "[[1, 1, 1], [0, 2, 5], [2, 5, -1]]" # det(A) = 0 example
+default_b_vector_str_rc = "[6, -4, 27]"
+# default_A_matrix_str_rc = "[[1, 1], [2, 2]]" # det(A)=0, det(A1)!=0 (inconsistent)
+# default_b_vector_str_rc = "[1, 3]"
+
+
+# --- Bloque principal para ejecución en Pyodide ---
+if __name__ == "__main__":
+    py_html_buffer_rc = []
+
+    A_str_rc = globals().get("A_matrix_param_rc", default_A_matrix_str_rc)
+    b_str_rc = globals().get("b_vector_param_rc", default_b_vector_str_rc)
+
+    py_html_buffer_rc.append('<div style="text-align: center; font-weight: bold; margin-bottom:15px; font-size:1.1em; padding-top:10px;">REGLA DE CRAMER (Salida de Texto)</div>')
+    try:
+        A_disp_rc = np.array(eval(A_str_rc))
+        b_disp_rc = np.array(eval(b_str_rc))
+        py_html_buffer_rc.append(f'<div style="text-align: center; margin-bottom:5px; font-family:monospace;">Matriz A:<br>{str(A_disp_rc).replace(" ", "&nbsp;")}</div>')
+        py_html_buffer_rc.append(f'<div style="text-align: center; margin-bottom:15px; font-family:monospace;">Vector b:<br>{str(b_disp_rc).replace(" ", "&nbsp;")}</div>')
+    except Exception as e_disp:
+        py_html_buffer_rc.append(f'<p style="color:red; text-align:center;">Error mostrando A y b: {e_disp}</p>')
+
+    solution_rc, log_html_rc, d3_steps_rc = regla_cramer_solve_pyodide(A_str_rc, b_str_rc)
+    py_html_buffer_rc.append(log_html_rc)
+
+    if solution_rc is not None:
+        py_html_buffer_rc.append('<div style="text-align: center; font-weight: bold; margin-top: 20px; margin-bottom: 10px;">RESULTADOS FINALES (Texto)</div>')
+        sol_str_rc = ", ".join([f"{x:.5f}" for x in solution_rc])
+        py_html_buffer_rc.append(f'<div style="text-align:center; padding:5px;">Solución (x): [{sol_str_rc}]</div>')
+        try:
+            A_val_rc = np.array(eval(A_str_rc))
+            b_val_rc = np.array(eval(b_str_rc))
+            Ax_rc = A_val_rc @ solution_rc
+            error_vec_rc = Ax_rc - b_val_rc.flatten()
+            error_norm_rc = np.linalg.norm(error_vec_rc)
+            py_html_buffer_rc.append(f'<div style="text-align:center; font-size:0.85em; padding:5px;">Verificación A*x = {str(Ax_rc.round(5))} (Original b = {str(b_val_rc)})</div>')
+            py_html_buffer_rc.append(f'<div style="text-align:center; font-size:0.85em; padding:5px;">Norma del error ||Ax - b||: {error_norm_rc:.2e}</div>')
+        except Exception as e_verify_rc:
+            py_html_buffer_rc.append(f'<p style="color:orange; text-align:center;">No se pudo verificar la solución: {e_verify_rc}</p>')
+    # Check if log_html_rc ends with a message indicating no unique solution or inconsistency, rather than just being empty.
+    elif not ("No hay solución." in log_html_rc or "Regla de Cramer no concluyente" in log_html_rc):
+         py_html_buffer_rc.append('<div style="text-align: center; color: orange; margin-top:10px; padding:5px;">No se encontró una solución única. Revisa los pasos anteriores.</div>')
+
+
+    chart_data_package_rc = {
+        "visualization_steps": d3_steps_rc,
+        "solution_vector": solution_rc.tolist() if solution_rc is not None else None,
+    }
+
+    if "pyodide_js" in globals():
+        pyodide_globals_rc = globals()['pyodide_js'].globals
+        pyodide_globals_rc.set("pyodide_rc_html_output", "".join(py_html_buffer_rc))
+        
+        # Clear and set chart data package
+        chart_data_proxy_out_rc = pyodide_globals_rc.get("pyodide_rc_chart_data_package")
+        if chart_data_proxy_out_rc is not None and hasattr(chart_data_proxy_out_rc, 'clear'):
+            chart_data_proxy_out_rc.clear()
+            for key, value in chart_data_package_rc.items():
+                chart_data_proxy_out_rc.set(key, value)
+        else:
+            from pyodide.ffi import to_js
+            pyodide_globals_rc.set("pyodide_rc_chart_data_package", to_js(chart_data_package_rc, dict_converter=js.Object.fromEntries))
+    else: # Fallback for local Python execution (testing)
+        global pyodide_rc_html_output, pyodide_rc_chart_data_package
+        pyodide_rc_html_output = "".join(py_html_buffer_rc)
+        pyodide_rc_chart_data_package = chart_data_package_rc
+
+                            </textarea>
+                            <button id="run-rc-code-button" class="run-button mt-4 px-5 py-2.5 bg-custom-red text-white rounded-md hover:bg-red-700">Ejecutar Código</button>
+                            <div class="relative mt-5">
+                                <h4 class="mb-2 text-lg font-semibold text-gray-700">Salida de Texto:</h4>
+                                <div id="rc-output-controls-container" class="absolute top-0 right-0 z-10 flex items-center space-x-1 transition-all duration-500 ease-out">
+                                    <button id="rc-decrease-font-button" title="Disminuir fuente" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs font-semibold flex items-center justify-center" style="min-width: 30px;">aa</button>
+                                    <button id="rc-increase-font-button" title="Aumentar fuente" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs font-semibold flex items-center justify-center" style="min-width: 30px;">AA</button>
+                                    <button id="rc-fullscreen-output-button" title="Ver en pantalla completa" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15" /></svg>
+                                    </button>
+                                </div>
+                                <pre id="rc-code-output" class="code-output bg-gray-900 text-white p-4 pt-8 rounded-md min-h-[100px] whitespace-pre-wrap text-xs leading-relaxed max-h-96 overflow-y-auto font-mono transition-all duration-500 ease-out">Presiona "Ejecutar Código" para ver la salida de texto detallada.</pre>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="graficas-rc" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Visualización Interactiva de Regla de Cramer</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Observa el proceso de la Regla de Cramer paso a paso, mostrando la formación de matrices y el cálculo de determinantes.
+                            Usa los controles para navegar entre los pasos.
+                        </p>
+                        <div id="regla-cramer-d3-visualization" class="bg-gray-100 p-4 rounded-lg shadow-inner">
+                            <div id="rc-d3-controls" class="mb-4 flex flex-wrap items-center justify-center gap-2">
+                                <button id="rc-d3-prev" class="p-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Anterior"></button>
+                                <button id="rc-d3-next" class="p-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Siguiente"></button>
+                                <button id="rc-d3-play" class="p-2.5 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Play"></button>
+                                <input type="range" id="rc-d3-slider" min="0" value="0" class="mx-2 flex-grow max-w-xs align-middle accent-custom-red disabled:opacity-50 disabled:cursor-not-allowed">
+                                <div class="flex items-center text-sm">
+                                    <label for="rc-d3-speed" class="mr-1">Velocidad:</label>
+                                    <input type="range" id="rc-d3-speed" min="100" max="2500" value="1000" step="100" class="w-24 align-middle accent-custom-red">
+                                    <span id="rc-d3-speed-value" class="ml-1 w-10 text-right">1000ms</span>
+                                </div>
+                            </div>
+                            <div id="rc-d3-operation-description" class="mb-3 text-sm text-center font-mono h-auto min-h-[2em] p-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-md leading-tight">
+                                Ejecute el código para generar la visualización.
+                            </div>
+                            <div class="flex justify-center items-start overflow-x-auto min-h-[200px]" style="min-height:250px;"> <!-- Increased min-height -->
+                                <svg id="rc-d3-svg-container" class="border border-gray-300 bg-white rounded shadow-sm"></svg>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="videos-rc" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Videos Explicativos</h3>
+                        <div class="video-embed w-full aspect-video"> <!-- Using aspect-video for responsive height -->
+                            <iframe class="w-full h-full rounded-lg shadow-lg" src="https://www.youtube.com/embed/jBsC7My2CHw" title="YouTube video player - Regla de Cramer" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+                        </div>
+                    </section>
+                    
+                    <section id="conclusion-rc" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Conclusión y Aplicaciones</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            La Regla de Cramer es un método teóricamente importante que expresa la solución de un sistema de ecuaciones lineales directamente en términos de determinantes. Proporciona una fórmula explícita para las incógnitas.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Sin embargo, su aplicación práctica está limitada a sistemas muy pequeños (generalmente \(n \le 3\)) debido al alto costo computacional involucrado en el cálculo de determinantes para matrices más grandes. Para sistemas mayores, métodos como la Eliminación Gaussiana, la descomposición LU o métodos iterativos son mucho más eficientes.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-2 font-medium">
+                            Es valiosa en contextos teóricos y para derivar propiedades de las soluciones de sistemas lineales.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-2 font-medium"><strong>Aplicaciones:</strong></p>
+                        <ul class="list-disc list-inside space-y-2 pl-4 text-gray-600 mb-4">
+                            <li>Resolución de sistemas pequeños (\(2 \times 2\) o \(3 \times 3\)) a mano o en implementaciones sencillas.</li>
+                            <li>Derivaciones teóricas en álgebra lineal y otras áreas de las matemáticas.</li>
+                            <li>Análisis de cómo las soluciones dependen de los coeficientes y los términos independientes (sensibilidad).</li>
+                            <li>En geometría, para encontrar intersecciones de líneas o planos (para sistemas pequeños).</li>
+                        </ul>
+                    </section>
+                     <section id="referencias-rc" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Referencias</h3>
+                        <ul class="list-disc list-inside space-y-2 text-gray-600 leading-relaxed pl-4">
+                            <li>Chapra, S. C., & Canale, R. P. (2015). <em>Numerical Methods for Engineers</em> (7th ed.). McGraw-Hill Education. (Sección 9.3).</li>
+                            <li>Grossman, S. I., & Flores Godoy, J. J. (2012). <em>Álgebra Lineal</em> (7a ed.). McGraw-Hill. (Capítulo 3).</li>
+                        </ul>
+                    </section>
+
+                    <section id="cuestionario-rc" class="scroll-mt-24 mb-10">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Cuestionario: Regla de Cramer</h3>
+                        <form id="quiz-regla-cramer" class="space-y-6 bg-gray-50 p-6 rounded-lg shadow-inner">
+                            <!-- Pregunta 1 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">1. La Regla de Cramer es aplicable para encontrar una solución única a un sistema \(Ax=b\) si y solo si:</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 1</legend>
+                                    <div class="space-y-2">
+                                        <label for="q1-opt1-rc" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt1-rc" name="question-1-rc" type="radio" value="La matriz A es simétrica." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">La matriz \(A\) es simétrica.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt2-rc" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt2-rc" name="question-1-rc" type="radio" value="El determinante de A es no nulo (det(A) != 0)." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">El determinante de \(A\) es no nulo (\(\det(A) \neq 0\)).</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt3-rc" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt3-rc" name="question-1-rc" type="radio" value="El vector b es el vector cero." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">El vector \(b\) es el vector cero.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-1-rc-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                             <!-- Pregunta 2 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">2. En la Regla de Cramer, la incógnita \(x_j\) se calcula como \(x_j = \det(A_j) / \det(A)\). ¿Cómo se forma la matriz \(A_j\)?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 2</legend>
+                                    <div class="space-y-2">
+                                        <label for="q2-opt1-rc" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt1-rc" name="question-2-rc" type="radio" value="Eliminando la j-ésima fila de A." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Eliminando la \(j\)-ésima fila de \(A\).</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt2-rc" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt2-rc" name="question-2-rc" type="radio" value="Reemplazando la j-ésima columna de A con el vector b." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Reemplazando la \(j\)-ésima columna de \(A\) con el vector \(b\).</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt3-rc" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt3-rc" name="question-2-rc" type="radio" value="Reemplazando la j-ésima fila de A con el vector b." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Reemplazando la \(j\)-ésima fila de \(A\) con el vector \(b\).</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-2-rc-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+                             <!-- Pregunta 3 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">3. ¿Cuál es la principal limitación de la Regla de Cramer para resolver sistemas de ecuaciones lineales grandes?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 3</legend>
+                                    <div class="space-y-2">
+                                        <label for="q3-opt1-rc" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt1-rc" name="question-3-rc" type="radio" value="Solo funciona para sistemas con coeficientes enteros." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Solo funciona para sistemas con coeficientes enteros.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt2-rc" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt2-rc" name="question-3-rc" type="radio" value="El alto costo computacional del cálculo de múltiples determinantes." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">El alto costo computacional del cálculo de múltiples determinantes.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt3-rc" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt3-rc" name="question-3-rc" type="radio" value="Requiere que la matriz A sea diagonalmente dominante." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Requiere que la matriz \(A\) sea diagonalmente dominante.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-3-rc-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+                             <!-- Pregunta 4 -->
+                             <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">4. Si para un sistema \(3 \times 3\), \(\det(A) = 0\) y \(\det(A_1) \neq 0\), ¿qué se puede concluir sobre el sistema?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 4</legend>
+                                    <div class="space-y-2">
+                                        <label for="q4-opt1-rc" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt1-rc" name="question-4-rc" type="radio" value="El sistema tiene una solución única." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">El sistema tiene una solución única.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q4-opt2-rc" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt2-rc" name="question-4-rc" type="radio" value="El sistema no tiene solución (es inconsistente)." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">El sistema no tiene solución (es inconsistente).</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q4-opt3-rc" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt3-rc" name="question-4-rc" type="radio" value="El sistema tiene infinitas soluciones." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">El sistema tiene infinitas soluciones.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-4-rc-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+                            <button type="submit" class="mt-6 w-full px-6 py-3 bg-custom-red text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors duration-150">
+                                Enviar Respuestas
+                            </button>
+                        </form>
+                        <div id="quiz-feedback-regla-cramer" class="quiz-feedback-message mt-4 p-3 rounded-md text-sm" style="display: none;"></div>
+                    </section>
+                </article>
+            </main>
+
+            <aside class="w-full lg:w-1/4 bg-sidebar-bg shadow-xl rounded-lg p-6 self-start sticky top-8 order-3 space-y-6">
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-4">Perfil</h3>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex-shrink-0">
+                           <svg class="w-12 h-12 text-gray-400 bg-gray-100 rounded-full p-1 ring-1 ring-gray-200" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-800 text-md">Estudiante Determinante</p>
+                            <p class="text-sm text-gray-500">Analista de Cramer</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pb-6 border-b border-gray-200 space-y-3">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide">Progreso en Regla de Cramer</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li class="flex items-center">
+                            <span id="task-read-theory-status-rc" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Leer la teoría completa</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-run-code-status-rc" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Ejecutar el código Python</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-attempted-status-rc" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Intentar el cuestionario</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-passed-status-rc" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Aprobar el cuestionario</span>
+                        </li>
+                    </ul>
+                    <div class="flex items-center justify-between mb-1 mt-3">
+                       <span class="text-xs font-medium text-custom-red">Progreso General</span>
+                       <span id="right-sidebar-progress-text-rc" class="text-xs font-medium text-custom-red right-sidebar-progress-text">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div id="right-sidebar-progress-bar-rc" class="bg-custom-red h-3 rounded-full right-sidebar-progress-bar transition-width duration-500 ease-in-out" style="width: 0%"></div>
+                    </div>
+                    <button id="completion-regla-cramer-sidebar" class="mt-4 w-full completion-button px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Marcar Todo Completado</button>
+                </div>
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Recursos y Notas</h3>
+                    <p class="text-sm text-gray-600"><a href="https://archive.org/details/numerical-methods-for-engineers-7th-edit" target="_blank" rel="noopener noreferrer" class="hover:text-custom-red hover:underline">Métodos Numéricos para Ingenieros 7ma Edición de Chapra</a> (Sección 9.3)</p>
+                    <img src="https://images.cdn3.buscalibre.com/fit-in/360x360/97/ff/97ffa61a8adb147e569e12c4f1f797b3.jpg" alt="Portada Chapra" class="mt-2 w-full rounded-md shadow-sm">
+                </div>
+                <div>
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Siguiente Paso</h3>
+                    <a href="gauss-jordan.html" class="group flex items-center text-sm font-medium text-custom-red hover:text-red-700">
+                       <span>Explorar Gauss-Jordan</span>
+                       <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </a>
+                </div>
+            </aside>
+        </div>
+
+        <footer class="bg-custom-blue text-gray-300 text-center p-6 mt-12">
+            <p>&copy; 2024 Plataforma Educativa de Métodos Numéricos. <a href="../index.html" class="hover:text-white underline">Volver al inicio</a></p>
+        </footer>
+    </div>
+
+    <!-- Regla de Cramer SCRIPT (Logica JS General de la página, Pyodide, Quiz, D3) -->
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const PAGE_KEY_RC = 'regla-cramer';
+        const QUIZ_FORM_ID_RC = 'quiz-regla-cramer';
+        const QUIZ_FEEDBACK_ID_RC = 'quiz-feedback-regla-cramer';
+        const COMPLETION_BUTTON_ID_RC = 'completion-regla-cramer-sidebar';
+        const CODE_INPUT_ID_RC = 'rc-code-input';
+        const CODE_OUTPUT_ID_RC = 'rc-code-output';
+        const RUN_CODE_BUTTON_ID_RC = 'run-rc-code-button';
+        const outputControlsContainer_RC = document.getElementById('rc-output-controls-container');
+        const fullscreenButton_RC = document.getElementById('rc-fullscreen-output-button');
+        const increaseFontButton_RC = document.getElementById('rc-increase-font-button');
+        const decreaseFontButton_RC = document.getElementById('rc-decrease-font-button');
+        let originalOutputFontSize_RC = '';
+        const MIN_FONT_SIZE_PX_RC = 8;
+        const MAX_FONT_SIZE_PX_RC = 28;
+        const FONT_SIZE_STEP_PX_RC = 1;
+        let rcCodeOutputInitialRect = null;
+
+        const TASKS_RC = {
+            READ_THEORY: 'read_theory_rc',
+            RUN_CODE: 'run_code_rc',
+            QUIZ_ATTEMPTED: 'quiz_attempted_rc',
+            QUIZ_PASSED: 'quiz_passed_rc'
+        };
+        const ALL_TASK_KEYS_RC = Object.values(TASKS_RC);
+        const TOTAL_TASKS_RC = ALL_TASK_KEYS_RC.length;
+
+        const ICON_PENDING_RC = '<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0-4.418-4.03-8-9-8S3 7.582 3 12c0 1.454.402 2.813 1.098 3.977L3 21l5.023-1.098A8.902 8.902 0 0012 21c4.97 0 9-3.582 9-9z"></path></svg>';
+        const ICON_COMPLETED_RC = '<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>';
+        const ICON_IN_PROGRESS_RC = '<svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V9.05a.75.75 0 011.307-.588l5.603 3.112z" clip-rule="evenodd"></path></svg>';
+        const ICON_CORRECT_ANSWER_RC = '✔️';
+        const ICON_INCORRECT_ANSWER_RC = '❌';
+        const ICON_THUMB_UP_RC = '👍';
+        
+        const quizDataReglaCramer = {
+            "question-1-rc": {
+                correctAnswer: "El determinante de A es no nulo (det(A) != 0).",
+                feedback: {
+                    "La matriz A es simétrica.": "Incorrecto. La simetría de A no es la condición para la aplicabilidad de Cramer para una solución única.",
+                    "El vector b es el vector cero.": "Incorrecto. Si b es cero y det(A) != 0, la solución única es x=0, pero Cramer aplica también a b no nulo."
+                }
+            },
+            "question-2-rc": {
+                correctAnswer: "Reemplazando la j-ésima columna de A con el vector b.",
+                feedback: {
+                    "Eliminando la j-ésima fila de A.": "Incorrecto. Eso se relaciona con el cálculo de menores, no con la formación de Aj para Cramer.",
+                    "Reemplazando la j-ésima fila de A con el vector b.": "Incorrecto. Se reemplaza la columna, no la fila."
+                }
+            },
+            "question-3-rc": {
+                correctAnswer: "El alto costo computacional del cálculo de múltiples determinantes.",
+                feedback: {
+                    "Solo funciona para sistemas con coeficientes enteros.": "Incorrecto. Cramer funciona con coeficientes reales o complejos.",
+                    "Requiere que la matriz A sea diagonalmente dominante.": "Incorrecto. La dominancia diagonal es relevante para métodos iterativos, no para Cramer."
+                }
+            },
+            "question-4-rc": {
+                correctAnswer: "El sistema no tiene solución (es inconsistente).",
+                feedback: {
+                    "El sistema tiene una solución única.": "Incorrecto. Si det(A)=0, no hay solución única.",
+                    "El sistema tiene infinitas soluciones.": "Incorrecto. Para infinitas soluciones, se requeriría que det(A)=0 y todos los det(Aj)=0."
+                }
+            }
+        };
+
+        let pyodide_RC = null;
+        const mainCompletionButton_RC = document.getElementById(COMPLETION_BUTTON_ID_RC);
+        const quizForm_RC = document.getElementById(QUIZ_FORM_ID_RC);
+        const generalQuizFeedbackDiv_RC = document.getElementById(QUIZ_FEEDBACK_ID_RC);
+        const codeInput_RC = document.getElementById(CODE_INPUT_ID_RC);
+        const codeOutput_RC = document.getElementById(CODE_OUTPUT_ID_RC);
+        const runCodeButton_RC = document.getElementById(RUN_CODE_BUTTON_ID_RC);
+
+        const taskStatusIcons_RC = {};
+        taskStatusIcons_RC[TASKS_RC.READ_THEORY] = document.getElementById('task-read-theory-status-rc');
+        taskStatusIcons_RC[TASKS_RC.RUN_CODE] = document.getElementById('task-run-code-status-rc');
+        taskStatusIcons_RC[TASKS_RC.QUIZ_ATTEMPTED] = document.getElementById('task-quiz-attempted-status-rc');
+        taskStatusIcons_RC[TASKS_RC.QUIZ_PASSED] = document.getElementById('task-quiz-passed-status-rc');
+        const overallProgressText_RC = document.getElementById('right-sidebar-progress-text-rc');
+        const overallProgressBar_RC = document.getElementById('right-sidebar-progress-bar-rc');
+
+        function getPageProgressFromStorage_RC(pKey) {
+            const defaults = ALL_TASK_KEYS_RC.reduce((obj, task) => ({ ...obj, [task]: false }), {});
+            defaults.overall_progress = 0;
+            defaults.user_quiz_answers = {};
+            defaults.quiz_current_score = 0;
+            defaults.quiz_feedback_active = false;
+            try {
+                const stored = localStorage.getItem(pKey);
+                if (stored) return { ...defaults, ...JSON.parse(stored) };
+            } catch (e) { console.error("Error al leer localStorage para RC:", e); }
+            return defaults;
+        }
+
+        function savePageProgressToStorage_RC(pKey, progress) {
+            try {
+                localStorage.setItem(pKey, JSON.stringify(progress));
+                window.dispatchEvent(new CustomEvent('rcPageProgressSaved', { detail: { pageKey: pKey, progress } }));
+            } catch (e) { console.error("Error al guardar en localStorage para RC:", e); }
+        }
+
+        function updateTaskStatusInStorage_RC(taskName, isCompleted) {
+            let currentProgress = getPageProgressFromStorage_RC(PAGE_KEY_RC);
+            if (currentProgress[taskName] !== isCompleted) {
+                currentProgress[taskName] = isCompleted;
+                if (taskName === TASKS_RC.QUIZ_ATTEMPTED && !isCompleted) {
+                    currentProgress[TASKS_RC.QUIZ_PASSED] = false;
+                    currentProgress.user_quiz_answers = {};
+                    currentProgress.quiz_current_score = 0;
+                    currentProgress.quiz_feedback_active = false;
+                }
+                if (taskName === TASKS_RC.QUIZ_PASSED && isCompleted) {
+                     currentProgress[TASKS_RC.QUIZ_ATTEMPTED] = true;
+                }
+                savePageProgressToStorage_RC(PAGE_KEY_RC, currentProgress);
+                calculateAndUpdateOverallProgress_RC();
+            }
+        }
+
+        function renderTaskStatus_RC() {
+            const progress = getPageProgressFromStorage_RC(PAGE_KEY_RC);
+            ALL_TASK_KEYS_RC.forEach(taskKey => {
+                const iconElement = taskStatusIcons_RC[taskKey];
+                if (iconElement) {
+                    let newIconHTML = ICON_PENDING_RC;
+                    if (progress[taskKey]) newIconHTML = ICON_COMPLETED_RC;
+                    else if (taskKey === TASKS_RC.QUIZ_PASSED && progress[TASKS_RC.QUIZ_ATTEMPTED]) newIconHTML = ICON_IN_PROGRESS_RC;
+                    iconElement.innerHTML = newIconHTML;
+                }
+            });
+        }
+
+        function calculateAndUpdateOverallProgress_RC() {
+            let progress = getPageProgressFromStorage_RC(PAGE_KEY_RC);
+            let completedTasks = ALL_TASK_KEYS_RC.filter(taskKey => progress[taskKey]).length;
+            const percentage = TOTAL_TASKS_RC > 0 ? (completedTasks / TOTAL_TASKS_RC) * 100 : 0;
+            progress.overall_progress = percentage;
+            savePageProgressToStorage_RC(PAGE_KEY_RC, progress);
+
+            const isHundredPercent = percentage.toFixed(0) === '100';
+            if (overallProgressBar_RC) {
+                overallProgressBar_RC.style.width = `${percentage.toFixed(0)}%`;
+                overallProgressBar_RC.classList.toggle('animate-rainbow-border', isHundredPercent);
+            }
+            if (overallProgressText_RC) overallProgressText_RC.textContent = `${percentage.toFixed(0)}%`;
+
+            renderTaskStatus_RC();
+            updateMainCompletionButtonState_RC();
+        }
+        
+        function handleMarkAllMouseEnter_RC() {
+            if (mainCompletionButton_RC && mainCompletionButton_RC.dataset.isUndo === "true") {
+                mainCompletionButton_RC.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+                mainCompletionButton_RC.classList.add('bg-red-600', 'hover:bg-red-700');
+            }
+        }
+
+        function handleMarkAllMouseLeave_RC() {
+            if (mainCompletionButton_RC && mainCompletionButton_RC.dataset.isUndo === "true") {
+                mainCompletionButton_RC.classList.remove('bg-red-600', 'hover:bg-red-700');
+                mainCompletionButton_RC.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+            }
+        }
+
+        function updateMainCompletionButtonState_RC() {
+            if (!mainCompletionButton_RC) return;
+            const progress = getPageProgressFromStorage_RC(PAGE_KEY_RC);
+            let allTasksCompleted = ALL_TASK_KEYS_RC.every(task => progress[task]);
+
+            mainCompletionButton_RC.removeEventListener('mouseenter', handleMarkAllMouseEnter_RC);
+            mainCompletionButton_RC.removeEventListener('mouseleave', handleMarkAllMouseLeave_RC);
+            mainCompletionButton_RC.classList.remove('bg-green-600', 'hover:bg-green-700', 'bg-yellow-500', 'hover:bg-yellow-600', 'bg-red-600', 'hover:bg-red-700');
+
+            if (allTasksCompleted) {
+                mainCompletionButton_RC.textContent = 'Deshacer Completado';
+                mainCompletionButton_RC.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+                mainCompletionButton_RC.dataset.isUndo = "true";
+                mainCompletionButton_RC.addEventListener('mouseenter', handleMarkAllMouseEnter_RC);
+                mainCompletionButton_RC.addEventListener('mouseleave', handleMarkAllMouseLeave_RC);
+            } else {
+                mainCompletionButton_RC.textContent = 'Marcar Todo Completado';
+                mainCompletionButton_RC.classList.add('bg-green-600', 'hover:bg-green-700');
+                mainCompletionButton_RC.dataset.isUndo = "false";
+            }
+        }
+
+        function clearAllVisualFeedback_RC(clearGeneralMessage = false) {
+            if (!quizForm_RC) return;
+            quizForm_RC.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                wrapper.classList.remove('correct-answer-rc', 'incorrect-answer-rc', 'border-green-500', 'border-red-500', 'ring-1', 'ring-green-500', 'ring-red-500', 'bg-green-50', 'bg-red-50');
+                wrapper.classList.add('border-gray-300', 'hover:border-gray-400', 'has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                const iconPlaceholder = wrapper.querySelector('.feedback-icon-placeholder span');
+                if (iconPlaceholder) iconPlaceholder.innerHTML = '';
+            });
+            quizForm_RC.querySelectorAll('.specific-question-feedback').forEach(el => {
+                el.textContent = '';
+                el.style.display = 'none';
+            });
+            if (clearGeneralMessage && generalQuizFeedbackDiv_RC) {
+                generalQuizFeedbackDiv_RC.textContent = '';
+                generalQuizFeedbackDiv_RC.style.display = 'none';
+                generalQuizFeedbackDiv_RC.className = 'quiz-feedback-message mt-4 p-3 rounded-md text-sm';
+            }
+        }
+
+        function displayQuizFeedback_RC() {
+            if (!quizForm_RC || !generalQuizFeedbackDiv_RC) return false;
+            const progress = getPageProgressFromStorage_RC(PAGE_KEY_RC);
+            const userAnswers = progress.user_quiz_answers || {};
+            const submitButton = quizForm_RC.querySelector('button[type="submit"]');
+
+            clearAllVisualFeedback_RC(false);
+
+            if (!progress.quiz_feedback_active && Object.keys(userAnswers).length === 0) {
+                quizForm_RC.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                 if (submitButton) {
+                    submitButton.textContent = 'Enviar Respuestas';
+                    submitButton.disabled = false;
+                }
+                return false;
+            }
+
+            let allCorrect = true;
+            let score = 0;
+
+            for (const questionName in quizDataReglaCramer) {
+                const userAnswer = userAnswers[questionName];
+                const questionData = quizDataReglaCramer[questionName];
+                const correctAnswer = questionData.correctAnswer;
+                const specificFeedbackDiv = document.getElementById(`${questionName}-specific-feedback`);
+
+                const radioInputs = quizForm_RC.querySelectorAll(`input[name="${questionName}"]`);
+                radioInputs.forEach(input => {
+                    const wrapper = input.closest('.quiz-option-wrapper');
+                    const iconPlaceholder = wrapper.querySelector('.feedback-icon-placeholder span');
+                    input.disabled = true;
+                    wrapper.classList.remove('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+
+                    if (input.value === userAnswer) {
+                        input.checked = true;
+                        if (userAnswer === correctAnswer) {
+                            wrapper.classList.add('correct-answer-rc', 'border-green-500', 'ring-1', 'ring-green-500', 'bg-green-50');
+                            if (iconPlaceholder) iconPlaceholder.textContent = ICON_CORRECT_ANSWER_RC;
+                            score++;
+                        } else {
+                            wrapper.classList.add('incorrect-answer-rc', 'border-red-500', 'ring-1', 'ring-red-500', 'bg-red-50');
+                            if (iconPlaceholder) iconPlaceholder.textContent = ICON_INCORRECT_ANSWER_RC;
+                            allCorrect = false;
+                            if (specificFeedbackDiv && questionData.feedback && questionData.feedback[userAnswer]) {
+                                specificFeedbackDiv.textContent = "Incorrecto. " + questionData.feedback[userAnswer];
+                                specificFeedbackDiv.style.display = 'block';
+                            } else if (specificFeedbackDiv) {
+                                specificFeedbackDiv.textContent = "Incorrecto. Respuesta incorrecta.";
+                                specificFeedbackDiv.style.display = 'block';
+                            }
+                        }
+                    } else if (input.value === correctAnswer) {
+                         wrapper.classList.add('correct-answer-rc', 'border-green-500', 'bg-green-50');
+                         if (userAnswer !== correctAnswer && iconPlaceholder) iconPlaceholder.textContent = ICON_THUMB_UP_RC;
+                    } else {
+                         wrapper.classList.add('border-gray-300');
+                    }
+                });
+            }
+
+            progress.quiz_current_score = score;
+            progress.quiz_passed = allCorrect; // This might be an issue if TASKS_RC.QUIZ_PASSED refers to this
+            savePageProgressToStorage_RC(PAGE_KEY_RC, progress);
+
+            generalQuizFeedbackDiv_RC.style.display = 'block';
+            if (allCorrect) {
+                generalQuizFeedbackDiv_RC.className = 'mt-4 p-3 rounded-md text-sm bg-green-100 text-green-700 border border-green-200';
+                generalQuizFeedbackDiv_RC.innerHTML = `<strong>¡Felicidades!</strong> Todas tus respuestas son correctas. (${score}/${Object.keys(quizDataReglaCramer).length})`;
+                if (submitButton) {
+                    submitButton.textContent = 'Cuestionario Aprobado';
+                    submitButton.disabled = true;
+                }
+            } else {
+                generalQuizFeedbackDiv_RC.className = 'mt-4 p-3 rounded-md text-sm bg-red-100 text-red-700 border border-red-200';
+                generalQuizFeedbackDiv_RC.innerHTML = `Has respondido correctamente ${score} de ${Object.keys(quizDataReglaCramer).length} preguntas. Revisa los comentarios e intenta de nuevo.`;
+                if (submitButton) {
+                    submitButton.textContent = 'Intentar de Nuevo';
+                    submitButton.disabled = false;
+                }
+            }
+             if (window.MathJax && window.MathJax.typesetPromise && quizForm_RC) {
+                window.MathJax.typesetPromise([quizForm_RC]); // Typeset the quiz form after feedback
+            }
+            return allCorrect;
+        }
+
+        async function initializePyodide_RC() {
+            if (!window.pyodideInstance_RC_Global) { // Use a unique global instance name
+                if (codeOutput_RC) codeOutput_RC.innerHTML = "<p>Cargando Pyodide y entorno...</p>";
+                try {
+                    window.pyodideInstance_RC_Global = await window.loadPyodide();
+                    await window.pyodideInstance_RC_Global.loadPackage("numpy");
+                    window.pyodide_rc_globals = window.pyodideInstance_RC_Global.globals;
+                    window.pyodide_rc_globals.set("pyodide_rc_html_output", "");
+                    window.pyodide_rc_globals.set("pyodide_rc_chart_data_package", window.pyodideInstance_RC_Global.toPy({}));
+                    if (codeOutput_RC) codeOutput_RC.innerHTML = "<p>Pyodide listo. Presiona 'Ejecutar Código'.</p>";
+                } catch (error) {
+                    console.error("Error al cargar Pyodide para Regla de Cramer:", error);
+                    if (codeOutput_RC) codeOutput_RC.innerHTML = "<p>Error al cargar Pyodide. Revisa la consola.</p>";
+                    return null;
+                }
+            }
+             if (!window.pyodide_rc_globals && window.pyodideInstance_RC_Global) {
+                 window.pyodide_rc_globals = window.pyodideInstance_RC_Global.globals;
+            }
+            return window.pyodideInstance_RC_Global;
+        }
+
+        async function runCodeNow_RC() {
+            pyodide_RC = await initializePyodide_RC();
+            if (!pyodide_RC || !window.pyodide_rc_globals) {
+                if (codeOutput_RC) codeOutput_RC.innerHTML = "<p>Pyodide no está listo. Intenta recargar.</p>";
+                return;
+            }
+            if (!codeInput_RC || !codeOutput_RC) return;
+
+            const pythonCode = codeInput_RC.value;
+            if (codeOutput_RC) codeOutput_RC.innerHTML = "<p>Ejecutando código...</p>";
+            rc_d3_opDesc.html("Generando datos para la visualización...");
+            rc_d3_svg.selectAll("*").remove();
+
+            try {
+                window.pyodide_rc_globals.set("pyodide_rc_html_output", "");
+                let chartPkgProxy = window.pyodide_rc_globals.get("pyodide_rc_chart_data_package");
+                if (chartPkgProxy && typeof chartPkgProxy.clear === 'function') chartPkgProxy.clear();
+                else window.pyodide_rc_globals.set("pyodide_rc_chart_data_package", pyodide_RC.toPy({}));
+                
+                await pyodide_RC.loadPackagesFromImports(pythonCode);
+                await pyodide_RC.runPythonAsync(pythonCode);
+
+                const htmlResult = window.pyodide_rc_globals.get("pyodide_rc_html_output");
+                if (codeOutput_RC) {
+                    codeOutput_RC.innerHTML = htmlResult || "<p>Ejecución completada. No se generó salida HTML de texto.</p>";
+                }
+                updateTaskStatusInStorage_RC(TASKS_RC.RUN_CODE, true);
+
+                const d3DataPackage = window.pyodide_rc_globals.get("pyodide_rc_chart_data_package").toJs({ dict_converter: Object.fromEntries });
+                initializeRCVisualization(d3DataPackage);
+
+            } catch (error) {
+                console.error("Error al ejecutar el código Python (Regla de Cramer):", error);
+                if (codeOutput_RC) {
+                    codeOutput_RC.innerHTML = `<p style="color:red;">Error en la ejecución: ${error.toString().replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p><pre>${error.stack ? error.stack.replace(/</g, "&lt;").replace(/>/g, "&gt;") : ''}</pre>`;
+                }
+                rc_d3_opDesc.html("Error al generar datos para la visualización.");
+            }
+        }
+        
+        // --- D3.js Regla de Cramer Visualization Logic ---
+        let rc_d3_currentStepIndex = 0;
+        let rc_d3_visualizationData = [];
+        let rc_d3_isPlaying = false;
+        let rc_d3_animationSpeed = 1000; // Default speed for Cramer steps
+        let rc_d3_playInterval = null;
+
+        const rc_d3_svg = d3.select("#rc-d3-svg-container");
+        const rc_d3_opDesc = d3.select("#rc-d3-operation-description");
+        const rc_d3_prevButton = d3.select("#rc-d3-prev");
+        const rc_d3_nextButton = d3.select("#rc-d3-next");
+        const rc_d3_playButton = d3.select("#rc-d3-play");
+        const rc_d3_slider = d3.select("#rc-d3-slider");
+        const rc_d3_speedSlider = d3.select("#rc-d3-speed");
+        const rc_d3_speedValueText = d3.select("#rc-d3-speed-value");
+
+        const rc_d3_cellSize = { width: 60, height: 30 };
+        const rc_d3_padding = 4;
+        const rc_d3_matrixSpacing = 20; // Space between multiple matrices if shown
+        const rc_d3_numberFormat = d3.format(".3~f"); // For matrix values
+        const rc_d3_detFormat = d3.format(".4~f");    // For determinant values
+
+        const ICON_RC_PREVIOUS = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M15.225 15.077a.75.75 0 01-1.06 0L8.94 9.852a.75.75 0 010-1.06l5.224-5.224a.75.75 0 011.06 1.06L10.532 9.322l4.693 4.695a.75.75 0 010 1.06z"/></svg>';
+        const ICON_RC_NEXT = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M4.775 4.923a.75.75 0 011.06 0l5.224 5.224a.75.75 0 010 1.06l-5.224 5.224a.75.75 0 01-1.06-1.06L9.468 10.678 4.775 5.983a.75.75 0 010-1.06z"/></svg>';
+        const ICON_RC_PLAY = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"/></svg>';
+        const ICON_RC_PAUSE = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M5.75 4.5a.75.75 0 00-.75.75v10.5a.75.75 0 001.5 0V5.25a.75.75 0 00-.75-.75zm8.5 0a.75.75 0 00-.75.75v10.5a.75.75 0 001.5 0V5.25a.75.75 0 00-.75-.75z"/></svg>';
+
+
+        function initializeRCVisualization(data) {
+            rc_d3_svg.selectAll("*").remove();
+            if (!data || !data.visualization_steps || data.visualization_steps.length === 0) {
+                rc_d3_opDesc.html("No hay datos de visualización. Ejecute el código.");
+                rc_d3_prevButton.property("disabled", true).html(ICON_RC_PREVIOUS);
+                rc_d3_nextButton.property("disabled", true).html(ICON_RC_NEXT);
+                rc_d3_slider.property("disabled", true).attr("max",0).property("value",0);
+                rc_d3_playButton.property("disabled", true).html(ICON_RC_PLAY);
+                return;
+            }
+            rc_d3_visualizationData = data.visualization_steps;
+            rc_d3_currentStepIndex = 0;
+            rc_d3_isPlaying = false;
+            if (rc_d3_playInterval) clearInterval(rc_d3_playInterval);
+            
+            rc_d3_prevButton.html(ICON_RC_PREVIOUS).property("disabled", false);
+            rc_d3_nextButton.html(ICON_RC_NEXT).property("disabled", false);
+            rc_d3_playButton.html(ICON_RC_PLAY).property("disabled", false);
+            rc_d3_slider.attr("max", rc_d3_visualizationData.length - 1).property("value", 0).property("disabled", false);
+
+            renderRCStep(rc_d3_currentStepIndex);
+            updateRCControls();
+        }
+
+        function formatNumberForRCDisplay(num) {
+             if (typeof num !== 'number') return String(num); // Handle non-numeric if they appear
+             if (Math.abs(num) < 1e-9) return "0";
+             const rounded = parseFloat(num.toFixed(4)); // Standard rounding
+             if (Math.abs(rounded - Math.round(rounded)) < 1e-9) return String(Math.round(rounded));
+             let formatted = rc_d3_numberFormat(rounded);
+             if (formatted === "-0" || formatted === "-0.0" || formatted === "-0.00" || formatted === "-0.000") return "0";
+             return formatted;
+        }
+        
+        function drawMatrixD3(selection, matrixData, xOffset, yOffset, title, numCoeffsForSeparator = -1) {
+            if (!matrixData || matrixData.length === 0) return { width: 0, height: 0 };
+
+            const numRows = matrixData.length;
+            const numCols = matrixData[0].length;
+            const matrixWidth = numCols * (rc_d3_cellSize.width + rc_d3_padding) - rc_d3_padding;
+            const matrixHeight = numRows * (rc_d3_cellSize.height + rc_d3_padding) - rc_d3_padding;
+
+            const group = selection.append("g")
+                .attr("transform", `translate(${xOffset}, ${yOffset})`);
+
+            if (title) {
+                group.append("text")
+                    .attr("x", matrixWidth / 2)
+                    .attr("y", -10) // Position title above the matrix
+                    .attr("text-anchor", "middle")
+                    .style("font-size", "0.9em")
+                    .style("font-weight", "bold")
+                    .text(title);
+            }
+            
+            matrixData.forEach((rowData, rowIndex) => {
+                rowData.forEach((cellVal, colIndex) => {
+                    const cellGroup = group.append("g")
+                        .attr("class", "matrix-cell")
+                        .attr("transform", `translate(${colIndex * (rc_d3_cellSize.width + rc_d3_padding)}, ${rowIndex * (rc_d3_cellSize.height + rc_d3_padding)})`);
+                    
+                    cellGroup.append("rect")
+                        .attr("width", rc_d3_cellSize.width)
+                        .attr("height", rc_d3_cellSize.height);
+                    
+                    cellGroup.append("text")
+                        .attr("x", rc_d3_cellSize.width / 2)
+                        .attr("y", rc_d3_cellSize.height / 2)
+                        .text(formatNumberForRCDisplay(cellVal));
+                });
+            });
+
+            // Draw separator for augmented matrix if numCoeffsForSeparator is provided and valid
+            if (numCoeffsForSeparator > 0 && numCoeffsForSeparator < numCols) {
+                const xSeparator = numCoeffsForSeparator * (rc_d3_cellSize.width + rc_d3_padding) - (rc_d3_padding / 2);
+                group.append("line")
+                    .attr("class", "matrix-column-separator")
+                    .attr("x1", xSeparator).attr("x2", xSeparator)
+                    .attr("y1", -rc_d3_padding / 2).attr("y2", matrixHeight - rc_d3_padding / 2);
+            }
+            return { width: matrixWidth, height: matrixHeight + (title ? 25 : 0) }; // Adjusted height for title
+        }
+
+        function renderRCStep(stepIndex) {
+            if (stepIndex < 0 || stepIndex >= rc_d3_visualizationData.length) return;
+
+            const stepData = rc_d3_visualizationData[stepIndex];
+            rc_d3_svg.selectAll("*").remove(); // Clear previous step
+            rc_d3_opDesc.html(stepData.description || `Paso ${stepIndex + 1}`);
+            rc_d3_slider.property("value", stepIndex);
+
+            let currentX = rc_d3_padding + 30; // Initial X offset, increased for matrix titles
+            let currentY = rc_d3_padding + 30; // Initial Y offset, increased for matrix titles
+            let svgHeight = 200; // Min height
+            let svgWidth = 400; // Min width
+
+            const mainGroup = rc_d3_svg.append("g").attr("class", "main-display-group");
+
+            if (stepData.operation_type === "initial") {
+                const dimA = drawMatrixD3(mainGroup, stepData.matrix_A, currentX, currentY, "Matriz A");
+                currentX += dimA.width + rc_d3_matrixSpacing;
+                const dimB = drawMatrixD3(mainGroup, stepData.vector_b.map(v => [v]), currentX, currentY, "Vector b");
+                svgHeight = Math.max(svgHeight, currentY + Math.max(dimA.height, dimB.height) + rc_d3_padding);
+                svgWidth = Math.max(svgWidth, currentX + dimB.width + rc_d3_padding);
+            }
+            else if (stepData.operation_type === "det_A_calc") {
+                const dimA = drawMatrixD3(mainGroup, stepData.matrix_A, currentX, currentY, "Matriz A");
+                mainGroup.append("text")
+                    .attr("class", "det-value-text")
+                    .attr("x", currentX + dimA.width / 2)
+                    .attr("y", currentY + dimA.height + 30)
+                    .text(`det(A) = ${rc_d3_detFormat(stepData.det_A_value)}`);
+                svgHeight = Math.max(svgHeight, currentY + dimA.height + 50);
+                svgWidth = Math.max(svgWidth, currentX + dimA.width + rc_d3_padding);
+            }
+            else if (stepData.operation_type === "form_Aj" || stepData.operation_type === "det_Aj_calc" || stepData.operation_type === "calc_xj") {
+                const varIdx = stepData.var_index;
+                const dimAj = drawMatrixD3(mainGroup, stepData.matrix_Aj, currentX, currentY, `Matriz A${varIdx + 1}`);
+                
+                let textY = currentY + dimAj.height + 30;
+                if (stepData.operation_type === "det_Aj_calc" || stepData.operation_type === "calc_xj") {
+                    mainGroup.append("text")
+                        .attr("class", "det-value-text")
+                        .attr("x", currentX + dimAj.width / 2)
+                        .attr("y", textY)
+                        .text(`det(A${varIdx + 1}) = ${rc_d3_detFormat(stepData.det_Aj_value)}`);
+                    textY += 25;
+                }
+                if (stepData.operation_type === "calc_xj") {
+                    mainGroup.append("text")
+                        .attr("class", "formula-text")
+                        .attr("x", currentX + dimAj.width / 2)
+                        .attr("y", textY)
+                        .text(`x${varIdx + 1} = det(A${varIdx + 1}) / det(A)`);
+                    textY += 20;
+                    mainGroup.append("text")
+                        .attr("class", "formula-text")
+                        .attr("x", currentX + dimAj.width / 2)
+                        .attr("y", textY)
+                        .text(`x${varIdx + 1} = ${rc_d3_detFormat(stepData.det_Aj_value)} / ${rc_d3_detFormat(stepData.det_A_value)} = ${rc_d3_detFormat(stepData.x_j_value)}`);
+                    textY += 20;
+                }
+                svgHeight = Math.max(svgHeight, textY);
+                svgWidth = Math.max(svgWidth, currentX + dimAj.width + rc_d3_padding);
+            }
+             else if (stepData.operation_type === "final_solution") {
+                const solVec = stepData.solution_vector;
+                mainGroup.append("text").attr("x", currentX).attr("y", currentY).text("Solución:").style("font-weight","bold");
+                currentY += 25;
+                solVec.forEach((val, idx) => {
+                    mainGroup.append("text")
+                        .attr("x", currentX + 20)
+                        .attr("y", currentY + idx * 20)
+                        .text(`x${idx + 1} = ${rc_d3_detFormat(val)}`);
+                });
+                svgHeight = Math.max(svgHeight, currentY + solVec.length * 20);
+                svgWidth = Math.max(svgWidth, currentX + 150); // Arbitrary width for solution text
+            }
+             else if (stepData.operation_type === "inconsistent_system" || stepData.operation_type === "dependent_system") {
+                const dimA = drawMatrixD3(mainGroup, stepData.matrix_A, currentX, currentY, "Matriz A");
+                let textY = currentY + dimA.height + 30;
+                 mainGroup.append("text")
+                    .attr("class", "det-value-text")
+                    .attr("x", currentX + dimA.width / 2)
+                    .attr("y", textY)
+                    .style("fill", stepData.operation_type === "inconsistent_system" ? "red" : "orange")
+                    .text(`det(A) = ${rc_d3_detFormat(stepData.det_A_value)} (≈0)`);
+                textY += 25;
+                if (stepData.matrix_Aj && stepData.det_Aj_value !== undefined) {
+                     const varIdx = stepData.var_index;
+                     const dimAj = drawMatrixD3(mainGroup, stepData.matrix_Aj, currentX + dimA.width + rc_d3_matrixSpacing, currentY, `Matriz A${varIdx+1}`);
+                     mainGroup.append("text")
+                        .attr("class", "det-value-text")
+                        .attr("x", currentX + dimA.width + rc_d3_matrixSpacing + dimAj.width/2)
+                        .attr("y", textY - 25) // align with det(A) text
+                        .style("fill", "red")
+                        .text(`det(A${varIdx+1}) = ${rc_d3_detFormat(stepData.det_Aj_value)} (≠0)`);
+                     svgWidth = Math.max(svgWidth, currentX + dimA.width + rc_d3_matrixSpacing + dimAj.width + rc_d3_padding);
+                }
+                svgHeight = Math.max(svgHeight, textY);
+                svgWidth = Math.max(svgWidth, currentX + dimA.width + rc_d3_padding);
+             }
+
+            rc_d3_svg.attr("width", svgWidth).attr("height", svgHeight)
+                       .attr("viewBox", `0 0 ${svgWidth} ${svgHeight}`);
+            
+            // Animate opacity for new content
+            mainGroup.style("opacity", 0)
+                     .transition().duration(rc_d3_animationSpeed / 2)
+                     .style("opacity", 1);
+            
+            updateRCControls();
+        }
+
+        function updateRCControls() {
+            rc_d3_prevButton.property("disabled", rc_d3_currentStepIndex <= 0);
+            rc_d3_nextButton.property("disabled", rc_d3_currentStepIndex >= rc_d3_visualizationData.length - 1);
+            rc_d3_slider.property("value", rc_d3_currentStepIndex);
+            rc_d3_playButton.property("disabled", rc_d3_visualizationData.length === 0);
+        }
+        function stopRCPlayback() {
+            rc_d3_isPlaying = false;
+            clearInterval(rc_d3_playInterval);
+            rc_d3_playButton.html(ICON_RC_PLAY).attr("aria-label", "Play");
+        }
+
+        rc_d3_prevButton.on("click", () => {
+            if (rc_d3_isPlaying) stopRCPlayback();
+            if (rc_d3_currentStepIndex > 0) {
+                rc_d3_currentStepIndex--;
+                renderRCStep(rc_d3_currentStepIndex);
+            }
+        });
+
+        rc_d3_nextButton.on("click", () => {
+            if (rc_d3_isPlaying) stopRCPlayback();
+            if (rc_d3_currentStepIndex < rc_d3_visualizationData.length - 1) {
+                rc_d3_currentStepIndex++;
+                renderRCStep(rc_d3_currentStepIndex);
+            }
+        });
+        rc_d3_playButton.on("click", () => {
+            if (rc_d3_visualizationData.length === 0) return;
+            rc_d3_isPlaying = !rc_d3_isPlaying;
+            if (rc_d3_isPlaying) {
+                rc_d3_playButton.html(ICON_RC_PAUSE).attr("aria-label", "Pause");
+                if (rc_d3_currentStepIndex >= rc_d3_visualizationData.length - 1) {
+                    rc_d3_currentStepIndex = -1; 
+                }
+                rc_d3_playInterval = setInterval(() => {
+                    if (rc_d3_currentStepIndex < rc_d3_visualizationData.length - 1) {
+                        rc_d3_currentStepIndex++;
+                        renderRCStep(rc_d3_currentStepIndex);
+                    } else {
+                        stopRCPlayback();
+                    }
+                }, rc_d3_animationSpeed + 150); // Add a bit more delay than animation for smoother play
+            } else {
+                stopRCPlayback();
+            }
+        });
+
+        rc_d3_slider.on("input", function() {
+            if (rc_d3_isPlaying) stopRCPlayback();
+            rc_d3_currentStepIndex = +this.value;
+            renderRCStep(rc_d3_currentStepIndex);
+        });
+
+        rc_d3_speedSlider.on("input", function() {
+            rc_d3_animationSpeed = +this.value;
+            rc_d3_speedValueText.text(`${rc_d3_animationSpeed}ms`);
+            if (rc_d3_isPlaying) { // Restart playback with new speed
+                stopRCPlayback();
+                rc_d3_playButton.dispatch("click");
+            }
+        });
+        rc_d3_speedValueText.text(`${rc_d3_speedSlider.property("value")}ms`);
+
+
+        if (runCodeButton_RC) runCodeButton_RC.addEventListener('click', runCodeNow_RC);
+
+        if (quizForm_RC) {
+            quizForm_RC.addEventListener('submit', function(event) {
+                event.preventDefault();
+                const currentLocalProgress = getPageProgressFromStorage_RC(PAGE_KEY_RC);
+                const submitButton = quizForm_RC.querySelector('button[type="submit"]');
+
+                if (currentLocalProgress[TASKS_RC.QUIZ_PASSED] && submitButton.textContent !== 'Intentar de Nuevo') return;
+
+                if (submitButton && submitButton.textContent === 'Intentar de Nuevo') {
+                    quizForm_RC.reset();
+                    clearAllVisualFeedback_RC(true);
+                    if(generalQuizFeedbackDiv_RC) generalQuizFeedbackDiv_RC.style.display = 'none';
+                    
+                    let progressToSave = getPageProgressFromStorage_RC(PAGE_KEY_RC);
+                    progressToSave.user_quiz_answers = {};
+                    progressToSave.quiz_current_score = 0;
+                    progressToSave.quiz_feedback_active = false;
+                    savePageProgressToStorage_RC(PAGE_KEY_RC, progressToSave);
+                    updateTaskStatusInStorage_RC(TASKS_RC.QUIZ_PASSED, false); // Crucial for re-attempt
+
+                    quizForm_RC.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                    quizForm_RC.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                         wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                    });
+                    submitButton.textContent = 'Enviar Respuestas';
+                    return;
+                }
+                
+                const formData = new FormData(quizForm_RC);
+                let allAnswered = true;
+                for (const qName of Object.keys(quizDataReglaCramer)) { if (!formData.has(qName)) { allAnswered = false; break; } }
+
+                if (!allAnswered) {
+                    if (generalQuizFeedbackDiv_RC) {
+                        generalQuizFeedbackDiv_RC.textContent = "Por favor, responde todas las preguntas.";
+                        generalQuizFeedbackDiv_RC.className = 'mt-4 p-3 rounded-md text-sm bg-yellow-100 text-yellow-700 border border-yellow-200';
+                        generalQuizFeedbackDiv_RC.style.display = 'block';
+                    } return;
+                }
+
+                updateTaskStatusInStorage_RC(TASKS_RC.QUIZ_ATTEMPTED, true);
+                
+                let progress = getPageProgressFromStorage_RC(PAGE_KEY_RC);
+                progress.user_quiz_answers = {};
+                for (const qName of Object.keys(quizDataReglaCramer)) { progress.user_quiz_answers[qName] = formData.get(qName); }
+                progress.quiz_feedback_active = true;
+                savePageProgressToStorage_RC(PAGE_KEY_RC, progress);
+
+                const quizWasPassed = displayQuizFeedback_RC();
+                updateTaskStatusInStorage_RC(TASKS_RC.QUIZ_PASSED, quizWasPassed);
+                calculateAndUpdateOverallProgress_RC();
+            });
+        }
+
+        if (mainCompletionButton_RC) {
+             mainCompletionButton_RC.addEventListener('click', () => {
+                const progress = getPageProgressFromStorage_RC(PAGE_KEY_RC);
+                let allCurrentlyCompleted = ALL_TASK_KEYS_RC.every(taskKey => progress[taskKey]);
+                let markAllAs = !allCurrentlyCompleted;
+
+                ALL_TASK_KEYS_RC.forEach(taskName => updateTaskStatusInStorage_RC(taskName, markAllAs));
+                
+                let updatedProgress = getPageProgressFromStorage_RC(PAGE_KEY_RC);
+                if (!markAllAs) { // If undoing completion
+                    updatedProgress.user_quiz_answers = {};
+                    updatedProgress.quiz_current_score = 0;
+                    updatedProgress.quiz_feedback_active = false;
+                    if (quizForm_RC) {
+                        quizForm_RC.reset();
+                        quizForm_RC.querySelectorAll('input[type="radio"]').forEach(r => r.disabled = false);
+                        const sb = quizForm_RC.querySelector('button[type="submit"]');
+                        if(sb) sb.textContent = 'Enviar Respuestas';
+                        quizForm_RC.querySelectorAll('.quiz-option-wrapper').forEach(w => w.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red'));
+                    }
+                    clearAllVisualFeedback_RC(true);
+                } else { // If marking all as complete
+                     updatedProgress[TASKS_RC.QUIZ_ATTEMPTED] = true; // Ensure quiz is marked as attempted
+                     updatedProgress[TASKS_RC.QUIZ_PASSED] = true;   // And passed
+                    // If no answers stored, fill with correct ones for display
+                    if (Object.keys(updatedProgress.user_quiz_answers).length === 0) {
+                        for (const qName in quizDataReglaCramer) updatedProgress.user_quiz_answers[qName] = quizDataReglaCramer[qName].correctAnswer;
+                        updatedProgress.quiz_current_score = Object.keys(quizDataReglaCramer).length;
+                    }
+                    updatedProgress.quiz_feedback_active = true;
+                }
+                savePageProgressToStorage_RC(PAGE_KEY_RC, updatedProgress);
+                
+                if (quizForm_RC) displayQuizFeedback_RC(); // Update quiz display based on new state
+                calculateAndUpdateOverallProgress_RC(); // Recalculate and display overall progress
+
+                if (generalQuizFeedbackDiv_RC && !markAllAs) generalQuizFeedbackDiv_RC.style.display = 'none';
+                alert(markAllAs ? 'Todas las tareas marcadas como completadas.' : 'Se ha deshecho el completado.');
+            });
+        }
+
+        const theorySectionObserverTargetNodeRC = document.getElementById('conclusion-rc') || document.getElementById('teoria-rc');
+        if (theorySectionObserverTargetNodeRC) {
+            const observerOptionsRC = { root: null, rootMargin: '0px', threshold: 0.1 };
+            const observerCallbackRC = (entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) updateTaskStatusInStorage_RC(TASKS_RC.READ_THEORY, true);
+                });
+            };
+            const theoryObserver_RC = new IntersectionObserver(observerCallbackRC, observerOptionsRC);
+            theoryObserver_RC.observe(theorySectionObserverTargetNodeRC);
+        }
+
+        if (window.location.hash) history.replaceState(null, '', window.location.pathname + window.location.search);
+        
+        (async () => {
+            pyodide_RC = await initializePyodide_RC();
+            initializeRCVisualization(null); // Initialize D3 with null data to show placeholder
+        })();
+        
+        const initialProgress_RC = getPageProgressFromStorage_RC(PAGE_KEY_RC);
+        if (initialProgress_RC.quiz_feedback_active || (initialProgress_RC[TASKS_RC.QUIZ_ATTEMPTED] && Object.keys(initialProgress_RC.user_quiz_answers).length > 0) ) {
+            if (quizForm_RC && initialProgress_RC.user_quiz_answers) {
+                 for (const qName in initialProgress_RC.user_quiz_answers) {
+                    const userAnswer = initialProgress_RC.user_quiz_answers[qName];
+                    const escapedUserAnswer = userAnswer.replace(/([\\()\[\]"'])/g, '\\$1');
+                    try {
+                        const radioToSelect = quizForm_RC.querySelector(`input[name="${qName}"][value="${escapedUserAnswer}"]`);
+                        if (radioToSelect) radioToSelect.checked = true;
+                    } catch (e) { console.warn(`Error seleccionando radio RC para ${qName}`, e); }
+                }
+            }
+            displayQuizFeedback_RC();
+        } else if (quizForm_RC) {
+            const submitButton = quizForm_RC.querySelector('button[type="submit"]');
+            if (submitButton) { submitButton.textContent = 'Enviar Respuestas'; submitButton.disabled = false; }
+            quizForm_RC.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+            quizForm_RC.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red'));
+            if (window.MathJax && window.MathJax.typesetPromise) window.MathJax.typesetPromise([quizForm_RC]);
+        }
+        calculateAndUpdateOverallProgress_RC();
+
+        if (fullscreenButton_RC && codeOutput_RC && outputControlsContainer_RC) {
+             fullscreenButton_RC.addEventListener('click', () => {
+                const isFullscreen = codeOutput_RC.classList.contains('rc-output-fullscreen');
+                if (isFullscreen) {
+                    outputControlsContainer_RC.style.opacity = '0';
+                    if(increaseFontButton_RC) increaseFontButton_RC.style.display = 'none';
+                    if(decreaseFontButton_RC) decreaseFontButton_RC.style.display = 'none';
+                    if (rcCodeOutputInitialRect) {
+                        const finalRect = codeOutput_RC.getBoundingClientRect();
+                        const scaleX = rcCodeOutputInitialRect.width / finalRect.width;
+                        const scaleY = rcCodeOutputInitialRect.height / finalRect.height;
+                        const deltaX = (rcCodeOutputInitialRect.left + rcCodeOutputInitialRect.width / 2) - (finalRect.left + finalRect.width / 2);
+                        const deltaY = (rcCodeOutputInitialRect.top + rcCodeOutputInitialRect.height / 2) - (finalRect.top + finalRect.height / 2);
+                        codeOutput_RC.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+                     }
+                    setTimeout(() => {
+                        codeOutput_RC.style.transition = 'none'; // Turn off transition for instant revert
+                        codeOutput_RC.classList.remove('rc-output-fullscreen');
+                        document.body.classList.remove('rc-body-fullscreen-active');
+                        outputControlsContainer_RC.classList.remove('rc-output-controls-container-fixed');
+                        outputControlsContainer_RC.style.transition = 'none'; outputControlsContainer_RC.style.opacity = '1'; // Make controls visible again
+                        outputControlsContainer_RC.offsetHeight; outputControlsContainer_RC.style.transition = ''; // Re-enable for future
+                        codeOutput_RC.style.transform = ''; // Remove transform
+                        if (originalOutputFontSize_RC) codeOutput_RC.style.fontSize = originalOutputFontSize_RC; // Restore original font size
+                        codeOutput_RC.offsetHeight; codeOutput_RC.style.transition = ''; // Re-enable transition for future state changes
+                        fullscreenButton_RC.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15" /></svg>`;
+                        fullscreenButton_RC.title = "Ver en pantalla completa"; rcCodeOutputInitialRect = null;
+                    }, 500); // Match animation duration
+                } else {
+                    originalOutputFontSize_RC = window.getComputedStyle(codeOutput_RC).fontSize; // Store current font size
+                    rcCodeOutputInitialRect = codeOutput_RC.getBoundingClientRect(); // Store initial position and size
+                    outputControlsContainer_RC.style.transition = 'none'; outputControlsContainer_RC.style.opacity = '0'; // Hide controls before animation
+                    outputControlsContainer_RC.offsetHeight; outputControlsContainer_RC.style.transition = ''; // Re-enable for future
+                    codeOutput_RC.style.transition = 'none'; // Disable transition for pre-animation setup
+                    codeOutput_RC.classList.add('rc-output-fullscreen');
+                    document.body.classList.add('rc-body-fullscreen-active');
+                    outputControlsContainer_RC.classList.add('rc-output-controls-container-fixed');
+                    const finalRect = codeOutput_RC.getBoundingClientRect(); // Get fullscreen position and size
+                    // Calculate scale and translation for FLIP animation
+                    const scaleX = rcCodeOutputInitialRect.width / finalRect.width;
+                    const scaleY = rcCodeOutputInitialRect.height / finalRect.height;
+                    const deltaX = (rcCodeOutputInitialRect.left + rcCodeOutputInitialRect.width / 2) - (finalRect.left + finalRect.width / 2);
+                    const deltaY = (rcCodeOutputInitialRect.top + rcCodeOutputInitialRect.height / 2) - (finalRect.top + finalRect.height / 2);
+                    codeOutput_RC.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`; // Set initial transform state
+                    codeOutput_RC.offsetHeight; // Force reflow to apply initial state
+                    codeOutput_RC.style.transition = ''; // Re-enable default transition for animation
+                    codeOutput_RC.style.transform = 'translate(0px, 0px) scale(1)'; // Animate to final state
+                    fullscreenButton_RC.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9V4.5M15 9h4.5M15 9l5.25-5.25M15 15v4.5M15 15h4.5M15 15l5.25 5.25" /></svg>`;
+                    fullscreenButton_RC.title = "Salir de pantalla completa";
+                    setTimeout(() => { // Show controls after animation
+                        outputControlsContainer_RC.style.opacity = '1';
+                        if(increaseFontButton_RC) increaseFontButton_RC.style.display = 'inline-flex';
+                        if(decreaseFontButton_RC) decreaseFontButton_RC.style.display = 'inline-flex';
+                    }, 500);
+                }
+            });
+        }
+        if (increaseFontButton_RC && codeOutput_RC) {
+            increaseFontButton_RC.addEventListener('click', () => {
+                if (codeOutput_RC.classList.contains('rc-output-fullscreen')) { // Only allow font change in fullscreen
+                    let currentSize = parseFloat(window.getComputedStyle(codeOutput_RC).fontSize);
+                    if (currentSize < MAX_FONT_SIZE_PX_RC) {
+                        codeOutput_RC.style.fontSize = (currentSize + FONT_SIZE_STEP_PX_RC) + 'px';
+                        increaseFontButton_RC.classList.add('rc-font-button-flash-blue');
+                        setTimeout(() => { increaseFontButton_RC.classList.remove('rc-font-button-flash-blue'); }, 400);
+                    }
+                }
+            });
+        }
+        if (decreaseFontButton_RC && codeOutput_RC) {
+             decreaseFontButton_RC.addEventListener('click', () => {
+                if (codeOutput_RC.classList.contains('rc-output-fullscreen')) { // Only allow font change in fullscreen
+                    let currentSize = parseFloat(window.getComputedStyle(codeOutput_RC).fontSize);
+                    if (currentSize > MIN_FONT_SIZE_PX_RC) {
+                        codeOutput_RC.style.fontSize = (currentSize - FONT_SIZE_STEP_PX_RC) + 'px';
+                        decreaseFontButton_RC.classList.add('rc-font-button-flash-red');
+                        setTimeout(() => { decreaseFontButton_RC.classList.remove('rc-font-button-flash-red'); }, 400);
+                    }
+                }
+            });
+        }
+        // Initially hide font buttons if not in fullscreen
+        if(increaseFontButton_RC) increaseFontButton_RC.style.display = 'none';
+        if(decreaseFontButton_RC) decreaseFontButton_RC.style.display = 'none';
+
+    });
+    </script>
+
+    <!-- Vue App Initialization Script for Regla de Cramer -->
+    <script type="module">
+        const { createApp, ref, onMounted, onUnmounted, watch, nextTick } = Vue;
+        const LeftSidebarRC = { // RC Suffix for Regla de Cramer
+            template: `{% raw %}
+                <aside :class="[
+                    'bg-gradient-to-b from-red-500 to-red-700', 'shadow-xl', 'rounded-lg', 'p-4',
+                    'flex', 'flex-col',
+                    'transition-all', 'duration-300', 'ease-in-out',
+                    'order-1',
+                    isCollapsed ? 'w-full lg:w-20' : 'w-full lg:w-64',
+                    'self-start',
+                    'lg:sticky', 'lg:top-8',
+                    'lg:max-h-[calc(100vh-4rem)]',
+                    'overflow-y-auto'
+                ]">
+                    <div class="flex justify-between items-center mb-4 border-b border-red-400 pb-3">
+                        <h3 v-show="!isCollapsed" class="text-lg font-semibold text-white select-none">Contenido</h3>
+                        <button @click="toggleCollapse" class="p-1.5 ml-2 text-white hover:bg-red-700 rounded focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-75" :aria-label="isCollapsed ? 'Expandir menú' : 'Colapsar menú'">
+                            <svg v-if="!isCollapsed" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5" /></svg>
+                            <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5m-6-15l7.5 7.5-7.5 7.5" /></svg>
+                        </button>
+                    </div>
+                    <nav v-show="!isCollapsed">
+                        <ul class="space-y-1">
+                            <li v-for="item in navItems" :key="item.id">
+                                <a :href="item.href" @click.prevent="smoothScroll(item.href)"
+                                   :class="['nav-link block px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 flex items-center', isActive(item.id) ? 'bg-white text-custom-blue font-semibold shadow-sm' : 'text-red-100 hover:bg-red-700 hover:text-white']">
+                                    <span v-html="item.iconSVG" class="mr-3 translate-y-px"></span>
+                                    <span>{{ item.text }}</span>
+                                </a></li></ul></nav>
+                    <nav v-show="isCollapsed" class="mt-4">
+                         <ul class="space-y-1">
+                            <li v-for="item in navItems" :key="item.id + '-collapsed'">
+                                <a :href="item.href" @click.prevent="smoothScroll(item.href)" :title="item.text" :aria-label="item.text"
+                                   :class="['nav-link-collapsed block py-2 pl-2.5 pr-1.5 rounded-md transition-colors duration-150 flex justify-center items-center', isActive(item.id) ? 'bg-white text-custom-blue shadow-sm' : 'text-red-100 hover:bg-red-700 hover:text-white']">
+                                    <span v-html="item.iconSVG" class="w-6 h-6 translate-y-px"></span>
+                                </a></li></ul></nav></aside>{% endraw %}`,
+            setup() {
+                const isCollapsed = ref(false);
+                const activeSectionId = ref('teoria-rc'); // Default active section
+                const navItems = ref([ // Navigation items specific to Regla de Cramer
+                    { id: 'teoria-rc', text: 'Fundamento Teórico', href: '#teoria-rc', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>' },
+                    { id: 'algoritmo-rc', text: 'Pasos del Algoritmo', href: '#algoritmo-rc', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" /></svg>' },
+                    { id: 'ejemplo-rc', text: 'Ejemplo Detallado', href: '#ejemplo-rc', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>' },
+                    { id: 'codigo-rc', text: 'Implementación (Python)', href: '#codigo-rc', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" /></svg>' },
+                    { id: 'graficas-rc', text: 'Visualización Interactiva', href: '#graficas-rc', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h12A2.25 2.25 0 0120.25 6v12A2.25 2.25 0 0118 20.25H6A2.25 2.25 0 013.75 18V6zM3.75 12h16.5M12 3.75v16.5" /></svg>' },
+                    { id: 'videos-rc', text: 'Videos Explicativos', href: '#videos-rc', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.75.75 0 010 1.656l-5.603 3.113A.75.75 0 019 15.95V9.05a.75.75 0 011.307-.588l5.603 3.112z" /></svg>' },
+                    { id: 'conclusion-rc', text: 'Conclusión', href: '#conclusion-rc', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' },
+                    { id: 'referencias-rc', text: 'Referencias', href: '#referencias-rc', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 3.75V16.5L12 14.25L7.5 16.5V3.75m9 0H18A2.25 2.25 0 0120.25 6v12A2.25 2.25 0 0118 20.25H6A2.25 2.25 0 013.75 18V6A2.25 2.25 0 016 3.75h1.5m9 0h-9" /></svg>' },
+                    { id: 'cuestionario-rc', text: 'Cuestionario', href: '#cuestionario-rc', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' }
+                ]);
+                let sections = [];
+                const toggleCollapse = () => isCollapsed.value = !isCollapsed.value;
+                const isActive = (id) => activeSectionId.value === id;
+                const smoothScroll = (targetHref) => {
+                    const targetId = targetHref.substring(1);
+                    const targetElement = document.getElementById(targetId);
+                    if (targetElement) {
+                         // Get header height. The header is sticky.
+                        const header = document.querySelector('header.sticky');
+                        const headerHeight = header ? header.offsetHeight : 0;
+                        const elementPosition = targetElement.getBoundingClientRect().top + window.pageYOffset;
+                        const offsetPosition = elementPosition - headerHeight - 16; // 16px for extra padding
+
+                        window.scrollTo({
+                            top: offsetPosition,
+                            behavior: "smooth"
+                        });
+                        history.pushState(null, null, targetHref); // Update URL without page jump
+                    }
+                };
+                 const handleScroll = () => {
+                    if (!sections.length) return;
+                    const header = document.querySelector('header.sticky');
+                    const headerHeight = header ? header.offsetHeight : 0;
+                    // Effective top of the viewport for checking section visibility
+                    const scrollPosition = window.scrollY + headerHeight + 20; // 20px buffer
+
+                    let newActiveSectionId = null;
+
+                    for (let i = 0; i < sections.length; i++) {
+                        const section = sections[i];
+                        const sectionTop = section.offsetTop;
+                        const sectionBottom = sectionTop + section.offsetHeight;
+
+                        if (scrollPosition >= sectionTop && scrollPosition < sectionBottom) {
+                            newActiveSectionId = section.id;
+                            break;
+                        }
+                    }
+                    
+                    // If no section is "active" (e.g., scrolled past the last one or before the first one)
+                    if (newActiveSectionId === null) {
+                        if (scrollPosition < sections[0].offsetTop) { // Before the first section
+                            newActiveSectionId = sections[0].id;
+                        } else if (scrollPosition >= sections[sections.length - 1].offsetTop + sections[sections.length - 1].offsetHeight) { // Past the last section
+                            newActiveSectionId = sections[sections.length - 1].id;
+                        } else { // Try to find the closest one from bottom up if in between sections
+                             for (let i = sections.length - 1; i >= 0; i--) {
+                                if (sections[i].offsetTop <= scrollPosition) {
+                                    newActiveSectionId = sections[i].id; break;
+                                }
+                            }
+                        }
+                    }
+
+                    if (activeSectionId.value !== newActiveSectionId && newActiveSectionId) {
+                        activeSectionId.value = newActiveSectionId;
+                    }
+                };
+                onMounted(() => {
+                    nextTick(() => {
+                        sections = Array.from(document.querySelectorAll('main article section[id]'));
+                        handleScroll(); // Initial check
+                        window.addEventListener('scroll', handleScroll, { passive: true });
+                        window.addEventListener('resize', handleScroll, { passive: true }); // Also check on resize
+                    });
+                });
+                onUnmounted(() => {
+                    window.removeEventListener('scroll', handleScroll);
+                    window.removeEventListener('resize', handleScroll);
+                });
+                return { isCollapsed, toggleCollapse, navItems, isActive, smoothScroll, activeSectionId };
+            }
+        };
+        const appRC = createApp({
+            setup() {
+                const METHOD_KEY_RC_VUE = "regla-cramer";
+                const METHOD_NAME_TITLE_CASE_RC_VUE = "Regla de Cramer";
+                return { METHOD_KEY_RC_VUE, METHOD_NAME_TITLE_CASE_RC_VUE };
+            }
+        });
+        appRC.component('left-sidebar-rc', LeftSidebarRC);
+        appRC.config.compilerOptions.isCustomElement = tag => tag.startsWith('mjx-'); // For MathJax
+        appRC.mount('#app-rc');
+    </script>
+</body>
+</html>

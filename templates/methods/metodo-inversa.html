@@ -1,0 +1,1710 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Método de la Inversa - Métodos Numéricos</title>
+
+    <!-- Preload Pyodide assets -->
+    <link rel="preload" href="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js" as="script">
+    <link rel="preload" href="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.asm.wasm" as="fetch" type="application/wasm" crossorigin="anonymous">
+    <!-- Consider preloading numpy if its URL is stable and known, e.g. -->
+    <!-- <link rel="preload" href="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/numpy.whl" as="fetch" type="application/octet-stream" crossorigin="anonymous"> -->
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'custom-blue': '#242A38',
+                        'custom-red': '#E94560',
+                        'custom-gray-bg': '#F3F4F6',
+                        'sidebar-bg': '#FFFFFF',
+                        'sidebar-text': '#4B5563',
+                        'sidebar-hover-bg': '#FEF2F2',
+                    }
+                }
+            }
+        }
+    </script>
+    <script>
+        window.MathJax = {
+            tex: { packages: {'[+]': ['input/mml', 'output/chtml']} },
+            chtml: { matchFontHeight: false },
+            options: { ignoreHtmlClass: 'tex2jax_ignore', processHtmlClass: 'tex2jax_process' }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        @keyframes animatedRainbowBorder { 0% { background-position: 0% center; } 100% { background-position: 200% center; } }
+        .animate-rainbow-border::before {
+            content: ''; position: absolute; z-index: -1; top: -2px; left: -2px; right: -2px; bottom: -2px;
+            border-radius: 9999px;
+            background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #007bff, #8a2be2, #ff00ff, #ff0000);
+            background-size: 200% 100%;
+            animation: animatedRainbowBorder 3s linear infinite;
+        }
+        .animate-rainbow-border { position: relative; z-index: 0; }
+        .correct-answer-inv { border-color: #10B981; background-color: #D1FAE5; }
+        .incorrect-answer-inv { border-color: #EF4444; background-color: #FEE2E2; }
+
+        .inv-output-fullscreen {
+            position: fixed !important; top: 0 !important; left: 0 !important;
+            width: 100vw !important; height: 100vh !important;
+            z-index: 9990 !important; background-color: #111827 !important;
+            padding: 20px !important; margin: 0 !important; border-radius: 0 !important;
+            overflow-y: auto !important; max-height: 100vh !important;
+        }
+        .inv-body-fullscreen-active { overflow: hidden !important; }
+        .inv-output-controls-container-fixed {
+            position: fixed !important; top: 15px !important; right: 15px !important;
+            z-index: 9999 !important; display: flex !important;
+            align-items: center !important; gap: 0.25rem !important;
+        }
+        .inv-font-button-flash-red { animation: inv-flash-red 0.4s ease-out; }
+        @keyframes inv-flash-red { 0% { background-color: #EF4444; } 100% { background-color: #374151; } }
+        .inv-font-button-flash-blue { animation: inv-flash-blue 0.4s ease-out; }
+        @keyframes inv-flash-blue { 0% { background-color: #3B82F6; } 100% { background-color: #374151; } }
+
+        .matrix-display-table { border-collapse: collapse; margin: 10px auto; font-family: monospace; font-size:0.9em; }
+        .matrix-display-table th, .matrix-display-table td { border: 1px solid #555; padding: 6px 10px; text-align: right; }
+        .matrix-display-table th { background-color: #333; font-weight:normal; }
+        .step-description { margin-top:15px; margin-bottom:5px; font-style: italic; text-align:center; font-size:0.9em;}
+
+        /* D3 Visualization Styles for Inverse Method */
+        #inv-d3-svg-container .matrix-cell rect, #inv-d3-svg-container .vector-cell rect {
+            stroke: #90a4ae; /* blue-grey-200 */
+            stroke-width: 1px;
+            fill: white;
+            shape-rendering: crispEdges;
+        }
+        #inv-d3-svg-container .matrix-cell text, #inv-d3-svg-container .vector-cell text {
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+            text-anchor: middle;
+            dominant-baseline: central;
+            fill: #263238; /* blue-grey-900 */
+            font-size: 0.85em;
+            pointer-events: none;
+        }
+        #inv-d3-svg-container .matrix-label, #inv-d3-svg-container .vector-label {
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9em;
+            fill: #455a64; /* blue-grey-700 */
+            text-anchor: middle;
+        }
+        #inv-d3-svg-container .operator-label {
+            font-family: 'Inter', sans-serif;
+            font-size: 1.5em;
+            fill: #37474f; /* blue-grey-800 */
+            text-anchor: middle;
+            dominant-baseline: central;
+        }
+        #inv-d3-svg-container .highlight rect {
+            fill: #ffe082 !important; /* amber lighten-3 */
+            stroke: #ffc107 !important; /* amber */
+        }
+    </style>
+</head>
+<body class="bg-custom-gray-bg text-gray-700 font-sans antialiased">
+    <div id="app-inv">
+        <header class="bg-custom-blue text-white shadow-md">
+            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                <h1 class="text-xl font-semibold"><a href="../index.html" class="hover:text-gray-300">Métodos Numéricos</a></h1>
+                <nav><a href="../index.html#method-cards-container" class="text-sm px-4 py-2 rounded-md hover:bg-gray-700 transition-colors duration-150">Volver a Métodos</a></nav>
+            </div>
+        </header>
+
+        <div class="container mx-auto mt-8 mb-8 flex flex-col lg:flex-row lg:space-x-8 px-4">
+            <left-sidebar-inv></left-sidebar-inv>
+            <main class="w-full flex-1 min-w-0 bg-white shadow-xl rounded-lg p-6 md:p-8 order-2 mb-6 lg:mb-0">
+                <article class="method-content">
+                    <h2 class="text-3xl font-bold mb-6 text-gray-800 border-b border-gray-200 pb-4">Método de la Inversa</h2>
+
+                    <section id="teoria-inv" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Fundamento Teórico</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            El Método de la Inversa es una técnica directa para resolver sistemas de ecuaciones lineales de la forma \(Ax = b\), donde \(A\) es una matriz cuadrada de coeficientes de tamaño \(n \times n\), \(x\) es el vector de incógnitas de tamaño \(n \times 1\), y \(b\) es el vector de términos independientes de tamaño \(n \times 1\).
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            La condición fundamental para aplicar este método es que la matriz \(A\) sea invertible. Una matriz es invertible si y solo si no es singular, lo que equivale a decir que su determinante es no nulo (\(\det(A) \neq 0\)). Si \(A\) es invertible, entonces existe una única matriz inversa \(A^{-1}\) tal que \(AA^{-1} = A^{-1}A = I\), donde \(I\) es la matriz identidad de tamaño \(n \times n\).
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-2">Para resolver el sistema \(Ax = b\), se multiplica ambos lados de la ecuación por la izquierda por \(A^{-1}\):</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ A^{-1}(Ax) = A^{-1}b \]
+                        \[ (A^{-1}A)x = A^{-1}b \]
+                        \[ Ix = A^{-1}b \]
+                        \[ x = A^{-1}b \]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Así, la solución del sistema se obtiene calculando primero la inversa de la matriz \(A\) y luego multiplicándola por el vector \(b\).
+                        </p>
+                        
+                        <h4 class="text-xl font-semibold mb-3 text-gray-700">Formas de calcular la inversa \(A^{-1}\)</h4>
+                        <p class="text-gray-600 leading-relaxed mb-2">Existen varios métodos para calcular la inversa de una matriz. Dos de los más conocidos son:</p>
+                        <ol class="list-decimal list-inside space-y-3 pl-4 text-gray-600 leading-relaxed">
+                            <li>
+                                <strong>Método de la Adjunta:</strong>
+                                <div class="text-center my-2 tex2jax_process">
+                                \[ A^{-1} = \frac{1}{\det(A)} \text{adj}(A) \]
+                                </div>
+                                <p>
+                                    Donde \(\det(A)\) es el determinante de \(A\), y \(\text{adj}(A)\) es la matriz adjunta de \(A\), que es la transpuesta de la matriz de cofactores de \(A\). El cofactor \(C_{ij}\) del elemento \(a_{ij}\) se define como \(C_{ij} = (-1)^{i+j}M_{ij}\), donde \(M_{ij}\) es el determinante de la submatriz obtenida al eliminar la fila \(i\) y la columna \(j\) (el menor complementario). Este método es práctico para matrices pequeñas (2x2, 3x3) pero se vuelve computacionalmente muy intensivo para matrices de mayor tamaño.
+                                </p>
+                            </li>
+                            <li>
+                                <strong>Método de Gauss-Jordan para la Inversa:</strong>
+                                <p>
+                                    Este es un método más sistemático y generalmente más eficiente para matrices más grandes. Se forma una matriz aumentada \([A|I]\), donde \(I\) es la matriz identidad del mismo tamaño que \(A\). Luego, se aplican operaciones elementales de fila a toda la matriz aumentada con el objetivo de transformar la parte izquierda (originalmente \(A\)) en la matriz identidad \(I\). Si esto se logra, la parte derecha de la matriz aumentada se habrá transformado en \(A^{-1}\). Es decir:
+                                </p>
+                                <div class="text-center my-2 tex2jax_process">
+                                \[ [A|I] \xrightarrow{\text{Operaciones de fila}} [I|A^{-1}] \]
+                                </div>
+                            </li>
+                        </ol>
+                        <h4 class="text-xl font-semibold mb-3 mt-4 text-gray-700">Consideraciones Adicionales</h4>
+                        <p class="text-gray-600 leading-relaxed">
+                            Aunque el método de la inversa es conceptualmente simple, calcular explícitamente \(A^{-1}\) para luego multiplicarla por \(b\) no siempre es la estrategia más eficiente ni la más estable numéricamente para resolver un único sistema \(Ax=b\). Métodos como la Eliminación Gaussiana (o la factorización LU) suelen ser preferidos en tales casos, ya que generalmente requieren menos operaciones aritméticas y pueden ofrecer mejor estabilidad numérica, especialmente para sistemas grandes o mal condicionados.
+                            Sin embargo, el cálculo de la inversa \(A^{-1}\) es indispensable cuando la propia matriz inversa es necesaria para otros análisis, como en estudios estadísticos (por ejemplo, la matriz de varianza-covarianza), en análisis de sensibilidad de sistemas, o en ciertas formulaciones teóricas.
+                        </p>
+                    </section>
+
+                    <section id="algoritmo-inv" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Pasos del Algoritmo (Usando Gauss-Jordan para la Inversa)</h3>
+                        <ol class="list-decimal list-inside space-y-3 pl-4 text-gray-600 leading-relaxed">
+                            <li>
+                                <strong>Verificar Matriz:</strong> Asegurarse de que la matriz de coeficientes \(A\) sea cuadrada (dimensiones \(n \times n\)).
+                            </li>
+                            <li>
+                                <strong>Formar Matriz Aumentada:</strong> Construir la matriz aumentada \([A|I]\), donde \(I\) es la matriz identidad de dimensión \(n \times n\).
+                            </li>
+                            <li>
+                                <strong>Aplicar Eliminación de Gauss-Jordan:</strong>
+                                Utilizar operaciones elementales de fila para transformar la parte izquierda de la matriz aumentada (que es \(A\)) en la matriz identidad \(I\). Las operaciones elementales de fila son:
+                                <ul class="list-disc list-inside space-y-1 pl-6 mt-1">
+                                    <li>Intercambio de dos filas.</li>
+                                    <li>Multiplicación de una fila por una constante escalar no nula.</li>
+                                    <li>Suma de un múltiplo escalar de una fila a otra fila.</li>
+                                </ul>
+                                Cada operación se aplica a la fila completa de la matriz aumentada \([A|I]\). El objetivo es llevar la submatriz \(A\) a su forma escalonada reducida por filas. Si \(A\) es invertible, esta forma será \(I\).
+                            </li>
+                            <li>
+                                <strong>Obtener la Inversa:</strong> Si la transformación de \(A\) a \(I\) es exitosa (es decir, no se encuentra una fila de ceros en la parte izquierda, lo que indicaría que \(A\) es singular), la matriz que aparece en la parte derecha de la matriz aumentada (originalmente \(I\)) será la matriz inversa \(A^{-1}\).
+                            </li>
+                            <li>
+                                <strong>Calcular la Solución:</strong> Una vez que se ha obtenido \(A^{-1}\), calcular el vector solución \(x\) mediante la multiplicación matricial \(x = A^{-1}b\).
+                            </li>
+                            <li>
+                                <strong>Manejo de Singularidad:</strong> Si durante el proceso de Gauss-Jordan se obtiene una fila de ceros en la parte izquierda de la matriz aumentada, la matriz \(A\) es singular y no tiene inversa. En este caso, el sistema \(Ax=b\) no tiene una solución única (puede tener infinitas soluciones o ninguna).
+                            </li>
+                        </ol>
+                    </section>
+
+                    <section id="ejemplo-inv" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Ejemplo Paso a Paso</h3>
+                        <p class="text-gray-600 leading-relaxed mb-3"><strong>Problema:</strong> Resolver el siguiente sistema de ecuaciones utilizando el método de la inversa:</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                            \(2x_1 + x_2 = 5\)<br>
+                            \(x_1 + x_2 = 3\)
+                        </div>
+                        <p class="text-gray-600 leading-relaxed">En forma matricial, \(Ax=b\), tenemos:</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ A = \begin{pmatrix} 2 & 1 \\ 1 & 1 \end{pmatrix}, \quad x = \begin{pmatrix} x_1 \\ x_2 \end{pmatrix}, \quad b = \begin{pmatrix} 5 \\ 3 \end{pmatrix} \]
+                        </div>
+
+                        <p class="font-medium text-gray-700 mb-1"><strong>Paso 1: Calcular \(A^{-1}\) usando el método de Gauss-Jordan.</strong></p>
+                        <p class="text-gray-600 leading-relaxed">Formamos la matriz aumentada \([A|I]\):</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ \left[ \begin{array}{cc|cc} 2 & 1 & 1 & 0 \\ 1 & 1 & 0 & 1 \end{array} \right] \]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1">a) Intercambiamos Fila 1 y Fila 2 (\(F_1 \leftrightarrow F_2\)) para tener un 1 en la posición (1,1):</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ \left[ \begin{array}{cc|cc} 1 & 1 & 0 & 1 \\ 2 & 1 & 1 & 0 \end{array} \right] \]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1">b) Hacemos cero el elemento debajo del pivote: \(F_2 = F_2 - 2F_1\):</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ \left[ \begin{array}{cc|cc} 1 & 1 & 0 & 1 \\ 0 & -1 & 1 & -2 \end{array} \right] \]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1">c) Normalizamos Fila 2 para que el pivote sea 1: \(F_2 = -1 \cdot F_2\):</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ \left[ \begin{array}{cc|cc} 1 & 1 & 0 & 1 \\ 0 & 1 & -1 & 2 \end{array} \right] \]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1">d) Hacemos cero el elemento encima del pivote en Fila 2: \(F_1 = F_1 - F_2\):</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ \left[ \begin{array}{cc|cc} 1 & 0 & 1 & -1 \\ 0 & 1 & -1 & 2 \end{array} \right] \]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mt-1">La parte izquierda es ahora la matriz identidad \(I\). Por lo tanto, la parte derecha es \(A^{-1}\):</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ A^{-1} = \begin{pmatrix} 1 & -1 \\ -1 & 2 \end{pmatrix} \]
+                        </div>
+
+                        <p class="font-medium text-gray-700 mb-1 mt-3"><strong>Paso 2: Calcular la solución \(x = A^{-1}b\).</strong></p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ x = \begin{pmatrix} 1 & -1 \\ -1 & 2 \end{pmatrix} \begin{pmatrix} 5 \\ 3 \end{pmatrix} = \begin{pmatrix} (1)(5) + (-1)(3) \\ (-1)(5) + (2)(3) \end{pmatrix} = \begin{pmatrix} 5 - 3 \\ -5 + 6 \end{pmatrix} = \begin{pmatrix} 2 \\ 1 \end{pmatrix} \]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mt-2">La solución del sistema es \(x_1 = 2\) y \(x_2 = 1\).</p>
+                    </section>
+
+                    <section id="codigo-inv" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Código de Implementación (Python)</h3>
+                        <p class="text-gray-600 leading-relaxed mb-3">
+                            El siguiente código Python utiliza la función `np.linalg.inv()` de NumPy para calcular la inversa de la matriz \(A\) y luego resuelve el sistema \(Ax=b\). Puedes modificar `A_matrix` y `b_vector` para probar con diferentes sistemas.
+                        </p>
+                        <div class="code-editor-container bg-gray-50 p-4 rounded-lg shadow-inner">
+                            <textarea id="inv-code-input" class="code-input w-full h-[600px] p-3 border border-gray-300 rounded-md font-mono text-sm" style="resize: none;">
+import numpy as np
+
+def format_matrix_html_inv(matrix, label="Matriz", precision=5):
+    html = f'<p class="step-description" style="font-weight:bold; margin-bottom:2px;">{label}:</p>'
+    html += '<table class="matrix-display-table">'
+    for i, row in enumerate(matrix):
+        html += '<tr>'
+        for j, val in enumerate(row):
+            current_val_display = val
+            if isinstance(current_val_display, float):
+                formatted_val = f"{current_val_display:.{precision}f}"
+                if formatted_val.replace("0", "").replace(".", "").replace("-","") == "": # all zeros after decimal
+                    formatted_val = str(int(round(current_val_display)))
+                elif formatted_val.endswith('.' + '0' * precision): # Integer stored as float
+                     formatted_val = str(int(round(current_val_display)))
+            else: # int or other
+                formatted_val = str(current_val_display)
+            html += f'<td>{formatted_val}</td>'
+        html += '</tr>'
+    html += '</table>'
+    return html
+
+def format_vector_html_inv(vector, label="Vector", precision=5):
+    # Treat vector as a column matrix for formatting
+    matrix_representation = [[v] for v in vector]
+    return format_matrix_html_inv(matrix_representation, label=label, precision=precision)
+
+
+def inverse_method_solve_pyodide(A_matrix_str, b_vector_str):
+    html_log_parts = []
+    visualization_steps = [] # For D3.js
+
+    try:
+        A_list = eval(A_matrix_str)
+        b_list = eval(b_vector_str)
+        A = np.array(A_list, dtype=float)
+        b_vec = np.array(b_list, dtype=float)
+        n = A.shape[0]
+    except Exception as e:
+        error_msg = f'<p style="color: red; text-align:center;">Error parseando entradas: {e}. Asegúrate que las matrices y vectores estén en formato Python, ej: A=[[1,2],[3,4]], b=[5,6].</p>'
+        return None, None, error_msg, []
+
+    if A.shape[0] != A.shape[1]:
+        return None, None, '<p style="color: red; text-align:center;">Error: La matriz A debe ser cuadrada.</p>', []
+    if A.shape[0] != len(b_vec):
+        return None, None, '<p style="color: red; text-align:center;">Error: Incompatibilidad de dimensiones entre A y b.</p>', []
+
+    html_log_parts.append('<div style="text-align: center; font-weight: bold; margin-bottom:5px; font-size:1.0em;">Paso 1: Calcular la Inversa A<sup>-1</sup></div>')
+    html_log_parts.append(format_matrix_html_inv(A, label="Matriz Original A"))
+    visualization_steps.append({
+        "type": "matrix_A", "matrix_A": A.tolist(), "vector_b": b_vec.flatten().tolist(),
+        "description": "Matriz A y Vector b iniciales."
+    })
+    
+    # Placeholder for Gauss-Jordan visualization to get A_inv
+    # For now, directly use np.linalg.inv()
+    # If we were to show Gauss-Jordan for inverse:
+    # I = np.identity(n)
+    # Augmented = np.hstack((A, I))
+    # visualization_steps.append({"type": "augmented_matrix_AI", "matrix_Aug": Augmented.tolist(), "description": "Matriz Aumentada [A|I]"})
+    # ... (Gauss-Jordan steps would go here, populating visualization_steps) ...
+    # A_inv_from_GJ = Augmented[:, n:] # Assuming GJ was successful
+    # visualization_steps.append({"type": "matrix_A_inv_from_GJ", "matrix_A_inv": A_inv_from_GJ.tolist(), "description": "Matriz Inversa A⁻¹ (obtenida de [I|A⁻¹])"})
+
+
+    try:
+        A_inv = np.linalg.inv(A)
+        html_log_parts.append(format_matrix_html_inv(A_inv, label="Matriz Inversa A<sup>-1</sup> (calculada por NumPy)"))
+        visualization_steps.append({
+            "type": "matrix_A_inv", "matrix_A_inv": A_inv.tolist(), "vector_b": b_vec.tolist(),
+            "description": "Matriz Inversa A<sup>-1</sup> calculada."
+        })
+    except np.linalg.LinAlgError:
+        err_msg = "Error: La matriz A es singular y no se puede invertir."
+        html_log_parts.append(f'<p style="color: red; text-align:center; margin-top:10px;">{err_msg}</p>')
+        visualization_steps.append({"type": "singular_matrix", "matrix_A": A.tolist(), "description": err_msg})
+        return None, None, "".join(html_log_parts), visualization_steps
+
+    html_log_parts.append('<div style="text-align: center; font-weight: bold; margin-top:15px; margin-bottom:5px; font-size:1.0em;">Paso 2: Calcular la Solución x = A<sup>-1</sup>b</div>')
+    html_log_parts.append(format_vector_html_inv(b_vec, label="Vector b"))
+    
+    visualization_steps.append({
+        "type": "multiplication_setup", "matrix_A_inv": A_inv.tolist(), "vector_b": b_vec.flatten().tolist(),
+        "description": "Preparando para calcular x = A<sup>-1</sup> * b."
+    })
+
+    x_solution = np.dot(A_inv, b_vec)
+    html_log_parts.append(format_vector_html_inv(x_solution, label="Vector Solución x"))
+    visualization_steps.append({
+        "type": "solution_x", "vector_x": x_solution.flatten().tolist(), "matrix_A_inv": A_inv.tolist(), "vector_b": b_vec.flatten().tolist(),
+        "description": f"Solución x = {x_solution.round(5).tolist()} calculada."
+    })
+
+    return x_solution, A_inv, "".join(html_log_parts), visualization_steps
+
+# --- Parámetros Ejemplo ---
+default_A_matrix_str_inv = """
+[[1, 2, 3],
+ [0, 1, 4],
+ [5, 6, 0]]
+"""
+
+default_b_vector_str_inv = """
+[[1],
+ [1],
+ [1]]
+"""
+# default_A_matrix_str_inv = "[[2, 1, -1], [-3, -1, 2], [-2, 1, 2]]" # Chapra Example 10.1
+# default_b_vector_str_inv = "[8, -11, -3]"
+
+
+# --- Bloque principal para ejecución en Pyodide ---
+if __name__ == "__main__":
+    py_html_buffer = []
+
+    A_str = globals().get("A_matrix_param_inv", default_A_matrix_str_inv)
+    b_str = globals().get("b_vector_param_inv", default_b_vector_str_inv)
+
+    py_html_buffer.append('<div style="text-align: center; font-weight: bold; margin-bottom:15px; font-size:1.1em; padding-top:10px;">MÉTODO DE LA INVERSA (Salida de Texto)</div>')
+    try:
+        A_disp = np.array(eval(A_str))
+        b_disp = np.array(eval(b_str))
+        py_html_buffer.append(f'<div style="text-align: center; margin-bottom:5px; font-family:monospace;">Matriz A:<br>{str(A_disp).replace(" ", "&nbsp;")}</div>')
+        py_html_buffer.append(f'<div style="text-align: center; margin-bottom:15px; font-family:monospace;">Vector b:<br>{str(b_disp).replace(" ", "&nbsp;")}</div>')
+    except Exception as e:
+        py_html_buffer.append(f'<p style="color:red; text-align:center;">Error al mostrar A y b: {e}</p>')
+
+    solution_inv, A_inverse_matrix, log_html_inv, d3_steps_inv = inverse_method_solve_pyodide(A_str, b_str)
+    py_html_buffer.append(log_html_inv)
+
+    if solution_inv is not None:
+        py_html_buffer.append('<div style="text-align: center; font-weight: bold; margin-top: 20px; margin-bottom: 10px;">RESULTADOS FINALES (Texto)</div>')
+        sol_str_inv = ", ".join([f"{float(x_val):.6f}" for x_val in solution_inv.flatten()])
+        py_html_buffer.append(f'<div style="text-align:center; padding:5px;">Solución (x): [{sol_str_inv}]</div>')
+        if A_inverse_matrix is not None:
+             py_html_buffer.append(format_matrix_html_inv(A_inverse_matrix, label="Matriz Inversa A<sup>-1</sup> Final", precision=6))
+
+        try: # Verification
+            A_val = np.array(eval(A_str))
+            b_val = np.array(eval(b_str))
+            Ax = A_val @ solution_inv
+            error_vec = Ax - b_val.flatten()
+            final_residual_norm = np.linalg.norm(error_vec)
+            py_html_buffer.append(f'<div style="text-align:center; font-size:0.85em; padding:5px;">Verificación A*x = {str(Ax.round(5))} (Original b = {str(b_val.round(5))})</div>')
+            py_html_buffer.append(f'<div style="text-align:center; font-size:0.85em; padding:5px;">Norma del residual ||Ax - b||: {final_residual_norm:.2e}</div>')
+        except Exception as e_verify:
+            py_html_buffer.append(f'<p style="color:orange; text-align:center;">No se pudo verificar la solución: {e_verify}</p>')
+    elif "Error: La matriz A es singular" not in log_html_inv:
+         py_html_buffer.append('<div style="text-align: center; color: orange; margin-top:10px; padding:5px;">No se pudo encontrar una solución con los parámetros dados.</div>')
+
+    chart_data_package_inv = {
+        "visualization_steps": d3_steps_inv,
+        "solution_vector": solution_inv.flatten().tolist() if solution_inv is not None else None,
+        "A_inv_matrix": A_inverse_matrix.tolist() if A_inverse_matrix is not None else None,
+    }
+
+    if "pyodide_js" in globals():
+        pyodide_globals = globals()['pyodide_js'].globals
+        pyodide_globals.set("pyodide_inv_html_output", "".join(py_html_buffer))
+        
+        chart_data_proxy_out = pyodide_globals.get("pyodide_inv_chart_data_package")
+        if chart_data_proxy_out is not None and hasattr(chart_data_proxy_out, 'clear'):
+            chart_data_proxy_out.clear()
+            for key, value in chart_data_package_inv.items():
+                chart_data_proxy_out.set(key, value)
+        else:
+            from pyodide.ffi import to_js
+            pyodide_globals.set("pyodide_inv_chart_data_package", to_js(chart_data_package_inv, dict_converter=js.Object.fromEntries))
+    else: 
+        global pyodide_inv_html_output, pyodide_inv_chart_data_package
+        pyodide_inv_html_output = "".join(py_html_buffer)
+        pyodide_inv_chart_data_package = chart_data_package_inv
+                            </textarea>
+                            <button id="run-inv-code-button" class="run-button mt-4 px-5 py-2.5 bg-custom-red text-white rounded-md hover:bg-red-700">Ejecutar Código</button>
+                            <div class="relative mt-5">
+                                <h4 class="mb-2 text-lg font-semibold text-gray-700">Salida de Texto:</h4>
+                                <div id="inv-output-controls-container" class="absolute top-0 right-0 z-10 flex items-center space-x-1 transition-all duration-500 ease-out">
+                                    <button id="inv-decrease-font-button" title="Disminuir fuente" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs font-semibold flex items-center justify-center" style="min-width: 30px;">aa</button>
+                                    <button id="inv-increase-font-button" title="Aumentar fuente" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs font-semibold flex items-center justify-center" style="min-width: 30px;">AA</button>
+                                    <button id="inv-fullscreen-output-button" title="Ver en pantalla completa" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15" /></svg>
+                                    </button>
+                                </div>
+                                <pre id="inv-code-output" class="code-output bg-gray-900 text-white p-4 pt-8 rounded-md min-h-[100px] whitespace-pre-wrap text-xs leading-relaxed max-h-96 overflow-y-auto font-mono transition-all duration-500 ease-out">Presiona "Ejecutar Código" para ver la salida de texto detallada.</pre>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="graficas-inv" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Visualización Interactiva del Método de la Inversa</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Observa los componentes clave (Matriz A, Vector b, Matriz Inversa A<sup>-1</sup>, Solución x) en el proceso de resolución.
+                            Usa los controles para navegar entre los pasos conceptuales.
+                        </p>
+                        <div id="inverse-method-d3-visualization" class="bg-gray-100 p-4 rounded-lg shadow-inner">
+                            <div id="inv-d3-controls" class="mb-4 flex flex-wrap items-center justify-center gap-2">
+                                <button id="inv-d3-prev" class="p-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Anterior"></button>
+                                <button id="inv-d3-next" class="p-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Siguiente"></button>
+                                <!-- Play/Speed might not be as relevant here, but kept for consistency -->
+                                <button id="inv-d3-play" class="p-2.5 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Play"></button>
+                                <input type="range" id="inv-d3-slider" min="0" value="0" class="mx-2 flex-grow max-w-xs align-middle accent-custom-red disabled:opacity-50 disabled:cursor-not-allowed">
+                                <div class="flex items-center text-sm">
+                                    <label for="inv-d3-speed" class="mr-1">Velocidad:</label>
+                                    <input type="range" id="inv-d3-speed" min="100" max="2000" value="700" step="100" class="w-24 align-middle accent-custom-red">
+                                    <span id="inv-d3-speed-value" class="ml-1 w-10 text-right">700ms</span>
+                                </div>
+                            </div>
+                            <div id="inv-d3-operation-description" class="mb-3 text-sm text-center font-mono h-auto min-h-[2em] p-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-md leading-tight">
+                                Ejecute el código para generar la visualización.
+                            </div>
+                            <div class="flex justify-center overflow-x-auto">
+                                <svg id="inv-d3-svg-container" class="border border-gray-300 rounded shadow-sm min-h-[200px]"></svg>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="videos-inv" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Videos Explicativos</h3>
+                        <div class="video-embed w-full h-96">
+                            <iframe class="w-full h-full rounded-lg shadow-lg" src="https://www.youtube.com/embed/lrh5MKNZihQ" title="YouTube video player - Calcular Inversa y Resolver Sistema" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+                        </div>
+                    </section>
+
+                    <section id="conclusion-inv" class="mb-10 scroll-mt-24">
+                         <h3 class="text-2xl font-semibold mb-4 text-gray-700">Conclusión y Aplicaciones</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            El Método de la Inversa proporciona una forma conceptualmente clara y directa para resolver sistemas de ecuaciones lineales \(Ax=b\), siempre que la matriz de coeficientes \(A\) sea cuadrada e invertible (no singular). La solución se obtiene calculando la inversa \(A^{-1}\) y luego realizando la multiplicación matricial \(x = A^{-1}b\).
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            A pesar de su simplicidad conceptual, para la tarea específica de resolver un único sistema \(Ax=b\), el cálculo explícito de la inversa \(A^{-1}\) es a menudo menos eficiente (típicamente \(O(n^3)\) operaciones para la inversión, seguido de \(O(n^2)\) para la multiplicación) y puede ser numéricamente menos estable en comparación con métodos directos como la Eliminación Gaussiana o la factorización LU (que también tienen una complejidad de \(O(n^3)\) para la parte de descomposición, pero pueden tener mejores constantes de proporcionalidad o propiedades numéricas para la solución directa del sistema).
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-2 font-medium"><strong>Aplicaciones:</strong></p>
+                        <ul class="list-disc list-inside space-y-2 pl-4 text-gray-600 mb-4">
+                            <li>Cuando la propia matriz inversa \(A^{-1}\) es de interés explícito para otros análisis, como en estadística (por ejemplo, en el cálculo de la matriz de varianza-covarianza de estimadores de mínimos cuadrados), en teoría de control, o en análisis de sensibilidad.</li>
+                            <li>Si se necesita resolver el sistema \(Ax=b_k\) para múltiples vectores \(b_k\) diferentes con la misma matriz \(A\). Una vez calculada \(A^{-1}\), cada nueva solución requiere solo una multiplicación matriz-vector. (Aunque, en este escenario, la factorización LU también es muy eficiente, ya que la descomposición se hace una vez y luego se resuelven los sistemas triangulares para cada \(b_k\)).</li>
+                            <li>En contextos teóricos donde la existencia y propiedades de \(A^{-1}\) son fundamentales.</li>
+                            <li>Para matrices de tamaño pequeño (e.g., 2x2 o 3x3), donde la sobrecarga computacional no es una preocupación primordial.</li>
+                        </ul>
+                         <p class="text-gray-600 leading-relaxed">
+                            Es crucial recordar que si la matriz \(A\) es singular (\(\det(A)=0\)), no posee inversa, y el método de la inversa no puede aplicarse. En tales casos, el sistema \(Ax=b\) puede tener infinitas soluciones o ninguna solución, lo cual debe investigarse por otros medios (como el análisis de rangos de \(A\) y \([A|b]\)).
+                        </p>
+                    </section>
+
+                    <section id="referencias-inv" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Referencias</h3>
+                        <ul class="list-disc list-inside space-y-2 text-gray-600 leading-relaxed pl-4">
+                            <li>Chapra, S. C., & Canale, R. P. (2015). <em>Numerical Methods for Engineers</em> (7th ed.). McGraw-Hill Education. (Capítulo 10).</li>
+                            <li>Lay, D. C., Lay, S. R., & McDonald, J. J. (2016). <em>Linear Algebra and Its Applications</em> (5th ed.). Pearson.</li>
+                        </ul>
+                    </section>
+
+                    <section id="cuestionario-inv" class="scroll-mt-24 mb-10">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Cuestionario: Método de la Inversa</h3>
+                        <form id="quiz-inverse-method" class="space-y-6 bg-gray-50 p-6 rounded-lg shadow-inner">
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">1. El Método de la Inversa para resolver \(Ax=b\) requiere que la matriz \(A\):</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 1</legend>
+                                    <div class="space-y-2">
+                                        <label for="q1-opt1-inv" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt1-inv" name="question-1-inv" type="radio" value="Sea simétrica." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Sea simétrica.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt2-inv" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt2-inv" name="question-1-inv" type="radio" value="Sea una matriz identidad." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Sea una matriz identidad.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt3-inv" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt3-inv" name="question-1-inv" type="radio" value="Sea invertible (no singular)." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Sea invertible (no singular).</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt4-inv" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt4-inv" name="question-1-inv" type="radio" value="Tenga todos sus elementos positivos." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Tenga todos sus elementos positivos.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-1-inv-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                             <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">2. Si \(A^{-1}\) es la inversa de \(A\), la solución \(x\) del sistema \(Ax=b\) se calcula como:</p>
+                                <fieldset class="mt-2">
+                                    <div class="space-y-2">
+                                        <label for="q2-opt1-inv" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt1-inv" name="question-2-inv" type="radio" value="x = bA^(-1)" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700 tex2jax_process">\(x = bA^{-1}\)</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt2-inv" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt2-inv" name="question-2-inv" type="radio" value="x = A^(-1)b" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700 tex2jax_process">\(x = A^{-1}b\)</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt3-inv" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt3-inv" name="question-2-inv" type="radio" value="x = Ab^(-1)" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700 tex2jax_process">\(x = Ab^{-1}\)</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                         <label for="q2-opt4-inv" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt4-inv" name="question-2-inv" type="radio" value="x = (Ab)^(-1)" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700 tex2jax_process">\(x = (Ab)^{-1}\)</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-2-inv-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">3. ¿Cuál es una desventaja principal de usar el Método de la Inversa para resolver un único sistema \(Ax=b\) en comparación con la Eliminación Gaussiana?</p>
+                                <fieldset class="mt-2">
+                                    <div class="space-y-2">
+                                        <label for="q3-opt1-inv" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt1-inv" name="question-3-inv" type="radio" value="Es conceptualmente más difícil de entender." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Es conceptualmente más difícil de entender.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt2-inv" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt2-inv" name="question-3-inv" type="radio" value="Generalmente requiere más operaciones computacionales y puede ser menos estable numéricamente." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Generalmente requiere más operaciones computacionales y puede ser menos estable numéricamente.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt3-inv" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt3-inv" name="question-3-inv" type="radio" value="Solo funciona para matrices diagonales." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Solo funciona para matrices diagonales.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                         <label for="q3-opt4-inv" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt4-inv" name="question-3-inv" type="radio" value="No puede manejar sistemas con más de 3 ecuaciones." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">No puede manejar sistemas con más de 3 ecuaciones.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-3-inv-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">4. Para calcular la inversa de una matriz \(A\) usando el método de Gauss-Jordan, se comienza con la matriz aumentada:</p>
+                                <fieldset class="mt-2">
+                                     <div class="space-y-2">
+                                        <label for="q4-opt1-inv" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt1-inv" name="question-4-inv" type="radio" value="[A|b]" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700 tex2jax_process">\([A|b]\)</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q4-opt2-inv" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt2-inv" name="question-4-inv" type="radio" value="[I|A]" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700 tex2jax_process">\([I|A]\)</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q4-opt3-inv" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt3-inv" name="question-4-inv" type="radio" value="[A|A]" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700 tex2jax_process">\([A|A]\)</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q4-opt4-inv" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt4-inv" name="question-4-inv" type="radio" value="[A|I]" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700 tex2jax_process">\([A|I]\)</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-4-inv-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <button type="submit" class="mt-6 w-full px-6 py-3 bg-custom-red text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors duration-150">
+                                Enviar Respuestas
+                            </button>
+                        </form>
+                        <div id="quiz-feedback-inverse-method" class="quiz-feedback-message mt-4 p-3 rounded-md text-sm" style="display: none;"></div>
+                    </section>
+                </article>
+            </main>
+
+            <aside class="w-full lg:w-1/4 bg-sidebar-bg shadow-xl rounded-lg p-6 self-start sticky top-8 order-3 space-y-6">
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-4">Perfil</h3>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex-shrink-0">
+                           <svg class="w-12 h-12 text-gray-400 bg-gray-100 rounded-full p-1 ring-1 ring-gray-200" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-800 text-md">Estudiante Directo</p>
+                            <p class="text-sm text-gray-500">Maestro de Matrices</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pb-6 border-b border-gray-200 space-y-3">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide">Progreso en Método de la Inversa</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li class="flex items-center">
+                            <span id="task-read-theory-status-inv" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Leer la teoría completa</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-run-code-status-inv" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Ejecutar el código Python</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-attempted-status-inv" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Intentar el cuestionario</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-passed-status-inv" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Aprobar el cuestionario</span>
+                        </li>
+                    </ul>
+                    <div class="flex items-center justify-between mb-1 mt-3">
+                       <span class="text-xs font-medium text-custom-red">Progreso General</span>
+                       <span id="right-sidebar-progress-text-inv" class="text-xs font-medium text-custom-red right-sidebar-progress-text">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div id="right-sidebar-progress-bar-inv" class="bg-custom-red h-3 rounded-full right-sidebar-progress-bar transition-width duration-500 ease-in-out" style="width: 0%"></div>
+                    </div>
+                    <button id="completion-inverse-method-sidebar" class="mt-4 w-full completion-button px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Marcar Todo Completado</button>
+                </div>
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Recursos y Notas</h3>
+                    <p class="text-sm text-gray-600"><a href="https://archive.org/details/numerical-methods-for-engineers-7th-edit" target="_blank" rel="noopener noreferrer" class="hover:text-custom-red hover:underline">Métodos Numéricos para Ingenieros 7ma Edición de Chapra</a></p>
+                    <img src="https://images.cdn3.buscalibre.com/fit-in/360x360/97/ff/97ffa61a8adb147e569e12c4f1f797b3.jpg" alt="Portada Chapra" class="mt-2 w-full rounded-md shadow-sm">
+                </div>
+                <div>
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Siguiente Paso</h3>
+                     <a href="../methods/gauss-jordan.html" class="group flex items-center text-sm font-medium text-custom-red hover:text-red-700">
+                       <span>Explorar Gauss-Jordan</span>
+                       <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </a>
+                </div>
+            </aside>
+        </div>
+
+        <footer class="bg-custom-blue text-gray-300 text-center p-6 mt-12">
+            <p>&copy; 2024 Plataforma Educativa de Métodos Numéricos. <a href="../index.html" class="hover:text-white underline">Volver al inicio</a></p>
+        </footer>
+    </div>
+
+    <!-- Inverse Method SCRIPT (Logica JS General de la página, Pyodide, Quiz, D3) -->
+    <script>
+    // Global Pyodide state variables for Inverse Method
+    window.pyodideInstance_INV_Global = null;
+    window.pyodide_inv_globals = null;
+    window.pyodideInitializationPromise_INV_Global = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const PAGE_KEY_INV = 'metodo-inversa'; // Changed to a more JS-friendly key
+        const QUIZ_FORM_ID_INV = 'quiz-inverse-method';
+        const QUIZ_FEEDBACK_ID_INV = 'quiz-feedback-inverse-method';
+        const COMPLETION_BUTTON_ID_INV = 'completion-inverse-method-sidebar';
+        const CODE_INPUT_ID_INV = 'inv-code-input';
+        const CODE_OUTPUT_ID_INV = 'inv-code-output';
+        const RUN_CODE_BUTTON_ID_INV = 'run-inv-code-button';
+        const outputControlsContainer_INV = document.getElementById('inv-output-controls-container');
+        const fullscreenButton_INV = document.getElementById('inv-fullscreen-output-button');
+        const increaseFontButton_INV = document.getElementById('inv-increase-font-button');
+        const decreaseFontButton_INV = document.getElementById('inv-decrease-font-button');
+        let originalOutputFontSize_INV = '';
+        const MIN_FONT_SIZE_PX_INV = 8;
+        const MAX_FONT_SIZE_PX_INV = 28;
+        const FONT_SIZE_STEP_PX_INV = 1;
+        let invCodeOutputInitialRect = null;
+
+        const TASKS_INV = {
+            READ_THEORY: 'read_theory_inv',
+            RUN_CODE: 'run_code_inv',
+            QUIZ_ATTEMPTED: 'quiz_attempted_inv',
+            QUIZ_PASSED: 'quiz_passed_inv'
+        };
+        const ALL_TASK_KEYS_INV = Object.values(TASKS_INV);
+        const TOTAL_TASKS_INV = ALL_TASK_KEYS_INV.length;
+
+        const ICON_PENDING_INV = '<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0-4.418-4.03-8-9-8S3 7.582 3 12c0 1.454.402 2.813 1.098 3.977L3 21l5.023-1.098A8.902 8.902 0 0012 21c4.97 0 9-3.582 9-9z"></path></svg>';
+        const ICON_COMPLETED_INV = '<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>';
+        const ICON_IN_PROGRESS_INV = '<svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V9.05a.75.75 0 011.307-.588l5.603 3.112z" clip-rule="evenodd"></path></svg>';
+        const ICON_CORRECT_ANSWER_INV = '✔️';
+        const ICON_INCORRECT_ANSWER_INV = '❌';
+        const ICON_THUMB_UP_INV = '👍';
+        const quizDataInverseMethod = {
+            "question-1-inv": {
+                correctAnswer: "Sea invertible (no singular).",
+                feedback: {
+                    "Sea simétrica.": "Incorrecto. Aunque la simetría es útil en otros contextos, no es un requisito para la invertibilidad o el método de la inversa.",
+                    "Sea una matriz identidad.": "Incorrecto. Si A es la identidad, el sistema es trivial (x=b), pero el método se aplica a matrices generales invertibles.",
+                    "Tenga todos sus elementos positivos.": "Incorrecto. El signo de los elementos no determina la invertibilidad."
+                }
+            },
+            "question-2-inv": {
+                correctAnswer: "x = A^(-1)b",
+                feedback: {
+                    "x = bA^(-1)": "Incorrecto. La multiplicación de matrices no es conmutativa. El orden importa.",
+                    "x = Ab^(-1)": "Incorrecto. La inversa del vector b no está definida de esta forma.",
+                    "x = (Ab)^(-1)": "Incorrecto. Esto sería la inversa del producto Ab, no la solución x."
+                }
+            },
+            "question-3-inv": {
+                correctAnswer: "Generalmente requiere más operaciones computacionales y puede ser menos estable numéricamente.",
+                feedback: {
+                    "Es conceptualmente más difícil de entender.": "Incorrecto. El concepto de usar la inversa es bastante directo.",
+                    "Solo funciona para matrices diagonales.": "Incorrecto. Funciona para cualquier matriz invertible.",
+                    "No puede manejar sistemas con más de 3 ecuaciones.": "Incorrecto. El método es general para matrices n x n."
+                }
+            },
+            "question-4-inv": { 
+                correctAnswer: "[A|I]",
+                feedback: {
+                    "[A|b]": "Incorrecto. Esta es la matriz aumentada para resolver Ax=b directamente con Gauss-Jordan, no para encontrar la inversa.",
+                    "[I|A]": "Incorrecto. El objetivo es transformar A en I, no al revés para este propósito.",
+                    "[A|A]": "Incorrecto. Esto no llevaría al cálculo de la inversa."
+                }
+            }
+        };
+
+        let pyodide_INV = null;
+        const mainCompletionButton_INV = document.getElementById(COMPLETION_BUTTON_ID_INV);
+        const quizForm_INV = document.getElementById(QUIZ_FORM_ID_INV);
+        const generalQuizFeedbackDiv_INV = document.getElementById(QUIZ_FEEDBACK_ID_INV);
+        const codeInput_INV = document.getElementById(CODE_INPUT_ID_INV);
+        const codeOutput_INV = document.getElementById(CODE_OUTPUT_ID_INV);
+        const runCodeButton_INV = document.getElementById(RUN_CODE_BUTTON_ID_INV);
+
+        const taskStatusIcons_INV = {};
+        taskStatusIcons_INV[TASKS_INV.READ_THEORY] = document.getElementById('task-read-theory-status-inv');
+        taskStatusIcons_INV[TASKS_INV.RUN_CODE] = document.getElementById('task-run-code-status-inv');
+        taskStatusIcons_INV[TASKS_INV.QUIZ_ATTEMPTED] = document.getElementById('task-quiz-attempted-status-inv');
+        taskStatusIcons_INV[TASKS_INV.QUIZ_PASSED] = document.getElementById('task-quiz-passed-status-inv');
+        const overallProgressText_INV = document.getElementById('right-sidebar-progress-text-inv');
+        const overallProgressBar_INV = document.getElementById('right-sidebar-progress-bar-inv');
+
+        function getPageProgressFromStorage_INV(pKey) {
+            const defaults = ALL_TASK_KEYS_INV.reduce((obj, task) => ({ ...obj, [task]: false }), {});
+            defaults.overall_progress = 0;
+            defaults.user_quiz_answers = {};
+            defaults.quiz_current_score = 0;
+            defaults.quiz_feedback_active = false;
+            try {
+                const stored = localStorage.getItem(pKey);
+                if (stored) return { ...defaults, ...JSON.parse(stored) };
+            } catch (e) { console.error("Error al leer localStorage para INV:", e); }
+            return defaults;
+        }
+
+        function savePageProgressToStorage_INV(pKey, progress) {
+            try {
+                localStorage.setItem(pKey, JSON.stringify(progress));
+                window.dispatchEvent(new CustomEvent('invPageProgressSaved', { detail: { pageKey: pKey, progress } }));
+            } catch (e) { console.error("Error al guardar en localStorage para INV:", e); }
+        }
+
+        function updateTaskStatusInStorage_INV(taskName, isCompleted) {
+            let currentProgress = getPageProgressFromStorage_INV(PAGE_KEY_INV);
+            if (currentProgress[taskName] !== isCompleted) {
+                currentProgress[taskName] = isCompleted;
+                if (taskName === TASKS_INV.QUIZ_ATTEMPTED && !isCompleted) { 
+                    currentProgress[TASKS_INV.QUIZ_PASSED] = false;
+                    currentProgress.user_quiz_answers = {};
+                    currentProgress.quiz_current_score = 0;
+                    currentProgress.quiz_feedback_active = false;
+                }
+                if (taskName === TASKS_INV.QUIZ_PASSED && isCompleted) {
+                     currentProgress[TASKS_INV.QUIZ_ATTEMPTED] = true;
+                }
+                savePageProgressToStorage_INV(PAGE_KEY_INV, currentProgress);
+                calculateAndUpdateOverallProgress_INV();
+            }
+        }
+
+        function renderTaskStatus_INV() {
+            const progress = getPageProgressFromStorage_INV(PAGE_KEY_INV);
+            ALL_TASK_KEYS_INV.forEach(taskKey => {
+                const iconElement = taskStatusIcons_INV[taskKey];
+                if (iconElement) {
+                    let newIconHTML = ICON_PENDING_INV;
+                    if (progress[taskKey]) newIconHTML = ICON_COMPLETED_INV;
+                    else if (taskKey === TASKS_INV.QUIZ_PASSED && progress[TASKS_INV.QUIZ_ATTEMPTED]) newIconHTML = ICON_IN_PROGRESS_INV;
+                    iconElement.innerHTML = newIconHTML;
+                }
+            });
+        }
+
+        function calculateAndUpdateOverallProgress_INV() {
+            let progress = getPageProgressFromStorage_INV(PAGE_KEY_INV);
+            let completedTasks = ALL_TASK_KEYS_INV.filter(taskKey => progress[taskKey]).length;
+            const percentage = TOTAL_TASKS_INV > 0 ? (completedTasks / TOTAL_TASKS_INV) * 100 : 0;
+            progress.overall_progress = percentage;
+            savePageProgressToStorage_INV(PAGE_KEY_INV, progress);
+
+            const isHundredPercent = percentage.toFixed(0) === '100';
+            if (overallProgressBar_INV) {
+                overallProgressBar_INV.style.width = `${percentage.toFixed(0)}%`;
+                overallProgressBar_INV.classList.toggle('animate-rainbow-border', isHundredPercent);
+            }
+            if (overallProgressText_INV) overallProgressText_INV.textContent = `${percentage.toFixed(0)}%`;
+
+            renderTaskStatus_INV();
+            updateMainCompletionButtonState_INV();
+        }
+
+        function handleMarkAllMouseEnter_INV() {
+            if (mainCompletionButton_INV && mainCompletionButton_INV.dataset.isUndo === "true") {
+                mainCompletionButton_INV.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+                mainCompletionButton_INV.classList.add('bg-red-600', 'hover:bg-red-700');
+            }
+        }
+
+        function handleMarkAllMouseLeave_INV() {
+            if (mainCompletionButton_INV && mainCompletionButton_INV.dataset.isUndo === "true") {
+                mainCompletionButton_INV.classList.remove('bg-red-600', 'hover:bg-red-700');
+                mainCompletionButton_INV.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+            }
+        }
+
+        function updateMainCompletionButtonState_INV() {
+            if (!mainCompletionButton_INV) return;
+            const progress = getPageProgressFromStorage_INV(PAGE_KEY_INV);
+            let allTasksCompleted = ALL_TASK_KEYS_INV.every(task => progress[task]);
+
+            mainCompletionButton_INV.removeEventListener('mouseenter', handleMarkAllMouseEnter_INV);
+            mainCompletionButton_INV.removeEventListener('mouseleave', handleMarkAllMouseLeave_INV);
+            mainCompletionButton_INV.classList.remove('bg-green-600', 'hover:bg-green-700', 'bg-yellow-500', 'hover:bg-yellow-600', 'bg-red-600', 'hover:bg-red-700');
+
+            if (allTasksCompleted) {
+                mainCompletionButton_INV.textContent = 'Deshacer Completado';
+                mainCompletionButton_INV.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+                mainCompletionButton_INV.dataset.isUndo = "true";
+                mainCompletionButton_INV.addEventListener('mouseenter', handleMarkAllMouseEnter_INV);
+                mainCompletionButton_INV.addEventListener('mouseleave', handleMarkAllMouseLeave_INV);
+            } else {
+                mainCompletionButton_INV.textContent = 'Marcar Todo Completado';
+                mainCompletionButton_INV.classList.add('bg-green-600', 'hover:bg-green-700');
+                mainCompletionButton_INV.dataset.isUndo = "false";
+            }
+        }
+
+        function clearAllVisualFeedback_INV(clearGeneralMessage = false) {
+            if (!quizForm_INV) return;
+            quizForm_INV.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                wrapper.classList.remove('correct-answer-inv', 'incorrect-answer-inv', 'border-green-500', 'border-red-500', 'ring-1', 'ring-green-500', 'ring-red-500', 'bg-green-50', 'bg-red-50');
+                wrapper.classList.add('border-gray-300', 'hover:border-gray-400', 'has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                const iconPlaceholder = wrapper.querySelector('.feedback-icon-placeholder span');
+                if (iconPlaceholder) iconPlaceholder.innerHTML = '';
+            });
+            quizForm_INV.querySelectorAll('.specific-question-feedback').forEach(el => {
+                el.textContent = '';
+                el.style.display = 'none';
+            });
+            if (clearGeneralMessage && generalQuizFeedbackDiv_INV) {
+                generalQuizFeedbackDiv_INV.textContent = '';
+                generalQuizFeedbackDiv_INV.style.display = 'none';
+                generalQuizFeedbackDiv_INV.className = 'quiz-feedback-message mt-4 p-3 rounded-md text-sm';
+            }
+        }
+
+        function displayQuizFeedback_INV() {
+            if (!quizForm_INV || !generalQuizFeedbackDiv_INV) return false;
+            const progress = getPageProgressFromStorage_INV(PAGE_KEY_INV);
+            const userAnswers = progress.user_quiz_answers || {};
+            const submitButton = quizForm_INV.querySelector('button[type="submit"]');
+
+            clearAllVisualFeedback_INV(false);
+
+            if (!progress.quiz_feedback_active && Object.keys(userAnswers).length === 0) {
+                quizForm_INV.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                if (submitButton) {
+                    submitButton.textContent = 'Enviar Respuestas';
+                    submitButton.disabled = false;
+                }
+                return false; 
+            }
+
+            let allCorrect = true;
+            let score = 0;
+
+            for (const questionName in quizDataInverseMethod) {
+                const userAnswer = userAnswers[questionName];
+                const questionData = quizDataInverseMethod[questionName];
+                const correctAnswer = questionData.correctAnswer;
+                const specificFeedbackDiv = document.getElementById(`${questionName}-specific-feedback`);
+
+                const radioInputs = quizForm_INV.querySelectorAll(`input[name="${questionName}"]`);
+                radioInputs.forEach(input => {
+                    const wrapper = input.closest('.quiz-option-wrapper');
+                    const iconPlaceholder = wrapper.querySelector('.feedback-icon-placeholder span');
+                    input.disabled = true; 
+                    wrapper.classList.remove('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+
+                    if (input.value === userAnswer) { 
+                        input.checked = true; 
+                        if (userAnswer === correctAnswer) {
+                            wrapper.classList.add('correct-answer-inv', 'border-green-500', 'ring-1', 'ring-green-500', 'bg-green-50');
+                            if (iconPlaceholder) iconPlaceholder.textContent = ICON_CORRECT_ANSWER_INV;
+                            score++;
+                        } else { 
+                            wrapper.classList.add('incorrect-answer-inv', 'border-red-500', 'ring-1', 'ring-red-500', 'bg-red-50');
+                            if (iconPlaceholder) iconPlaceholder.textContent = ICON_INCORRECT_ANSWER_INV;
+                            allCorrect = false;
+                            if (specificFeedbackDiv && questionData.feedback && questionData.feedback[userAnswer]) {
+                                specificFeedbackDiv.innerHTML = "Incorrecto. " + questionData.feedback[userAnswer]; 
+                                specificFeedbackDiv.style.display = 'block';
+                            } else if (specificFeedbackDiv) { 
+                                specificFeedbackDiv.textContent = "Incorrecto. Respuesta incorrecta.";
+                                specificFeedbackDiv.style.display = 'block';
+                            }
+                        }
+                    } else if (input.value === correctAnswer) { 
+                         wrapper.classList.add('correct-answer-inv', 'border-green-500', 'bg-green-50'); 
+                         if (userAnswer !== correctAnswer && iconPlaceholder) iconPlaceholder.textContent = ICON_THUMB_UP_INV; 
+                    } else { 
+                         wrapper.classList.add('border-gray-300'); 
+                    }
+                });
+            }
+
+            progress.quiz_current_score = score; 
+            progress.quiz_passed = allCorrect;   
+            savePageProgressToStorage_INV(PAGE_KEY_INV, progress); 
+
+            generalQuizFeedbackDiv_INV.style.display = 'block';
+            if (allCorrect) {
+                generalQuizFeedbackDiv_INV.className = 'mt-4 p-3 rounded-md text-sm bg-green-100 text-green-700 border border-green-200';
+                generalQuizFeedbackDiv_INV.innerHTML = `<strong>¡Felicidades!</strong> Todas tus respuestas son correctas. (${score}/${Object.keys(quizDataInverseMethod).length})`;
+                if (submitButton) {
+                    submitButton.textContent = 'Cuestionario Aprobado';
+                    submitButton.disabled = true; 
+                }
+            } else {
+                generalQuizFeedbackDiv_INV.className = 'mt-4 p-3 rounded-md text-sm bg-red-100 text-red-700 border border-red-200';
+                generalQuizFeedbackDiv_INV.innerHTML = `Has respondido correctamente ${score} de ${Object.keys(quizDataInverseMethod).length} preguntas. Revisa los comentarios e intenta de nuevo.`;
+                if (submitButton) {
+                    submitButton.textContent = 'Intentar de Nuevo'; 
+                    submitButton.disabled = false;
+                }
+            }
+            if (window.MathJax && window.MathJax.typesetPromise && quizForm_INV) {
+                window.MathJax.typesetPromise([quizForm_INV, generalQuizFeedbackDiv_INV]); 
+            }
+            return allCorrect;
+        }
+
+        async function initializePyodide_INV() {
+            if (window.pyodideInstance_INV_Global) {
+                // Pyodide ya está completamente inicializado y listo
+                if (!window.pyodide_inv_globals && window.pyodideInstance_INV_Global.globals) { 
+                    // Asegurar que pyodide_inv_globals esté seteado si la instancia existe pero globals no se asignó
+                    window.pyodide_inv_globals = window.pyodideInstance_INV_Global.globals;
+                }
+                return window.pyodideInstance_INV_Global;
+            }
+
+            if (!window.pyodideInitializationPromise_INV_Global) {
+                // Si no hay una promesa de inicialización en curso, crear una nueva.
+                if (codeOutput_INV) codeOutput_INV.innerHTML = "<p>Cargando Pyodide y entorno...</p>";
+                
+                window.pyodideInitializationPromise_INV_Global = (async () => {
+                    try {
+                        const pyodide = await window.loadPyodide({
+                            indexURL: "https://cdn.jsdelivr.net/pyodide/v0.25.1/full/" // Restaurar v0.25.1
+                        });
+                        await pyodide.loadPackage("numpy");
+                        
+                        window.pyodideInstance_INV_Global = pyodide;
+                        window.pyodide_inv_globals = pyodide.globals;
+                        window.pyodide_inv_globals.set("pyodide_inv_html_output", "");
+                        window.pyodide_inv_globals.set("pyodide_inv_chart_data_package", pyodide.toPy({}));
+                        
+                        if (codeOutput_INV) codeOutput_INV.innerHTML = "<p>Pyodide listo. Presiona 'Ejecutar Código'.</p>";
+                        return pyodide;
+                    } catch (error) {
+                        console.error("Error al cargar Pyodide para Método Inversa:", error);
+                        if (codeOutput_INV) codeOutput_INV.innerHTML = "<p>Error al cargar Pyodide. Revisa la consola.</p>";
+                        // Resetear para permitir reintentos si es necesario.
+                        window.pyodideInstance_INV_Global = null; 
+                        window.pyodide_inv_globals = null;
+                        window.pyodideInitializationPromise_INV_Global = null; 
+                        throw error; // Re-lanzar para que el llamador original sepa del error.
+                    }
+                })();
+            }
+
+            // Esperar a que la promesa (ya sea nueva o existente) se complete.
+            try {
+                return await window.pyodideInitializationPromise_INV_Global;
+            } catch (error) {
+                // La promesa de inicialización fue rechazada. El error ya fue logueado.
+                // El llamador (runCodeNow_INV o el script de inicialización) debería manejar esto.
+                return null; 
+            }
+        }
+
+        async function runCodeNow_INV() {
+            pyodide_INV = await initializePyodide_INV();
+            if (!pyodide_INV || !window.pyodide_inv_globals) { 
+                if (codeOutput_INV) codeOutput_INV.innerHTML = "<p>Pyodide no está listo. Intenta recargar.</p>";
+                return;
+            }
+            if (!codeInput_INV || !codeOutput_INV) return;
+
+            const pythonCode = codeInput_INV.value;
+            if (codeOutput_INV) codeOutput_INV.innerHTML = "<p>Ejecutando código...</p>";
+            inv_d3_opDesc.html("Generando datos para la visualización...");
+            inv_d3_svg.selectAll("*").remove();            
+
+            try {
+                window.pyodide_inv_globals.set("pyodide_inv_html_output", "");
+                let chartPkgProxy = window.pyodide_inv_globals.get("pyodide_inv_chart_data_package");
+                if (chartPkgProxy && typeof chartPkgProxy.clear === 'function') chartPkgProxy.clear();
+                else window.pyodide_inv_globals.set("pyodide_inv_chart_data_package", pyodide_INV.toPy({}));
+
+                await pyodide_INV.loadPackagesFromImports(pythonCode);
+                await pyodide_INV.runPythonAsync(pythonCode);
+
+                const htmlResult = window.pyodide_inv_globals.get("pyodide_inv_html_output");
+                if (codeOutput_INV) {
+                    codeOutput_INV.innerHTML = htmlResult || "<p>Ejecución completada. No se generó salida HTML de texto.</p>";
+                }
+                updateTaskStatusInStorage_INV(TASKS_INV.RUN_CODE, true);
+
+                const d3DataPackage = window.pyodide_inv_globals.get("pyodide_inv_chart_data_package").toJs({ dict_converter: Object.fromEntries });
+                initializeINVVisualization(d3DataPackage); 
+
+            } catch (error) {
+                console.error("Error al ejecutar el código Python (Método Inversa):", error);
+                if (codeOutput_INV) {
+                    codeOutput_INV.innerHTML = `<p style="color:red;">Error en la ejecución: ${error.toString().replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p><pre>${error.stack ? error.stack.replace(/</g, "&lt;").replace(/>/g, "&gt;") : ''}</pre>`;
+                }
+                inv_d3_opDesc.html("Error al generar datos para la visualización.");
+            }
+        }
+
+        // --- D3.js Inverse Method Visualization Logic ---
+        let inv_d3_currentStepIndex = 0;
+        let inv_d3_isPlaying = false;
+        let inv_d3_animationSpeed = 700;
+        let inv_d3_playInterval = null;
+        let inv_d3_visualizationData = [];
+        
+        const inv_d3_svg = d3.select("#inv-d3-svg-container");
+        const inv_d3_opDesc = d3.select("#inv-d3-operation-description");
+        
+        const inv_d3_prevButton = d3.select("#inv-d3-prev");
+        const inv_d3_nextButton = d3.select("#inv-d3-next");
+        const inv_d3_slider = d3.select("#inv-d3-slider");
+        const inv_d3_playButton = d3.select("#inv-d3-play");
+        const inv_d3_speedSlider = d3.select("#inv-d3-speed");
+        const inv_d3_speedValueText = d3.select("#inv-d3-speed-value");
+        
+        const ICON_INV_PREVIOUS = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M15.225 15.077a.75.75 0 01-1.06 0L8.94 9.852a.75.75 0 010-1.06l5.224-5.224a.75.75 0 011.06 1.06L10.532 9.322l4.693 4.695a.75.75 0 010 1.06z"/></svg>';
+        const ICON_INV_NEXT = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M4.775 4.923a.75.75 0 011.06 0l5.224 5.224a.75.75 0 010 1.06l-5.224 5.224a.75.75 0 01-1.06-1.06L9.468 10.678 4.775 5.983a.75.75 0 010-1.06z"/></svg>';
+        const ICON_INV_PLAY = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"/></svg>';
+        const ICON_INV_PAUSE = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M5.75 4.5a.75.75 0 00-.75.75v10.5a.75.75 0 001.5 0V5.25a.75.75 0 00-.75-.75zm8.5 0a.75.75 0 00-.75.75v10.5a.75.75 0 001.5 0V5.25a.75.75 0 00-.75-.75z"/></svg>';
+
+        const inv_d3_cellSize = { width: 60, height: 35 };
+        const inv_d3_padding = 5;
+        const inv_d3_matrixSpacing = 30; // Space between matrices/operators
+        const inv_d3_numberFormat = d3.format(".3~f");
+
+
+        function formatNumberForD3Display(num) {
+            if (Math.abs(num) < 1e-9) return "0";
+            const rounded = parseFloat(num.toFixed(3)); // Use 3 for display
+            if (Math.abs(rounded - Math.round(rounded)) < 1e-9) return String(Math.round(rounded));
+            let formatted = inv_d3_numberFormat(rounded);
+            if (formatted === "-0" || formatted === "-0.0" || formatted === "-0.00" || formatted === "-0.000") return "0";
+            return formatted;
+        }
+
+        function drawMatrixOrVector(group, data, label, xOffset, yOffset, isVector = false, highlight = false) {
+            const numRows = data.length;
+            const numCols = isVector ? 1 : (data[0] ? data[0].length : 0);
+            if (numRows === 0) return { width: 0, height: 0 };
+
+            const totalMatrixWidth = numCols * (inv_d3_cellSize.width + inv_d3_padding) - inv_d3_padding;
+            const totalMatrixHeight = numRows * (inv_d3_cellSize.height + inv_d3_padding) - inv_d3_padding;
+
+            const matrixGroup = group.append("g")
+                .attr("transform", `translate(${xOffset},${yOffset})`);
+
+            matrixGroup.append("text")
+                .attr("class", isVector ? "vector-label" : "matrix-label")
+                .attr("x", totalMatrixWidth / 2)
+                .attr("y", -10)
+                .text(label);
+
+            for (let r = 0; r < numRows; r++) {
+                for (let c = 0; c < numCols; c++) {
+                    const cellGroup = matrixGroup.append("g")
+                        .attr("class", isVector ? "vector-cell" : "matrix-cell")
+                        .attr("transform", `translate(${c * (inv_d3_cellSize.width + inv_d3_padding)}, ${r * (inv_d3_cellSize.height + inv_d3_padding)})`);
+                    
+                    cellGroup.append("rect")
+                        .attr("width", inv_d3_cellSize.width)
+                        .attr("height", inv_d3_cellSize.height)
+                        .classed("highlight", highlight);
+                    
+                    cellGroup.append("text")
+                        .attr("x", inv_d3_cellSize.width / 2)
+                        .attr("y", inv_d3_cellSize.height / 2)
+                        .text(formatNumberForD3Display(isVector ? data[r] : data[r][c]));
+                }
+            }
+            return { width: totalMatrixWidth, height: totalMatrixHeight };
+        }
+
+
+        function initializeINVVisualization(data) {
+            inv_d3_svg.selectAll("*").remove();
+            if (!data || !data.visualization_steps || data.visualization_steps.length === 0) {
+                inv_d3_opDesc.html("No hay datos de visualización. Ejecute el código.");
+                inv_d3_prevButton.property("disabled", true).html(ICON_INV_PREVIOUS).attr("aria-label", "Anterior");
+                inv_d3_nextButton.property("disabled", true).html(ICON_INV_NEXT).attr("aria-label", "Siguiente");
+                inv_d3_playButton.property("disabled", true).html(ICON_INV_PLAY).attr("aria-label", "Play");
+                inv_d3_slider.property("disabled", true).attr("max",0).property("value",0);
+                return;
+            }
+            inv_d3_visualizationData = data.visualization_steps;
+            inv_d3_isPlaying = false;
+            if (inv_d3_playInterval) clearInterval(inv_d3_playInterval);
+            inv_d3_currentStepIndex = 0;
+            
+            inv_d3_prevButton.html(ICON_INV_PREVIOUS).attr("aria-label", "Anterior").property("disabled", false);
+            inv_d3_nextButton.html(ICON_INV_NEXT).attr("aria-label", "Siguiente").property("disabled", false);
+            inv_d3_playButton.html(ICON_INV_PLAY).attr("aria-label", "Play").property("disabled", false);
+            inv_d3_slider.attr("max", inv_d3_visualizationData.length - 1).property("value", 0).property("disabled", false);
+
+            renderINVStep(inv_d3_currentStepIndex);
+            updateINVControls();
+        }
+
+        function renderINVStep(stepIndex, animate = true) {
+            if (stepIndex < 0 || stepIndex >= inv_d3_visualizationData.length) return;
+            const stepData = inv_d3_visualizationData[stepIndex];
+            inv_d3_opDesc.html(stepData.description || `Paso ${stepIndex + 1}`);
+            inv_d3_slider.property("value", stepIndex);
+
+            inv_d3_svg.selectAll("*").remove();
+            const g = inv_d3_svg.append("g").attr("transform", `translate(10, 30)`); // Base offset
+
+            let currentX = 0;
+            let maxY = 0;
+            let dims;
+
+            if (stepData.type === "matrix_A" || stepData.type === "singular_matrix") {
+                dims = drawMatrixOrVector(g, stepData.matrix_A, "A", currentX, 0);
+                currentX += dims.width + inv_d3_matrixSpacing;
+                maxY = Math.max(maxY, dims.height);
+                if (stepData.vector_b) {
+                    dims = drawMatrixOrVector(g, stepData.vector_b, "b", currentX, 0, true);
+                    maxY = Math.max(maxY, dims.height);
+                }
+            } else if (stepData.type === "matrix_A_inv") {
+                dims = drawMatrixOrVector(g, stepData.matrix_A_inv, "A⁻¹", currentX, 0, false, true); // Highlight A_inv
+                 currentX += dims.width + inv_d3_matrixSpacing;
+                maxY = Math.max(maxY, dims.height);
+                if (stepData.vector_b) { // Show b next to A_inv if present
+                    dims = drawMatrixOrVector(g, stepData.vector_b, "b", currentX, 0, true);
+                    maxY = Math.max(maxY, dims.height);
+                }
+            } else if (stepData.type === "multiplication_setup") {
+                dims = drawMatrixOrVector(g, stepData.matrix_A_inv, "A⁻¹", currentX, 0, false, true);
+                currentX += dims.width + inv_d3_matrixSpacing / 2; // Reduced
+                maxY = Math.max(maxY, dims.height);
+
+                // Operator X
+                g.append("text").attr("class", "operator-label").attr("x", currentX).attr("y", dims.height / 2).text("×");
+                currentX += 10 + inv_d3_matrixSpacing / 2; // Reduced (10 for char + half spacing)
+
+                dims = drawMatrixOrVector(g, stepData.vector_b, "b", currentX, 0, true, true);
+                currentX += dims.width + inv_d3_matrixSpacing / 2; // Reduced
+                maxY = Math.max(maxY, dims.height);
+                
+                // Operator =
+                g.append("text").attr("class", "operator-label").attr("x", currentX).attr("y", dims.height / 2).text("=");
+                currentX += 10 + inv_d3_matrixSpacing / 2; // Reduced (10 for char + half spacing)
+                // Placeholder for x (or show it if already in stepData, though usually separate step)
+
+            } else if (stepData.type === "solution_x") {
+                 dims = drawMatrixOrVector(g, stepData.matrix_A_inv, "A⁻¹", currentX, 0);
+                currentX += dims.width + inv_d3_matrixSpacing / 2; // Reduced
+                maxY = Math.max(maxY, dims.height);
+                // Operator X
+                g.append("text").attr("class", "operator-label").attr("x", currentX).attr("y", dims.height / 2).text("×");
+                currentX += 10 + inv_d3_matrixSpacing / 2; // Reduced (10 for char + half spacing)
+
+                dims = drawMatrixOrVector(g, stepData.vector_b, "b", currentX, 0, true);
+                currentX += dims.width + inv_d3_matrixSpacing / 2; // Reduced
+                maxY = Math.max(maxY, dims.height);
+                // Operator =
+                g.append("text").attr("class", "operator-label").attr("x", currentX).attr("y", dims.height / 2).text("=");
+                currentX += 10 + inv_d3_matrixSpacing / 2; // Reduced (10 for char + half spacing)
+
+                dims = drawMatrixOrVector(g, stepData.vector_x, "x", currentX, 0, true, true); // Highlight solution x
+                currentX += dims.width; // Add width of last element
+                maxY = Math.max(maxY, dims.height);
+            }
+            
+            const totalWidth = currentX + inv_d3_matrixSpacing; // Use matrixSpacing for consistent padding
+            const totalHeight = maxY + 50; // Add padding for labels and description
+            inv_d3_svg.attr("width", Math.max(300, totalWidth)).attr("height", Math.max(150,totalHeight));
+
+            const transitionDuration = animate ? inv_d3_animationSpeed : 0;
+            // Aquí iría la lógica de transición D3 si se quiere animar entre pasos,
+            // por ahora, es un re-render directo como estaba.
+            // Si se implementan transiciones, usar transitionDuration.
+
+            updateINVControls();
+        }
+
+        function updateINVControls() {
+            inv_d3_prevButton.property("disabled", inv_d3_currentStepIndex <= 0);
+            inv_d3_nextButton.property("disabled", inv_d3_currentStepIndex >= inv_d3_visualizationData.length - 1);
+            inv_d3_slider.property("value", inv_d3_currentStepIndex);
+            inv_d3_playButton.html(inv_d3_isPlaying ? ICON_INV_PAUSE : ICON_INV_PLAY)
+                             .attr("aria-label", inv_d3_isPlaying ? "Pausa" : "Play");
+        }
+
+        function inv_d3_togglePlayPause() {
+            inv_d3_isPlaying = !inv_d3_isPlaying;
+            if (inv_d3_isPlaying) {
+                if (inv_d3_currentStepIndex >= inv_d3_visualizationData.length - 1) {
+                    inv_d3_currentStepIndex = 0; // Reiniciar si está al final
+                }
+                renderINVStep(inv_d3_currentStepIndex);
+                inv_d3_playInterval = setInterval(() => {
+                    if (inv_d3_currentStepIndex < inv_d3_visualizationData.length - 1) {
+                        inv_d3_currentStepIndex++;
+                        renderINVStep(inv_d3_currentStepIndex);
+                    } else {
+                        clearInterval(inv_d3_playInterval);
+                        inv_d3_isPlaying = false;
+                        updateINVControls();
+                    }
+                }, inv_d3_animationSpeed);
+            } else {
+                clearInterval(inv_d3_playInterval);
+            }
+            updateINVControls();
+        }
+
+        // Event Listeners para los nuevos controles
+        if (inv_d3_playButton.node()) {
+            inv_d3_playButton.on("click", inv_d3_togglePlayPause);
+        }
+
+        if (inv_d3_speedSlider.node()) {
+            inv_d3_speedSlider.on("input", function() {
+                inv_d3_animationSpeed = +this.value;
+                if(inv_d3_speedValueText.node()) inv_d3_speedValueText.text(this.value + "ms");
+                if (inv_d3_isPlaying) { // Si está reproduciendo, reiniciar intervalo con nueva velocidad
+                    clearInterval(inv_d3_playInterval);
+                    inv_d3_playInterval = setInterval(() => {
+                        if (inv_d3_currentStepIndex < inv_d3_visualizationData.length - 1) {
+                            inv_d3_currentStepIndex++;
+                            renderINVStep(inv_d3_currentStepIndex);
+                        } else {
+                            clearInterval(inv_d3_playInterval);
+                            inv_d3_isPlaying = false;
+                            updateINVControls();
+                        }
+                    }, inv_d3_animationSpeed);
+                }
+            });
+             // Inicializar valor de texto de velocidad
+            if(inv_d3_speedValueText.node()) inv_d3_speedValueText.text(inv_d3_speedSlider.property("value") + "ms");
+        }
+        
+        if (inv_d3_prevButton.node()) {
+            inv_d3_prevButton.on("click", () => {
+                if (inv_d3_currentStepIndex > 0) {
+                    inv_d3_currentStepIndex--;
+                    renderINVStep(inv_d3_currentStepIndex, !inv_d3_isPlaying); // Animar si no está reproduciendo
+                    if(inv_d3_isPlaying) { clearInterval(inv_d3_playInterval); inv_d3_isPlaying = false; updateINVControls(); } // Pausar si se navega manualmente
+                }
+            });
+        }
+        if (inv_d3_nextButton.node()) {
+            inv_d3_nextButton.on("click", () => {
+                if (inv_d3_currentStepIndex < inv_d3_visualizationData.length - 1) {
+                    inv_d3_currentStepIndex++;
+                    renderINVStep(inv_d3_currentStepIndex, !inv_d3_isPlaying);
+                    if(inv_d3_isPlaying) { clearInterval(inv_d3_playInterval); inv_d3_isPlaying = false; updateINVControls(); } 
+                }
+            });
+        }
+        if (inv_d3_slider.node()) {
+            inv_d3_slider.on("input", function() {
+                inv_d3_currentStepIndex = +this.value;
+                renderINVStep(inv_d3_currentStepIndex, !inv_d3_isPlaying);
+                if(inv_d3_isPlaying) { clearInterval(inv_d3_playInterval); inv_d3_isPlaying = false; updateINVControls(); }
+            });
+        }
+
+        if (runCodeButton_INV) runCodeButton_INV.addEventListener('click', runCodeNow_INV);
+
+        // ...
+
+        if (quizForm_INV) {
+            quizForm_INV.addEventListener('submit', function(event) {
+                event.preventDefault();
+                const currentLocalProgress = getPageProgressFromStorage_INV(PAGE_KEY_INV);
+                const submitButton = quizForm_INV.querySelector('button[type="submit"]');
+
+                if (currentLocalProgress[TASKS_INV.QUIZ_PASSED] && submitButton.textContent !== 'Intentar de Nuevo') return; 
+
+                if (submitButton && submitButton.textContent === 'Intentar de Nuevo') {
+                    quizForm_INV.reset();
+                    clearAllVisualFeedback_INV(true); 
+                    if(generalQuizFeedbackDiv_INV) generalQuizFeedbackDiv_INV.style.display = 'none';
+                    
+                    let progressToSave = getPageProgressFromStorage_INV(PAGE_KEY_INV);
+                    progressToSave.user_quiz_answers = {};
+                    progressToSave.quiz_current_score = 0;
+                    progressToSave.quiz_feedback_active = false;
+                    savePageProgressToStorage_INV(PAGE_KEY_INV, progressToSave);
+                    updateTaskStatusInStorage_INV(TASKS_INV.QUIZ_PASSED, false); 
+
+                    quizForm_INV.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                     quizForm_INV.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                         wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                    });
+                    submitButton.textContent = 'Enviar Respuestas';
+                    return; 
+                }
+
+                const formData = new FormData(quizForm_INV);
+                let allAnswered = true;
+                for (const qName of Object.keys(quizDataInverseMethod)) { if (!formData.has(qName)) { allAnswered = false; break; } }
+
+                if (!allAnswered) {
+                    if (generalQuizFeedbackDiv_INV) {
+                        generalQuizFeedbackDiv_INV.textContent = "Por favor, responde todas las preguntas.";
+                        generalQuizFeedbackDiv_INV.className = 'mt-4 p-3 rounded-md text-sm bg-yellow-100 text-yellow-700 border border-yellow-200';
+                        generalQuizFeedbackDiv_INV.style.display = 'block';
+                    } return;
+                }
+
+                updateTaskStatusInStorage_INV(TASKS_INV.QUIZ_ATTEMPTED, true);
+                
+                let progress = getPageProgressFromStorage_INV(PAGE_KEY_INV);
+                progress.user_quiz_answers = {};
+                for (const qName of Object.keys(quizDataInverseMethod)) { progress.user_quiz_answers[qName] = formData.get(qName); }
+                progress.quiz_feedback_active = true;
+                savePageProgressToStorage_INV(PAGE_KEY_INV, progress);
+
+                const quizWasPassed = displayQuizFeedback_INV(); 
+                updateTaskStatusInStorage_INV(TASKS_INV.QUIZ_PASSED, quizWasPassed); 
+                calculateAndUpdateOverallProgress_INV(); 
+            });
+        }
+
+        if (mainCompletionButton_INV) {
+             mainCompletionButton_INV.addEventListener('click', () => {
+                const progress = getPageProgressFromStorage_INV(PAGE_KEY_INV);
+                let allCurrentlyCompleted = ALL_TASK_KEYS_INV.every(taskKey => progress[taskKey]);
+                let markAllAs = !allCurrentlyCompleted; 
+
+                ALL_TASK_KEYS_INV.forEach(taskName => updateTaskStatusInStorage_INV(taskName, markAllAs));
+                
+                let updatedProgress = getPageProgressFromStorage_INV(PAGE_KEY_INV);
+                if (!markAllAs) { 
+                    updatedProgress.user_quiz_answers = {};
+                    updatedProgress.quiz_current_score = 0;
+                    updatedProgress.quiz_feedback_active = false;
+                    if (quizForm_INV) {
+                        quizForm_INV.reset();
+                        quizForm_INV.querySelectorAll('input[type="radio"]').forEach(r => r.disabled = false);
+                        const sb = quizForm_INV.querySelector('button[type="submit"]');
+                        if(sb) sb.textContent = 'Enviar Respuestas';
+                        quizForm_INV.querySelectorAll('.quiz-option-wrapper').forEach(w => w.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red'));
+                    }
+                    clearAllVisualFeedback_INV(true);
+                } else { 
+                     updatedProgress[TASKS_INV.QUIZ_ATTEMPTED] = true; 
+                     updatedProgress[TASKS_INV.QUIZ_PASSED] = true;   
+                    if (Object.keys(updatedProgress.user_quiz_answers).length === 0 || updatedProgress.quiz_current_score !== Object.keys(quizDataInverseMethod).length) {
+                        for (const qName in quizDataInverseMethod) updatedProgress.user_quiz_answers[qName] = quizDataInverseMethod[qName].correctAnswer;
+                        updatedProgress.quiz_current_score = Object.keys(quizDataInverseMethod).length;
+                    }
+                    updatedProgress.quiz_feedback_active = true; 
+                }
+                savePageProgressToStorage_INV(PAGE_KEY_INV, updatedProgress);
+
+                if (quizForm_INV) displayQuizFeedback_INV(); 
+                calculateAndUpdateOverallProgress_INV(); 
+                if (generalQuizFeedbackDiv_INV && !markAllAs) generalQuizFeedbackDiv_INV.style.display = 'none';
+                alert(markAllAs ? 'Todas las tareas marcadas como completadas.' : 'Se ha deshecho el completado.');
+            });
+        }
+
+        const theorySectionObserverTargetNodeINV = document.getElementById('conclusion-inv') || document.getElementById('teoria-inv'); 
+        if (theorySectionObserverTargetNodeINV) {
+            const observerOptionsINV = { root: null, rootMargin: '0px', threshold: 0.1 }; 
+            const observerCallbackINV = (entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) updateTaskStatusInStorage_INV(TASKS_INV.READ_THEORY, true);
+                });
+            };
+            const theoryObserver_INV = new IntersectionObserver(observerCallbackINV, observerOptionsINV);
+            theoryObserver_INV.observe(theorySectionObserverTargetNodeINV);
+        }
+
+        if (window.location.hash) history.replaceState(null, '', window.location.pathname + window.location.search);
+        
+        // Pyodide se inicializará bajo demanda cuando se presione "Ejecutar Código".
+        // Se inicializa la visualización D3 con un estado vacío/predeterminado.
+        initializeINVVisualization(null); 
+        
+        // La siguiente línea es un ejemplo de cómo podrías haberlo llamado en DOMContentLoaded si no fuera por la IIFE:
+        // if (document.readyState === 'loading') { 
+        //    document.addEventListener('DOMContentLoaded', () => initializeINVVisualization(null));
+        // } else {
+        //    initializeINVVisualization(null); 
+        // }
+        
+        const initialProgress_INV = getPageProgressFromStorage_INV(PAGE_KEY_INV);
+        if (initialProgress_INV.quiz_feedback_active || (initialProgress_INV[TASKS_INV.QUIZ_ATTEMPTED] && Object.keys(initialProgress_INV.user_quiz_answers).length > 0) ) {
+            if (quizForm_INV && initialProgress_INV.user_quiz_answers) {
+                 for (const qName in initialProgress_INV.user_quiz_answers) {
+                    const userAnswer = initialProgress_INV.user_quiz_answers[qName];
+                    const escapedUserAnswer = userAnswer.replace(/([\\()\[\]"'.:/^$|?*+])/g, '\\$1'); 
+                    try {
+                        const radioToSelect = quizForm_INV.querySelector(`input[name="${qName}"][value="${escapedUserAnswer}"]`);
+                        if (radioToSelect) radioToSelect.checked = true;
+                    } catch (e) { console.warn(`Error seleccionando radio INV para ${qName} con valor "${userAnswer}":`, e); }
+                }
+            }
+            displayQuizFeedback_INV(); 
+        } else if (quizForm_INV) { 
+            const submitButton = quizForm_INV.querySelector('button[type="submit"]');
+            if (submitButton) { submitButton.textContent = 'Enviar Respuestas'; submitButton.disabled = false; }
+            quizForm_INV.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+             quizForm_INV.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red'));
+        }
+         if (window.MathJax && window.MathJax.typesetPromise) { // Ensure MathJax typesets everything on load
+            window.MathJax.typesetPromise([document.body]);
+        }
+        calculateAndUpdateOverallProgress_INV(); 
+
+        if (fullscreenButton_INV && codeOutput_INV && outputControlsContainer_INV) {
+             fullscreenButton_INV.addEventListener('click', () => {
+                const isFullscreen = codeOutput_INV.classList.contains('inv-output-fullscreen');
+                if (isFullscreen) { 
+                    outputControlsContainer_INV.style.opacity = '0';
+                    if(increaseFontButton_INV) increaseFontButton_INV.style.display = 'none';
+                    if(decreaseFontButton_INV) decreaseFontButton_INV.style.display = 'none';
+                    if (invCodeOutputInitialRect) { 
+                        const finalRect = codeOutput_INV.getBoundingClientRect();
+                        const scaleX = invCodeOutputInitialRect.width / finalRect.width;
+                        const scaleY = invCodeOutputInitialRect.height / finalRect.height;
+                        const deltaX = (invCodeOutputInitialRect.left + invCodeOutputInitialRect.width / 2) - (finalRect.left + finalRect.width / 2);
+                        const deltaY = (invCodeOutputInitialRect.top + invCodeOutputInitialRect.height / 2) - (finalRect.top + finalRect.height / 2);
+                        codeOutput_INV.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+                     }
+                    setTimeout(() => {
+                        codeOutput_INV.style.transition = 'none'; 
+                        codeOutput_INV.classList.remove('inv-output-fullscreen');
+                        document.body.classList.remove('inv-body-fullscreen-active');
+                        outputControlsContainer_INV.classList.remove('inv-output-controls-container-fixed');
+                        outputControlsContainer_INV.style.transition = 'none'; outputControlsContainer_INV.style.opacity = '1'; 
+                        outputControlsContainer_INV.offsetHeight; outputControlsContainer_INV.style.transition = ''; 
+                        codeOutput_INV.style.transform = ''; 
+                        if (originalOutputFontSize_INV) codeOutput_INV.style.fontSize = originalOutputFontSize_INV;
+                        codeOutput_INV.offsetHeight; codeOutput_INV.style.transition = ''; 
+                        fullscreenButton_INV.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15" /></svg>`;
+                        fullscreenButton_INV.title = "Ver en pantalla completa"; invCodeOutputInitialRect = null;
+                    }, 500); 
+                } else { 
+                    originalOutputFontSize_INV = window.getComputedStyle(codeOutput_INV).fontSize;
+                    invCodeOutputInitialRect = codeOutput_INV.getBoundingClientRect(); 
+                    outputControlsContainer_INV.style.transition = 'none'; outputControlsContainer_INV.style.opacity = '0';
+                    outputControlsContainer_INV.offsetHeight; outputControlsContainer_INV.style.transition = '';
+                    codeOutput_INV.style.transition = 'none'; 
+                    codeOutput_INV.classList.add('inv-output-fullscreen');
+                    document.body.classList.add('inv-body-fullscreen-active');
+                    outputControlsContainer_INV.classList.add('inv-output-controls-container-fixed');
+                    
+                    const finalRect = codeOutput_INV.getBoundingClientRect();
+                    const scaleX = invCodeOutputInitialRect.width / finalRect.width;
+                    const scaleY = invCodeOutputInitialRect.height / finalRect.height;
+                    const deltaX = (invCodeOutputInitialRect.left + invCodeOutputInitialRect.width / 2) - (finalRect.left + finalRect.width / 2);
+                    const deltaY = (invCodeOutputInitialRect.top + invCodeOutputInitialRect.height / 2) - (finalRect.top + finalRect.height / 2);
+                    codeOutput_INV.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+                    codeOutput_INV.offsetHeight; 
+                    codeOutput_INV.style.transition = ''; 
+                    codeOutput_INV.style.transform = 'translate(0px, 0px) scale(1)'; 
+                    fullscreenButton_INV.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9V4.5M15 9h4.5M15 9l5.25-5.25M15 15v4.5M15 15h4.5M15 15l5.25 5.25" /></svg>`;
+                    fullscreenButton_INV.title = "Salir de pantalla completa";
+                    setTimeout(() => { 
+                        outputControlsContainer_INV.style.opacity = '1';
+                        if(increaseFontButton_INV) increaseFontButton_INV.style.display = 'inline-flex';
+                        if(decreaseFontButton_INV) decreaseFontButton_INV.style.display = 'inline-flex';
+                    }, 500);
+                }
+            });
+        }
+        if (increaseFontButton_INV && codeOutput_INV) {
+            increaseFontButton_INV.addEventListener('click', () => {
+                if (codeOutput_INV.classList.contains('inv-output-fullscreen')) {
+                    let currentSize = parseFloat(window.getComputedStyle(codeOutput_INV).fontSize);
+                    if (currentSize < MAX_FONT_SIZE_PX_INV) {
+                        codeOutput_INV.style.fontSize = (currentSize + FONT_SIZE_STEP_PX_INV) + 'px';
+                        increaseFontButton_INV.classList.add('inv-font-button-flash-blue');
+                        setTimeout(() => { increaseFontButton_INV.classList.remove('inv-font-button-flash-blue'); }, 400);
+                    }
+                }
+            });
+        }
+        if (decreaseFontButton_INV && codeOutput_INV) {
+             decreaseFontButton_INV.addEventListener('click', () => {
+                if (codeOutput_INV.classList.contains('inv-output-fullscreen')) {
+                    let currentSize = parseFloat(window.getComputedStyle(codeOutput_INV).fontSize);
+                    if (currentSize > MIN_FONT_SIZE_PX_INV) {
+                        codeOutput_INV.style.fontSize = (currentSize - FONT_SIZE_STEP_PX_INV) + 'px';
+                        decreaseFontButton_INV.classList.add('inv-font-button-flash-red');
+                        setTimeout(() => { decreaseFontButton_INV.classList.remove('inv-font-button-flash-red'); }, 400);
+                    }
+                }
+            });
+        }
+        if(increaseFontButton_INV) increaseFontButton_INV.style.display = 'none';
+        if(decreaseFontButton_INV) decreaseFontButton_INV.style.display = 'none';
+
+    });
+    </script>
+
+    <!-- Vue App Initialization Script -->
+    <script type="module">
+        const { createApp, ref, onMounted, onUnmounted, watch, nextTick } = Vue;
+        const LeftSidebarINV = { 
+            template: `{% raw %}
+                <aside :class="[
+                    'bg-gradient-to-b from-red-500 to-red-700', 'shadow-xl', 'rounded-lg', 'p-4',
+                    'flex', 'flex-col',
+                    'transition-all', 'duration-300', 'ease-in-out',
+                    'order-1',
+                    isCollapsed ? 'w-full lg:w-20' : 'w-full lg:w-64',
+                    'self-start',
+                    'lg:sticky', 'lg:top-8',
+                    'lg:max-h-[calc(100vh-4rem)]',
+                    'overflow-y-auto'
+                ]">
+                    <div class="flex justify-between items-center mb-4 border-b border-red-400 pb-3">
+                        <h3 v-show="!isCollapsed" class="text-lg font-semibold text-white select-none">Contenido</h3>
+                        <button @click="toggleCollapse" class="p-1.5 ml-2 text-white hover:bg-red-700 rounded focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-75" :aria-label="isCollapsed ? 'Expandir menú' : 'Colapsar menú'">
+                            <svg v-if="!isCollapsed" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5" /></svg>
+                            <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5m-6-15l7.5 7.5-7.5 7.5" /></svg>
+                        </button>
+                    </div>
+                    <nav v-show="!isCollapsed">
+                        <ul class="space-y-1">
+                            <li v-for="item in navItems" :key="item.id">
+                                <a :href="item.href" @click.prevent="smoothScroll(item.href)"
+                                   :class="['nav-link block px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 flex items-center', isActive(item.id) ? 'bg-white text-custom-blue font-semibold shadow-sm' : 'text-red-100 hover:bg-red-700 hover:text-white']">
+                                    <span v-html="item.iconSVG" class="mr-3 translate-y-px"></span>
+                                    <span>{{ item.text }}</span>
+                                </a></li></ul></nav>
+                    <nav v-show="isCollapsed" class="mt-4">
+                         <ul class="space-y-1">
+                            <li v-for="item in navItems" :key="item.id + '-collapsed'">
+                                <a :href="item.href" @click.prevent="smoothScroll(item.href)" :title="item.text" :aria-label="item.text"
+                                   :class="['nav-link-collapsed block py-2 pl-2.5 pr-1.5 rounded-md transition-colors duration-150 flex justify-center items-center', isActive(item.id) ? 'bg-white text-custom-blue shadow-sm' : 'text-red-100 hover:bg-red-700 hover:text-white']">
+                                    <span v-html="item.iconSVG" class="w-6 h-6 translate-y-px"></span>
+                                </a></li></ul></nav></aside>{% endraw %}`,
+            setup() {
+                const isCollapsed = ref(false);
+                const activeSectionId = ref('teoria-inv'); 
+                const navItems = ref([ 
+                    { id: 'teoria-inv', text: 'Fundamento Teórico', href: '#teoria-inv', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>' },
+                    { id: 'algoritmo-inv', text: 'Pasos del Algoritmo', href: '#algoritmo-inv', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" /></svg>' },
+                    { id: 'ejemplo-inv', text: 'Ejemplo Detallado', href: '#ejemplo-inv', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>' },
+                    { id: 'codigo-inv', text: 'Implementación (Python)', href: '#codigo-inv', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" /></svg>' },
+                    { id: 'graficas-inv', text: 'Visualización Interactiva', href: '#graficas-inv', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10.5 11.25h3M10.5 11.25v3M10.5 11.25L9 9.75M13.5 11.25L15 9.75m-4.5 0v-.75A.75.75 0 019.75 9h4.5a.75.75 0 01.75.75v.75m0 0H21m-18 0h2.25m13.5 0H3.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>' }, // Icon changed for matrix context
+                    { id: 'videos-inv', text: 'Videos Explicativos', href: '#videos-inv', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.75.75 0 010 1.656l-5.603 3.113A.75.75 0 019 15.95V9.05a.75.75 0 011.307-.588l5.603 3.112z" /></svg>' },
+                    { id: 'conclusion-inv', text: 'Conclusión', href: '#conclusion-inv', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' },
+                    { id: 'referencias-inv', text: 'Referencias', href: '#referencias-inv', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 3.75V16.5L12 14.25L7.5 16.5V3.75m9 0H18A2.25 2.25 0 0120.25 6v12A2.25 2.25 0 0118 20.25H6A2.25 2.25 0 013.75 18V6A2.25 2.25 0 016 3.75h1.5m9 0h-9" /></svg>' },
+                    { id: 'cuestionario-inv', text: 'Cuestionario', href: '#cuestionario-inv', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' }
+                ]);
+                let sections = [];
+                const toggleCollapse = () => isCollapsed.value = !isCollapsed.value;
+                const isActive = (id) => activeSectionId.value === id;
+                const smoothScroll = (targetHref) => {
+                    const targetId = targetHref.substring(1);
+                    const targetElement = document.getElementById(targetId);
+                    if (targetElement) {
+                        targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+                        history.pushState(null, null, targetHref); 
+                    }
+                };
+                const handleScroll = () => { 
+                    if (!sections.length) return;
+                    const scrollMarginTopValue = parseInt(getComputedStyle(sections[0]).scrollMarginTop) || 96; 
+                    let newActiveSectionId = null;
+
+                    for (let i = 0; i < sections.length; i++) {
+                        const section = sections[i];
+                        const sectionTopBoundary = section.offsetTop - scrollMarginTopValue;
+                        const sectionBottomBoundary = sectionTopBoundary + section.offsetHeight;
+                        if (window.scrollY >= sectionTopBoundary && window.scrollY < sectionBottomBoundary) {
+                            newActiveSectionId = section.id;
+                            break;
+                        }
+                    }
+                    if (newActiveSectionId === null) { 
+                        if (window.scrollY < (sections[0].offsetTop - scrollMarginTopValue)) {
+                            newActiveSectionId = sections[0].id;
+                        } else if (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 50) { 
+                             newActiveSectionId = sections[sections.length-1].id;
+                        } else { 
+                             for (let i = sections.length - 1; i >= 0; i--) {
+                                if ((sections[i].offsetTop - scrollMarginTopValue) <= window.scrollY + 5) { 
+                                    newActiveSectionId = sections[i].id; break;
+                                }
+                            }
+                        }
+                    }
+                     if (activeSectionId.value !== newActiveSectionId && newActiveSectionId !== null) {
+                        activeSectionId.value = newActiveSectionId;
+                    }
+                };
+                onMounted(() => {
+                    nextTick(() => { 
+                        sections = Array.from(document.querySelectorAll('main article section[id]'));
+                        handleScroll(); 
+                        window.addEventListener('scroll', handleScroll, { passive: true });
+                    });
+                });
+                onUnmounted(() => window.removeEventListener('scroll', handleScroll));
+                return { isCollapsed, toggleCollapse, navItems, isActive, smoothScroll, activeSectionId };
+            }
+        };
+        const appINV = createApp({ 
+            setup() {
+                const METHOD_KEY_INV_VUE = "metodo-inversa"; 
+                const METHOD_NAME_TITLE_CASE_INV_VUE = "Método de la Inversa"; 
+                return { METHOD_KEY_INV_VUE, METHOD_NAME_TITLE_CASE_INV_VUE };
+            }
+        });
+        appINV.component('left-sidebar-inv', LeftSidebarINV); 
+        appINV.config.compilerOptions.isCustomElement = tag => tag.startsWith('mjx-');
+        appINV.mount('#app-inv'); 
+    </script>
+</body>
+</html>

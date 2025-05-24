@@ -1,0 +1,1937 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Regla Falsa - Métodos Numéricos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'custom-blue': '#242A38',
+                        'custom-red': '#E94560',
+                        'custom-gray-bg': '#F3F4F6',
+                        'sidebar-bg': '#FFFFFF',
+                        'sidebar-text': '#4B5563',
+                        'sidebar-hover-bg': '#FEF2F2',
+                    }
+                }
+            }
+        }
+    </script>
+    <script>
+        window.MathJax = {
+            tex: {
+                packages: {'[+]': ['input/mml', 'output/chtml']}
+            },
+            chtml: { 
+                matchFontHeight: false
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        @keyframes animatedRainbowBorder { 0% { background-position: 0% center; } 100% { background-position: 200% center; } }
+        .animate-rainbow-border::before {
+            content: ''; position: absolute; z-index: -1; top: -2px; left: -2px; right: -2px; bottom: -2px;
+            border-radius: 9999px;
+            background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #007bff, #8a2be2, #ff00ff, #ff0000);
+            background-size: 200% 100%;
+            animation: animatedRainbowBorder 3s linear infinite;
+        }
+        .animate-rainbow-border { position: relative; z-index: 0; }
+        /* Additional styles for quiz feedback consistency if needed */
+        .correct-answer-rf { border-color: #10B981; background-color: #D1FAE5; } /* green-500, green-100 */
+        .incorrect-answer-rf { border-color: #EF4444; background-color: #FEE2E2; } /* red-500, red-100 */
+
+        /* Estilos para prevenir estiramiento de la barra lateral */
+        body.content-ready .container-with-sidebar,
+        body.content-ready aside,
+        body.content-ready main,
+        body.content-ready .right-sidebar-fixed {
+            opacity: 0;
+            visibility: visible;
+        }
+        
+        body.loaded .container-with-sidebar,
+        body.loaded aside,
+        body.loaded main,
+        body.loaded .right-sidebar-fixed {
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.4s ease-in;
+        }
+        
+        .container-with-sidebar,
+        aside,
+        main,
+        .right-sidebar-fixed {
+            opacity: 0;
+            visibility: hidden;
+        }
+        
+        @media (min-width: 1024px) {
+            .right-sidebar-fixed {
+                width: 300px !important;
+                flex: 0 0 300px !important;
+                min-width: 300px !important;
+                max-width: 300px !important;
+                box-sizing: border-box !important;
+            }
+            
+            /* Estilos para la barra lateral izquierda - controlando ambos estados */
+            /* Cuando está expandida */
+            aside[class*="lg:w-64"] {
+                width: 300px !important;
+                flex: 0 0 300px !important;
+                min-width: 300px !important;
+                max-width: 300px !important;
+                box-sizing: border-box !important;
+                transition: all 0.3s ease-in-out !important;
+            }
+            
+            /* Cuando está contraída */
+            aside[class*="lg:w-20"] {
+                width: 80px !important;
+                flex: 0 0 80px !important;
+                min-width: 80px !important;
+                max-width: 80px !important;
+                box-sizing: border-box !important;
+                transition: all 0.3s ease-in-out !important;
+            }
+            
+            .main-content-fixed {
+                flex: 1 1 auto !important;
+            }
+            
+            .sidebar-preloader {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: #F3F4F6;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 9999;
+            }
+            
+            .sidebar-preloader.hidden {
+                display: none;
+            }
+            
+            .loading-spinner {
+                border: 4px solid rgba(0, 0, 0, 0.1);
+                border-left-color: #E94560;
+                border-radius: 50%;
+                width: 40px;
+                height: 40px;
+                animation: spin 1s linear infinite;
+            }
+            
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        }
+
+        /* Styles for fullscreen code output */
+        .rf-output-fullscreen {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 9990 !important; /* Alto, pero debajo del botón de fullscreen */
+            background-color: #111827 !important; /* bg-gray-900 */
+            padding: 20px !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+            overflow-y: auto !important;
+            max-height: 100vh !important;
+            /* transform-origin: center; */ /* Removed */
+            /* animation: rf-expand-opacity-anim 0.5s ease-out forwards; */ /* Removed */
+        }
+        .rf-body-fullscreen-active {
+            overflow: hidden !important;
+        }
+        /* Contenedor de controles de salida (fullscreen, +/- fuente) en modo pantalla completa */
+        .rf-output-controls-container-fixed {
+            position: fixed !important;
+            top: 15px !important;
+            right: 15px !important;
+            z-index: 9999 !important; /* Encima del <pre> fullscreen */
+            /* Asegurarse de que los botones dentro del flex container no se vean afectados por estilos globales si los hubiera */
+            display: flex !important; 
+            align-items: center !important;
+            gap: 0.25rem !important; /* space-x-1 */
+        }
+
+        /* Animaciones de destello para botones de fuente */
+        .rf-font-button-flash-red {
+            animation: rf-flash-red 0.4s ease-out;
+        }
+        @keyframes rf-flash-red {
+            0% { background-color: #EF4444; } /* red-500 */
+            100% { background-color: #374151; } /* gray-700, el color original del botón */
+        }
+        .rf-font-button-flash-blue {
+            animation: rf-flash-blue 0.4s ease-out;
+        }
+        @keyframes rf-flash-blue {
+            0% { background-color: #3B82F6; } /* blue-500 */
+            100% { background-color: #374151; } /* gray-700, el color original del botón */
+        }
+
+        /* @keyframes rf-expand-opacity-anim {
+          from {
+            transform: scale(0.9);
+            opacity: 0.6;
+          }
+          to {
+            transform: scale(1);
+            opacity: 1;
+          }
+        } */ /* Removed entire keyframe block */
+    </style>
+</head>
+<body class="bg-custom-gray-bg text-gray-700 font-sans antialiased">
+    <div id="app-rf"> <!-- Unique ID for Vue app -->
+        <header class="bg-custom-blue text-white shadow-md">
+            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                <h1 class="text-xl font-semibold"><a href="/" class="hover:text-gray-300">Métodos Numéricos</a></h1>
+                <nav><a href="../index.html#method-cards-container" class="text-sm px-4 py-2 rounded-md hover:bg-gray-700 transition-colors duration-150">Volver a Métodos</a></nav>
+            </div>
+        </header>
+        
+        <!-- Preloader mientras se inicializa la interfaz -->
+        <div id="sidebar-preloader" class="sidebar-preloader">
+            <div class="loading-spinner"></div>
+        </div>
+
+        <div class="container mx-auto mt-8 mb-8 flex flex-col lg:flex-row lg:space-x-8 px-4 container-with-sidebar">
+            <left-sidebar-rf></left-sidebar-rf> <!-- Unique component name -->
+            <main class="w-full flex-1 min-w-0 bg-white shadow-xl rounded-lg p-6 md:p-8 order-2 mb-6 lg:mb-0 main-content-fixed">
+                <article class="method-content">
+                    <h2 class="text-3xl font-bold mb-6 text-gray-800 border-b border-gray-200 pb-4">Método de Regla Falsa</h2>
+                    
+                    <section id="teoria-rf" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Fundamento Teórico</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            El método de la falsa posición, también conocido como método de interpolación lineal o Regla Falsa (<em>Regula Falsi</em> en latín),
+                            es una alternativa al método de bisección para encontrar la raíz de una ecuación. Al igual que la bisección, es un método cerrado
+                            que requiere dos estimaciones iniciales \(x_l\) (límite inferior) y \(x_u\) (límite superior) que encierren la raíz, es decir, 
+                            donde \(f(x_l)\) y \(f(x_u)\) tengan signos opuestos (\(f(x_l) \cdot f(x_u) < 0\)).
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            A diferencia de la bisección, el método de la falsa posición une los puntos 
+                            \((x_l, f(x_l))\) y \((x_u, f(x_u))\) con una línea recta. La intersección de esta línea con el eje \(x\) proporciona
+                            una mejor estimación de la raíz. El reemplazo de la curva por una recta da una "falsa posición" de la raíz; de ahí el nombre.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            La fórmula para la estimación de la raíz \(x_r\) se deriva de triángulos semejantes (o por la ecuación de la recta):
+                            \[ \frac{f(x_l)}{x_r - x_l} = \frac{f(x_u)}{x_r - x_u} \]
+                            Despejando \(x_r\), obtenemos la fórmula del método de la falsa posición:
+                            \[ x_r = x_u - \frac{f(x_u)(x_l - x_u)}{f(x_l) - f(x_u)} \]
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Una vez que se calcula \(x_r\), se evalúa \(f(x_r)\). Si \(f(x_l) \cdot f(x_r) < 0\), la raíz se encuentra en el subintervalo inferior,
+                            y \(x_r\) se convierte en el nuevo \(x_u\) para la siguiente iteración. Si \(f(x_l) \cdot f(x_r) > 0\), la raíz se encuentra en el
+                            subintervalo superior, y \(x_r\) se convierte en el nuevo \(x_l\). Si \(f(x_l) \cdot f(x_r) = 0\), \(x_r\) es la raíz exacta.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed">
+                            Chapra menciona que, aunque la falsa posición generalmente converge más rápido que la bisección, hay casos (especialmente con funciones
+                            con curvatura significativa) donde un extremo del intervalo puede permanecer fijo, llevando a una convergencia lenta (convergencia unilateral).
+                            Se han desarrollado modificaciones como el método de Illinois para abordar este problema.
+                        </p>
+                    </section>
+
+                    <section id="algoritmo-rf" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Pasos del Algoritmo</h3>
+                        <ol class="list-decimal list-inside space-y-3 pl-4 text-gray-600 leading-relaxed">
+                            <li>Elegir las estimaciones iniciales \(x_l\) y \(x_u\) tales que \(f(x_l) \cdot f(x_u) < 0\).</li>
+                            <li>Calcular la primera estimación de la raíz \(x_r\) usando la fórmula:
+                                \[ x_r = x_u - \frac{f(x_u)(x_l - x_u)}{f(x_l) - f(x_u)} \]
+                            </li>
+                            <li>Realizar las siguientes evaluaciones para determinar en qué subintervalo se encuentra la raíz:
+                                <ul class="list-disc list-inside space-y-1 pl-6 mt-2">
+                                    <li>a) Si \(f(x_l) \cdot f(x_r) < 0\), la raíz está en el primer subintervalo. Establecer \(x_u = x_r\) y continuar al paso 4.</li>
+                                    <li>b) Si \(f(x_l) \cdot f(x_r) > 0\), la raíz está en el segundo subintervalo. Establecer \(x_l = x_r\) y continuar al paso 4.</li>
+                                    <li>c) Si \(f(x_l) \cdot f(x_r) = 0\), entonces \(x_r\) es la raíz exacta. Terminar el cálculo.</li>
+                                </ul>
+                            </li>
+                            <li>Calcular una nueva \(x_r\) con la fórmula del paso 2.</li>
+                            <li>Decidir si la nueva \(x_r\) es una aproximación suficientemente precisa. Esto se puede hacer comparando el error relativo aproximado
+                                \(\varepsilon_a = \left| \frac{x_r^{\text{nuevo}} - x_r^{\text{anterior}}}{x_r^{\text{nuevo}}} \right| \cdot 100\% \)
+                                con una tolerancia preestablecida \(\varepsilon_s\). Si \(\varepsilon_a < \varepsilon_s\), terminar el cálculo.</li>
+                            <li>Si no se cumple el criterio de paro, regresar al paso 3.</li>
+                        </ol>
+                    </section>
+
+                    <section id="ejemplo-rf" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Ejemplo Paso a Paso</h3>
+                        <p class="text-gray-600 leading-relaxed mb-3"><strong>Problema:</strong> Usar el método de la falsa posición para determinar la raíz de \(f(x) = e^{-x} - x\) con estimaciones iniciales \(x_l = 0\) y \(x_u = 1\). Continuar hasta que el error relativo aproximado \(\varepsilon_a\) sea menor que \(0.5\%\).</p>
+                        <p class="text-gray-600 leading-relaxed mb-2"><strong>Valores iniciales:</strong></p>
+                        <ul class="list-disc list-inside space-y-1 pl-4 text-gray-600 mb-3">
+                            <li>\(x_l = 0 \implies f(x_l) = e^0 - 0 = 1\)</li>
+                            <li>\(x_u = 1 \implies f(x_u) = e^{-1} - 1 \approx 0.36788 - 1 = -0.63212\)</li>
+                        </ul>
+                        <p class="text-gray-600 leading-relaxed mb-4">Como \(f(x_l)f(x_u) < 0\), la raíz está entre 0 y 1.</p>
+                        
+                        <p class="font-medium text-gray-700 mb-1"><strong>Iteración 1:</strong></p>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1" style="overflow-x: auto;"> \(x_r = x_u - \frac{f(x_u)(x_l - x_u)}{f(x_l) - f(x_u)} = 1 - \frac{(-0.63212)(0 - 1)}{1 - (-0.63212)} = 1 - \frac{0.63212}{1.63212} \approx 1 - 0.38729 \approx 0.61271\) </p>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1" style="overflow-x: auto;"> \(f(x_r) = f(0.61271) = e^{-0.61271} - 0.61271 \approx 0.54190 - 0.61271 = -0.07081\) </p>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-4">Como \(f(x_l)f(x_r) = (1)(-0.07081) < 0\), la raíz está en el intervalo \([0, 0.61271]\). Entonces, \(x_u = 0.61271\), \(f(x_u) = -0.07081\). \(x_l\) permanece en 0.</p>
+
+                        <p class="font-medium text-gray-700 mb-1"><strong>Iteración 2:</strong></p>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1" style="overflow-x: auto;"> \(x_r = 0.61271 - \frac{(-0.07081)(0 - 0.61271)}{1 - (-0.07081)} = 0.61271 - \frac{0.04338}{1.07081} \approx 0.61271 - 0.04051 \approx 0.57220\) </p>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1" style="overflow-x: auto;"> \(f(x_r) = f(0.57220) = e^{-0.57220} - 0.57220 \approx 0.56437 - 0.57220 = -0.00783\) </p>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-1" style="overflow-x: auto;">Error: \(\varepsilon_a = \left| \frac{0.57220 - 0.61271}{0.57220} \right| \cdot 100\% \approx 7.079\%\) </p>
+                        <p class="text-gray-600 leading-relaxed ml-4 mb-4">Como \(f(x_l)f(x_r) = (1)(-0.00783) < 0\), \(x_u = 0.57220\), \(f(x_u) = -0.00783\).</p>
+                        <p class="text-gray-600 leading-relaxed italic"> (El proceso continúa. La convergencia puede ser lenta si un extremo se estanca, como \(x_l=0\) en este caso.)</p>
+                    </section>
+
+                    <section id="codigo-rf" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Código de Implementación (Python)</h3>
+                        <div class="code-editor-container bg-gray-50 p-4 rounded-lg shadow-inner">
+                            <textarea id="rf-code-input" class="code-input w-full h-[600px] p-3 border border-gray-300 rounded-md font-mono text-sm" style="resize: none;">
+import math
+import inspect # Asegurar que inspect esté importado
+
+def funcion_ejemplo_rf(x):
+    # Ejemplo: f(x) = e^-x - x  (Raíz aprox 0.56714)
+    # return math.exp(-x) - x
+    # Ejemplo Chapra: f(x) = x^3 - x - 2 (Raíz aprox 1.521)
+    return x**3 - x - 2
+
+
+def false_position_method(func, xl_orig, xu_orig, tol=1e-5, max_iter=50):
+    '''Implementa el método de Regla Falsa y retorna la raíz, log de iteraciones y salida HTML.'''
+    html_output_parts = []
+    iter_data_list = [] 
+    
+    xl = float(xl_orig) # Asegurar que sean flotantes
+    xu = float(xu_orig)
+
+    if func(xl) * func(xu) >= 0:
+        html_output_parts.append('<p style="color: red; text-align:center; padding:10px;">Error: La función debe tener signos opuestos en los extremos xl y xu.</p>')
+        return None, iter_data_list, "".join(html_output_parts)
+
+    # Encabezado de la tabla HTML
+    html_output_parts.append('<table border="1" style="width:100%; border-collapse: collapse; margin-bottom:15px; font-size: 0.85em;">')
+    html_output_parts.append('<thead><tr>')
+    headers = ["Iter", "xl", "f(xl)", "xu", "f(xu)", "xr", "f(xr)", "Error (%)"]
+    for h in headers:
+        html_output_parts.append(f'<th style="padding: 4px; text-align:center; background-color: #f0f0f0; color: #333333;">{h}</th>')
+    html_output_parts.append('</tr></thead><tbody>')
+    
+    iter_count = 0
+    # Inicializar xr con un valor que no sea xl o xu para el cálculo del error en la primera iteración real.
+    # O simplemente, calcular el error a partir de la segunda iteración.
+    # Para consistencia con otros métodos, xr se puede inicializar y el error se calcula desde iter > 0.
+    xr = xl 
+    xr_old = xr 
+
+    while iter_count < max_iter:
+        fxl = func(xl)
+        fxu = func(xu)
+        
+        if abs(fxu - fxl) < 1e-12: # Evitar división por cero o por un número muy pequeño
+            html_output_parts.append('<tr><td colspan="8" style="padding: 4px; text-align:center; color:orange;">AVISO: Denominador f(xu) - f(xl) muy cercano a cero. Deteniendo.</td></tr>')
+            break
+        
+        xr_old = xr # Guardar xr anterior para el cálculo del error
+        xr = xu - (fxu * (xl - xu)) / (fxl - fxu)
+        fxr = func(xr)
+        
+        error_rel = abs((xr - xr_old) / xr) * 100 if xr != 0 and iter_count > 0 else float('inf')
+        
+        current_iter_data = {
+            'iter': iter_count + 1, 'a': xl, 'b': xu, 'xr': xr, 
+            'fa': fxl, 'fb': fxu, 'fxr': fxr, 'error': error_rel if iter_count > 0 else None
+        }
+        iter_data_list.append(current_iter_data)
+        
+        # Fila de la tabla HTML para la iteración actual
+        html_output_parts.append('<tr>')
+        html_output_parts.append(f'<td style="padding: 4px; text-align:center;">{iter_count+1}</td>')
+        html_output_parts.append(f'<td style="padding: 4px; text-align:right; padding-right:5px;">{xl:.6f}</td>')
+        html_output_parts.append(f'<td style="padding: 4px; text-align:right; padding-right:5px;">{fxl:.6e}</td>')
+        html_output_parts.append(f'<td style="padding: 4px; text-align:right; padding-right:5px;">{xu:.6f}</td>')
+        html_output_parts.append(f'<td style="padding: 4px; text-align:right; padding-right:5px;">{fxu:.6e}</td>')
+        html_output_parts.append(f'<td style="padding: 4px; text-align:right; padding-right:5px;">{xr:.6f}</td>')
+        html_output_parts.append(f'<td style="padding: 4px; text-align:right; padding-right:5px;">{fxr:.6e}</td>')
+        if iter_count == 0: # No hay error en la primera "estimación" basada en xr inicial
+            html_output_parts.append('<td style="padding: 4px; text-align:center;">-</td>')
+        else:
+            html_output_parts.append(f'<td style="padding: 4px; text-align:right; padding-right:5px;">{error_rel:.4f}</td>')
+        html_output_parts.append('</tr>')
+
+        # Criterios de parada
+        # Usar una tolerancia pequeña para f(xr) como en Bisección/Secante para indicar convergencia de valor
+        if abs(fxr) < 1e-9: 
+            html_output_parts.append('</tbody></table>') # Cerrar tabla antes del mensaje
+            html_output_parts.append(f'<div style="text-align: center; color: green; margin-top:10px; padding:5px;">CONVERGENCIA: f(xr) ≈ 0 después de {iter_count + 1} iteraciones.</div>')
+            return xr, iter_data_list, "".join(html_output_parts) # Retornar xr aquí
+        
+        if error_rel < tol and iter_count > 0 : # Criterio de parada por error relativo
+            html_output_parts.append('</tbody></table>') # Cerrar tabla
+            html_output_parts.append(f'<div style="text-align: center; color: green; margin-top:10px; padding:5px;">CONVERGENCIA: Error relativo &lt; tol ({tol}%) después de {iter_count + 1} iteraciones.</div>')
+            return xr, iter_data_list, "".join(html_output_parts) # Retornar xr aquí
+
+        # Actualizar el intervalo
+        if fxl * fxr < 0:
+            xu = xr
+        elif fxu * fxr < 0: # Adición para el caso en que fxl y fxr son del mismo signo pero fxu y fxr son opuestos
+             xl = xr
+        else: # Si fxr es cero, ya se manejó. Si no, y no hay cambio de signo con xl o xu, algo es raro.
+             # Esto puede indicar un problema o que la raíz fue saltada si la función es muy no lineal.
+             # Podríamos romper o simplemente actualizar un lado si la convergencia es unilateral.
+             # Chapra menciona que la Regla Falsa estándar a veces puede tener convergencia unilateral.
+             # Si fxl * fxr > 0, entonces xl = xr. Si fxu * fxr > 0, entonces xu = xr.
+             # Ya que el primer if es fxl*fxr < 0, el 'else' cubre fxl*fxr > 0 (o fxr es 0, ya manejado).
+             xl = xr 
+
+        iter_count += 1
+
+    # Si se alcanza el máximo de iteraciones
+    html_output_parts.append('</tbody></table>') # Asegurar que la tabla esté cerrada
+    html_output_parts.append(f'<div style="text-align: center; color: red; margin-top:10px; padding:5px;">AVISO: Máximo número de iteraciones ({max_iter}) alcanzado.</div>')
+    return xr, iter_data_list, "".join(html_output_parts) # Retornar la última xr calculada
+
+# --- Parámetros Ejemplo ---
+# Estos se usan si no se pueden obtener de una fuente externa (ej. campos de entrada en la UI)
+a_intervalo_rf_default = 1.0
+b_intervalo_rf_default = 2.0
+tolerancia_rf_default = 0.01 # Porcentaje
+
+# --- Bloque principal para ejecución en Pyodide ---
+if __name__ == "__main__":
+    py_html_buffer = []
+    
+    # Intentar obtener parámetros del scope global (si son establecidos por JS o UI)
+    # Estos nombres deben coincidir con lo que se espera en el scope de Pyodide
+    try:
+        # Tratar de obtener parámetros de entrada si son provistos por la UI (ej. vía pyodide.globals.set desde JS antes de ejecutar)
+        # Estos serían globales en el scope de Python si JS los define.
+        # Para este ejemplo, si no existen, usamos los defaults.
+        a_val = float(a_param_rf) if "a_param_rf" in globals() else a_intervalo_rf_default
+        b_val = float(b_param_rf) if "b_param_rf" in globals() else b_intervalo_rf_default
+        tolerancia_val = float(tol_param_rf) if "tol_param_rf" in globals() else tolerancia_rf_default
+        max_iter_val = int(max_iter_param_rf) if "max_iter_param_rf" in globals() else 25
+    except NameError: # Si las variables no están definidas en el scope global de Pyodide
+        a_val = a_intervalo_rf_default
+        b_val = b_intervalo_rf_default
+        tolerancia_val = tolerancia_rf_default
+        max_iter_val = 25
+    except Exception: # Otro error, usar defaults
+        a_val = a_intervalo_rf_default
+        b_val = b_intervalo_rf_default
+        tolerancia_val = tolerancia_rf_default
+        max_iter_val = 25
+
+    # Construir el HTML inicial
+    py_html_buffer.append('<div style="text-align: center; font-weight: bold; margin-bottom:15px; font-size:1.1em; padding-top:10px;">MÉTODO DE REGLA FALSA</div>')
+    
+    # Intentar obtener el nombre de la función del código fuente para mostrarlo
+    func_str_display = "x³ - x - 2" # Default
+    try:
+        source_code = funcion_ejemplo_rf.__doc__ if funcion_ejemplo_rf.__doc__ else inspect.getsource(funcion_ejemplo_rf)
+        # Simple parsing for common patterns, can be improved
+        if "math.exp(-x) - x" in source_code: func_str_display = "e<sup>-x</sup> - x"
+        elif "x**3 - x - 2" in source_code: func_str_display = "x<sup>3</sup> - x - 2"
+        # Add more cases if needed
+    except: # En caso de error obteniendo la fuente
+        pass # Usar el default
+
+    py_html_buffer.append(f'<div style="text-align: center; margin-bottom:5px;">Función: f(x) = {func_str_display}</div>')
+    py_html_buffer.append(f'<div style="text-align: center; margin-bottom:5px;">Intervalo inicial: [{a_val:.4f}, {b_val:.4f}]</div>')
+    py_html_buffer.append(f'<div style="text-align: center; margin-bottom:15px;">Tolerancia (error %): {tolerancia_val:.4f}%</div>')
+    
+    # Ejecutar el método
+    raiz_aprox_rf, iter_data_rf, tabla_html_rf = false_position_method(funcion_ejemplo_rf, a_val, b_val, tol=tolerancia_val, max_iter=max_iter_val)
+    py_html_buffer.append(tabla_html_rf) # Añadir la tabla HTML de iteraciones
+    
+    # Construir HTML para los resultados finales
+    if raiz_aprox_rf is not None:
+        py_html_buffer.append('<div style="text-align: center; font-weight: bold; margin-top: 20px; margin-bottom: 10px;">RESULTADOS FINALES</div>')
+        py_html_buffer.append('<table border="1" style="width:auto; margin-left:auto; margin-right:auto; border-collapse: collapse; font-size: 0.9em;"><tbody>')
+        py_html_buffer.append(f'<tr><td style="padding: 5px; text-align:left;">Raíz aproximada (xr):</td><td style="padding: 5px; text-align:right;">{raiz_aprox_rf:.8f}</td></tr>')
+        py_html_buffer.append(f'<tr><td style="padding: 5px; text-align:left;">Valor de f(xr):</td><td style="padding: 5px; text-align:right;">{funcion_ejemplo_rf(raiz_aprox_rf):.4e}</td></tr>')
+        py_html_buffer.append('</tbody></table>')
+    elif not tabla_html_rf.strip().endswith("</p>"): # Si no hay raíz Y no se mostró mensaje de error en la tabla
+        py_html_buffer.append('<div style="text-align: center; color: orange; margin-top:10px; padding:5px;">No se encontró una raíz o el método no convergió con los parámetros dados.</div>')
+
+    # Preparar paquete de datos para el gráfico
+    chart_data_package_rf = {}
+    try:
+        x_points_for_func = []
+        y_points_for_func = []
+        if iter_data_rf: # Usar los límites de las iteraciones para el rango del gráfico
+            all_x_vals_iter = [d['a'] for d in iter_data_rf if d['a'] is not None] + \
+                              [d['b'] for d in iter_data_rf if d['b'] is not None] + \
+                              [d['xr'] for d in iter_data_rf if d['xr'] is not None]
+            if raiz_aprox_rf is not None: all_x_vals_iter.append(raiz_aprox_rf)
+            
+            if all_x_vals_iter:
+                 x_min_plot_rf = min(all_x_vals_iter) - 1.0
+                 x_max_plot_rf = max(all_x_vals_iter) + 1.0
+            else: # Fallback si no hay datos de iteración
+                x_min_plot_rf = float(a_val) - 1.0
+                x_max_plot_rf = float(b_val) + 1.0
+        else: # Fallback si no hay datos de iteración
+            x_min_plot_rf = float(a_val) - 1.0
+            x_max_plot_rf = float(b_val) + 1.0
+
+        if x_min_plot_rf >= x_max_plot_rf: # Asegurar un rango válido
+             x_min_plot_rf, x_max_plot_rf = -2.0, 3.0 if a_val is None else (float(a_val) -1, float(a_val)+2)
+
+
+        num_points_func_rf = 150
+        step_rf = (x_max_plot_rf - x_min_plot_rf) / (num_points_func_rf - 1) if num_points_func_rf > 1 else 1
+
+        for i in range(num_points_func_rf):
+            x_val_rf = x_min_plot_rf + i * step_rf
+            x_points_for_func.append(x_val_rf)
+            try:
+                y_points_for_func.append(funcion_ejemplo_rf(x_val_rf))
+            except Exception:
+                y_points_for_func.append(None) 
+
+        chart_data_package_rf = {
+            "x_func_vals": x_points_for_func, 
+            "y_func_vals": y_points_for_func,
+            "iterations": iter_data_rf, 
+            "final_root": raiz_aprox_rf,
+            "initial_a": float(a_val) if a_val is not None else None, 
+            "initial_b": float(b_val) if b_val is not None else None
+        }
+    except Exception as e_chart_prep:
+        py_html_buffer.append(f'<p style="color:magenta; text-align:center;">Error preparando datos para gráfica: {e_chart_prep}</p>')
+
+
+    # Asignar a las variables globales de Python que JavaScript leerá a través de Pyodide
+    # JavaScript ha inicializado estas variables en el ámbito global de Python.
+
+    # For pyodide_rf_html_output (string):
+    # Declare as global to ensure assignment to the global variable, not a local one.
+    # Python creates/rebinds this global name. JS will read the new value.
+    global pyodide_rf_html_output
+    pyodide_rf_html_output = "".join(py_html_buffer) # Unir sin añadir \n explícitos
+    
+    # For pyodide_rf_iteration_data (list):
+    # This variable (a Python list proxy) already exists in the global scope due to JS.
+    # We are mutating it. JavaScript's runCodeNow_RF clears it before calling Python.
+    # Python just needs to append to it.
+    try:
+        # 'pyodide_rf_iteration_data' se refiere a la lista global que JS ya limpió.
+        # La variable pyodide_rf_iteration_data es creada por JS en el scope global de Python.
+        # Python la modifica directamente.
+        for item in iter_data_rf:
+            pyodide_rf_iteration_data.append(item) # Modifica la lista global en su sitio
+    except NameError:
+        # Esto solo debería ocurrir si la inicialización de JS falló.
+        print("Error Python: La variable global 'pyodide_rf_iteration_data' no fue inicializada por JavaScript.")
+
+
+    # For pyodide_rf_chart_data_package (dict):
+    # Similar a la lista, este es un dict proxy existente en el ámbito global.
+    # JavaScript's runCodeNow_RF lo limpia.
+    try:
+        # Modifica el dict global en su sitio.
+        # La variable pyodide_rf_chart_data_package es creada por JS en el scope global de Python.
+        for key, value in chart_data_package_rf.items():
+            pyodide_rf_chart_data_package[key] = value
+    except NameError:
+        print("Error Python: La variable global 'pyodide_rf_chart_data_package' no fue inicializada por JavaScript.")
+                            </textarea>
+                            <button id="run-rf-code-button" class="run-button mt-4 px-5 py-2.5 bg-custom-red text-white rounded-md hover:bg-red-700">Ejecutar Código</button>
+                            <div class="relative mt-5"> <!-- Contenedor relativo para el título y la salida -->
+                                <h4 class="mb-2 text-lg font-semibold text-gray-700">Salida:</h4>
+                                <div id="rf-output-controls-container" class="absolute top-0 right-0 z-10 flex items-center space-x-1 transition-all duration-500 ease-out">
+                                    <button id="rf-decrease-font-button" title="Disminuir fuente" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs font-semibold flex items-center justify-center" style="min-width: 30px;">
+                                        aa
+                                    </button>
+                                    <button id="rf-increase-font-button" title="Aumentar fuente" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs font-semibold flex items-center justify-center" style="min-width: 30px;">
+                                        AA
+                                    </button>
+                                    <button id="rf-fullscreen-output-button" title="Ver en pantalla completa" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <pre id="rf-code-output" class="code-output bg-gray-900 text-white p-4 pt-8 rounded-md min-h-[100px] whitespace-pre-wrap text-xs leading-relaxed max-h-96 overflow-y-auto font-mono transition-all duration-500 ease-out">Presiona "Ejecutar Código" para ver la salida.</pre>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="graficas-rf" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Gráficas Interactivas</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">Visualización de cómo el método de Regla Falsa aproxima la raíz uniendo los puntos \((x_l, f(x_l))\) y \((x_u, f(x_u))\) con una recta (secante) y encontrando su intersección con el eje X.</p>
+                        <div class="interactive-graphics w-full h-96 bg-white p-4 rounded-lg shadow-md">
+                            <canvas id="rf-chart-canvas"></canvas>
+                            <p id="rf-chart-loading-message" class="text-center text-gray-600 italic mt-2">Ejecute el código para generar la gráfica.</p>
+                        </div>
+                    </section>
+
+                    <section id="videos-rf" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Videos Explicativos</h3>
+                        <div class="video-embed w-full h-96">
+                            <iframe class="w-full h-full rounded-lg shadow-lg" src="https://www.youtube.com/embed/4217Y6OkCSk" title="YouTube video player - Método de Regla Falsa" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+                        </div>
+                    </section>
+                
+                    <section id="conclusion-rf" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Conclusión y Aplicaciones</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            El método de la falsa posición es generalmente más rápido en converger que el método de bisección porque utiliza los valores de la función
+                            para estimar la ubicación de la raíz de manera más inteligente (interpolación lineal).
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Su principal desventaja es que, para ciertas funciones, un extremo del intervalo puede volverse "atorado" o "estancado", lo que hace que 
+                            la convergencia sea muy lenta (convergencia unilateral). Esto puede ocurrir cuando la función tiene una curvatura significativa.
+                            Existen modificaciones al método, como el "método de Illinois", para mitigar este problema.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-2 font-medium"><strong>Aplicaciones:</strong></p>
+                        <ul class="list-disc list-inside space-y-2 pl-4 text-gray-600 mb-4">
+                            <li>Resolver ecuaciones no lineales donde la derivada no está disponible o es difícil de calcular.</li>
+                            <li>Cuando se desea una mejora en la velocidad de convergencia sobre la bisección.</li>
+                        </ul>
+                    </section>
+
+                    <section id="referencias-rf" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Referencias</h3>
+                        <ul class="list-disc list-inside space-y-2 text-gray-600 leading-relaxed pl-4">
+                            <li>Chapra, S. C., & Canale, R. P. (2015). <em>Numerical Methods for Engineers</em> (7th ed.). McGraw-Hill Education. (Capítulo 5).</li>
+                        </ul>
+                    </section>
+
+                    <section id="cuestionario-rf" class="scroll-mt-24 mb-10">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Cuestionario: Método de Regla Falsa</h3>
+                        <form id="quiz-regla-falsa" class="space-y-6 bg-gray-50 p-6 rounded-lg shadow-inner">
+                            <!-- Pregunta 1 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">1. ¿Cuál es la característica principal del método de Regla Falsa para estimar la raíz?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 1</legend>
+                                    <div class="space-y-2">
+                                        <label for="q1-opt1-rf" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt1-rf" name="question-1-rf" type="radio" value="Siempre divide el intervalo exactamente a la mitad." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Siempre divide el intervalo exactamente a la mitad.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt2-rf" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt2-rf" name="question-1-rf" type="radio" value="Utiliza una interpolación lineal entre dos puntos para estimar la raíz." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Utiliza una interpolación lineal entre dos puntos para estimar la raíz.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt3-rf" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt3-rf" name="question-1-rf" type="radio" value="Requiere el cálculo de la derivada de la función." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Requiere el cálculo de la derivada de la función.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-1-rf-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <!-- Pregunta 2 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">2. Una desventaja conocida del método de Regla Falsa es:</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 2</legend>
+                                    <div class="space-y-2">
+                                        <label for="q2-opt1-rf" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt1-rf" name="question-2-rf" type="radio" value="Converge más lentamente que el método de bisección en todos los casos." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Converge más lentamente que el método de bisección en todos los casos.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt2-rf" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt2-rf" name="question-2-rf" type="radio" value="Uno de los límites del intervalo puede quedarse 'estancado', ralentizando la convergencia." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Uno de los límites del intervalo puede quedarse 'estancado', ralentizando la convergencia.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt3-rf" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt3-rf" name="question-2-rf" type="radio" value="No garantiza la convergencia incluso si la raíz está dentro del intervalo inicial." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">No garantiza la convergencia incluso si la raíz está dentro del intervalo inicial.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-2-rf-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <!-- Pregunta 3 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">3. ¿Cuál es la fórmula para calcular la nueva aproximación de la raíz (\(x_r\)) en el método de Regla Falsa?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 3</legend>
+                                    <div class="space-y-2">
+                                        <label for="q3-opt1-rf" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt1-rf" name="question-3-rf" type="radio" value="\(x_r = \frac{x_l + x_u}{2}\)" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">\(x_r = \frac{x_l + x_u}{2}\)</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt2-rf" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt2-rf" name="question-3-rf" type="radio" value="\(x_r = x_u - \frac{f(x_u)(x_l - x_u)}{f(x_l) - f(x_u)}\)" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">\(x_r = x_u - \frac{f(x_u)(x_l - x_u)}{f(x_l) - f(x_u)}\)</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt3-rf" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt3-rf" name="question-3-rf" type="radio" value="\(x_r = x_i - \frac{f(x_i)}{f'(x_i)}\)" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">\(x_r = x_i - \frac{f(x_i)}{f'(x_i)}\)</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-3-rf-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <!-- Pregunta 4 -->
+                             <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">4. En el método de Regla Falsa, si \(f(x_l)\) y \(f(x_r)\) tienen signos opuestos, ¿cómo se actualiza el intervalo para la siguiente iteración?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 4</legend>
+                                    <div class="space-y-2">
+                                        <label for="q4-opt1-rf" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt1-rf" name="question-4-rf" type="radio" value="Cuando f(xl) * f(xr) < 0" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Se establece \(x_u = x_r\) (la raíz está en el subintervalo inferior).</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q4-opt2-rf" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt2-rf" name="question-4-rf" type="radio" value="Cuando f(xl) * f(xr) > 0" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Se establece \(x_l = x_r\) (la raíz está en el subintervalo superior).</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q4-opt3-rf" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt3-rf" name="question-4-rf" type="radio" value="Cuando f(xr) es muy cercano a cero." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">El intervalo no se actualiza, se ha encontrado la raíz.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-4-rf-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <button type="submit" class="mt-6 w-full px-6 py-3 bg-custom-red text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors duration-150">
+                                Enviar Respuestas
+                            </button>
+                        </form>
+                        <div id="quiz-feedback-regla-falsa" class="quiz-feedback-message mt-4 p-3 rounded-md text-sm" style="display: none;"></div>
+                    </section>
+
+                </article>
+            </main>
+
+            <aside class="w-full lg:w-1/4 bg-sidebar-bg shadow-xl rounded-lg p-6 self-start sticky top-8 order-3 space-y-6 right-sidebar-fixed">
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-4">Perfil</h3>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex-shrink-0">
+                           <svg class="w-12 h-12 text-gray-400 bg-gray-100 rounded-full p-1 ring-1 ring-gray-200" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-800 text-md">Estudiante Modelo</p>
+                            <p class="text-sm text-gray-500">Aprendiz Activo</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pb-6 border-b border-gray-200 space-y-3">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide">Progreso en Regla Falsa</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li class="flex items-center">
+                            <span id="task-read-theory-status-rf" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Leer la teoría completa</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-run-code-status-rf" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Ejecutar el código Python</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-attempted-status-rf" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Intentar el cuestionario</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-passed-status-rf" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Aprobar el cuestionario</span>
+                        </li>
+                    </ul>
+                    <div class="flex items-center justify-between mb-1 mt-3">
+                       <span class="text-xs font-medium text-custom-red">Progreso General</span>
+                       <span id="right-sidebar-progress-text-rf" class="text-xs font-medium text-custom-red right-sidebar-progress-text">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div id="right-sidebar-progress-bar-rf" class="bg-custom-red h-3 rounded-full right-sidebar-progress-bar transition-width duration-500 ease-in-out" style="width: 0%"></div>
+                    </div>
+                    <button id="completion-regla-falsa-sidebar" class="mt-4 w-full completion-button px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Marcar Todo Completado</button>
+                </div>
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Recursos y Notas</h3>
+                    <p class="text-sm text-gray-600"><a href="https://archive.org/details/numerical-methods-for-engineers-7th-edit" target="_blank" rel="noopener noreferrer" class="hover:text-custom-red hover:underline">Métodos Numéricos para Ingenieros 7ma Edición de Chapra</a></p>
+                    <img src="https://images.cdn3.buscalibre.com/fit-in/360x360/97/ff/97ffa61a8adb147e569e12c4f1f797b3.jpg" alt="Portada Chapra" class="mt-2 w-full rounded-md shadow-sm">
+                </div>
+                <div>
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Siguiente Paso</h3>
+                    <a href="../methods/newton-raphson.html" class="group flex items-center text-sm font-medium text-custom-red hover:text-red-700">
+                       <span>Explorar Método de Newton-Raphson</span> 
+                       <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </a>
+                </div>
+            </aside>
+        </div>
+
+        <footer class="bg-custom-blue text-gray-300 text-center p-6 mt-12">
+            <p>&copy; 2024 Plataforma Educativa de Métodos Numéricos. <a href="../index.html" class="hover:text-white underline">Volver al inicio</a></p>
+        </footer>
+    </div>
+
+    <script>
+        const isAuthenticatedJinjaString = "{{ (current_user is not none)|tojson }}";
+        window.userIsAuthenticated = JSON.parse(isAuthenticatedJinjaString || "false");
+        // window.userIsAuthenticated = false; // For testing, explicitly set to false
+        console.log("[DEBUG] isAuthenticatedJinjaString:", isAuthenticatedJinjaString);
+        console.log("[DEBUG] window.userIsAuthenticated after parse:", window.userIsAuthenticated);
+    </script>
+    <!-- RF SCRIPT (Regla Falsa Specific Logic) -->
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log("[DEBUG] USER_IS_AUTHENTICATED (inside DOMContentLoaded):", window.userIsAuthenticated);
+        const USER_IS_AUTHENTICATED = window.userIsAuthenticated === true;
+        console.log("[DEBUG] const USER_IS_AUTHENTICATED evaluated to:", USER_IS_AUTHENTICATED);
+        const PAGE_KEY_RF = 'regla-falsa';
+        const QUIZ_FORM_ID_RF = 'quiz-regla-falsa';
+        const QUIZ_FEEDBACK_ID_RF = 'quiz-feedback-regla-falsa';
+        const COMPLETION_BUTTON_ID_RF = 'completion-regla-falsa-sidebar';
+        const CODE_INPUT_ID_RF = 'rf-code-input';
+        const CODE_OUTPUT_ID_RF = 'rf-code-output';
+        const RUN_CODE_BUTTON_ID_RF = 'run-rf-code-button';
+        const CHART_CANVAS_ID_RF = 'rf-chart-canvas';
+        const CHART_LOADING_MESSAGE_ID_RF = 'rf-chart-loading-message';
+        const outputControlsContainer_RF = document.getElementById('rf-output-controls-container'); // Contenedor de botones de salida
+        const fullscreenButton_RF = document.getElementById('rf-fullscreen-output-button');
+        const increaseFontButton_RF = document.getElementById('rf-increase-font-button');
+        const decreaseFontButton_RF = document.getElementById('rf-decrease-font-button');
+        let originalOutputFontSize_RF = '';
+        const MIN_FONT_SIZE_PX_RF = 8;
+        const MAX_FONT_SIZE_PX_RF = 28;
+        const FONT_SIZE_STEP_PX_RF = 1;
+        let rfCodeOutputInitialRect = null; // To store initial state for flip-like effect
+
+        const TASKS_RF = {
+            READ_THEORY: 'read_theory_rf',
+            RUN_CODE: 'run_code_rf',
+            QUIZ_ATTEMPTED: 'quiz_attempted_rf',
+            QUIZ_PASSED: 'quiz_passed_rf'
+        };
+        const ALL_TASK_KEYS_RF = Object.values(TASKS_RF);
+        const TOTAL_TASKS_RF = ALL_TASK_KEYS_RF.length;
+
+        const ICON_PENDING_RF = '<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0-4.418-4.03-8-9-8S3 7.582 3 12c0 1.454.402 2.813 1.098 3.977L3 21l5.023-1.098A8.902 8.902 0 0012 21c4.97 0 9-3.582 9-9z"></path></svg>';
+        const ICON_COMPLETED_RF = '<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>';
+        const ICON_IN_PROGRESS_RF = '<svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V9.05a.75.75 0 011.307-.588l5.603 3.112z" clip-rule="evenodd"></path></svg>';
+        const ICON_CORRECT_ANSWER_RF = '✔️';
+        const ICON_INCORRECT_ANSWER_RF = '❌';
+        const ICON_THUMB_UP_RF = '👍';
+
+        const quizDataReglaFalsa = {
+            "question-1-rf": {
+                correctAnswer: "Utiliza una interpolación lineal entre dos puntos para estimar la raíz.",
+                feedback: {
+                    "Siempre divide el intervalo exactamente a la mitad.": "Incorrecto. Eso describe el método de Bisección.",
+                    "Requiere el cálculo de la derivada de la función.": "Incorrecto. Eso es característico del método de Newton-Raphson."
+                }
+            },
+            "question-2-rf": {
+                correctAnswer: "Uno de los límites del intervalo puede quedarse 'estancado', ralentizando la convergencia.",
+                feedback: {
+                    "Converge más lentamente que el método de bisección en todos los casos.": "Incorrecto. Generalmente, Regla Falsa converge más rápido, aunque puede tener problemas de convergencia unilateral.",
+                    "No garantiza la convergencia incluso si la raíz está dentro del intervalo inicial.": "Incorrecto. Si la raíz está bracketed y la función es continua, la convergencia está garantizada, aunque puede ser lenta."
+                }
+            },
+            "question-3-rf": {
+                correctAnswer: "\\(x_r = x_u - \\frac{f(x_u)(x_l - x_u)}{f(x_l) - f(x_u)}\\)",
+                feedback: {
+                    "\\(x_r = \\frac{x_l + x_u}{2}\\)": "Incorrecto. Esta es la fórmula para el método de Bisección.",
+                    "\\(x_r = x_i - \\frac{f(x_i)}{f'(x_i)}\\)": "Incorrecto. Esta es la fórmula para el método de Newton-Raphson."
+                }
+            },
+            "question-4-rf": { // Note: The value for correctAnswer in question-4-rf was based on the text of the option.
+                correctAnswer: "Cuando f(xl) * f(xr) < 0", // This is the condition that leads to xu = xr
+                feedback: {
+                    "Cuando f(xl) * f(xr) > 0": "Incorrecto. Si \\(f(x_l) \\cdot f(x_r) > 0\\), significa que la raíz no está entre \\(x_l\\) y \\(x_r\\) (asumiendo \\(f(x_l)\\) y \\(f(x_u)\\) originalmente opuestos), por lo que \\(x_l\\) se actualiza a \\(x_r\\).",
+                    "Cuando f(xr) es muy cercano a cero.": "Incorrecto. Aunque un \\(f(x_r)\\) cercano a cero indica proximidad a la raíz, la actualización del intervalo se basa estrictamente en el cambio de signo para mantener la raíz bracketed."
+                }
+            }
+        };
+
+        let pyodide_RF = null;
+        let methodChart_RF = null;
+        const mainCompletionButton_RF = document.getElementById(COMPLETION_BUTTON_ID_RF);
+        const quizForm_RF = document.getElementById(QUIZ_FORM_ID_RF);
+        const generalQuizFeedbackDiv_RF = document.getElementById(QUIZ_FEEDBACK_ID_RF);
+        const codeInput_RF = document.getElementById(CODE_INPUT_ID_RF);
+        const codeOutput_RF = document.getElementById(CODE_OUTPUT_ID_RF);
+        const runCodeButton_RF = document.getElementById(RUN_CODE_BUTTON_ID_RF);
+        const chartCanvas_RF = document.getElementById(CHART_CANVAS_ID_RF);
+        const chartLoadingMessage_RF = document.getElementById(CHART_LOADING_MESSAGE_ID_RF);
+
+        const taskStatusIcons_RF = {
+            [TASKS_RF.READ_THEORY]: document.getElementById('task-read-theory-status-rf'),
+            [TASKS_RF.RUN_CODE]: document.getElementById('task-run-code-status-rf'),
+            [TASKS_RF.QUIZ_ATTEMPTED]: document.getElementById('task-quiz-attempted-status-rf'),
+            [TASKS_RF.QUIZ_PASSED]: document.getElementById('task-quiz-passed-status-rf'),
+        };
+        const overallProgressText_RF = document.getElementById('right-sidebar-progress-text-rf');
+        const overallProgressBar_RF = document.getElementById('right-sidebar-progress-bar-rf');
+
+        // Utility to try and get the actual progress data from a potentially nested structure
+        function getCleanedProgress(progressObject) {
+            let current = progressObject;
+            let depth = 0; // To prevent infinite loops with malformed data
+            while (current && typeof current === 'object' && current.hasOwnProperty('data') && depth < 10) {
+                current = current.data;
+                depth++;
+            }
+            // After digging, ensure it still looks like a progress object (has expected keys)
+            if (current && typeof current === 'object' && current.hasOwnProperty('overall_progress')) {
+                return current;
+            }
+            // If it's not a valid progress object after digging, or initial object was bad
+            // and didn't even have 'overall_progress', return the original un-dug object
+            // or an empty object if the original was truly problematic.
+            // This part might need refinement based on what `defaults` expects.
+            // For now, if digging fails to find a valid structure, return the object we started digging from,
+            // or if that also doesn't seem like progress, an empty object.
+            if (progressObject && typeof progressObject === 'object' && progressObject.hasOwnProperty('overall_progress')) {
+                return progressObject; // Original object seemed fine, no deep nesting found or digging failed
+            }
+            return {}; // Fallback to empty if nothing looks like progress
+        }
+
+        async function getPageProgressFromStorage_RF(pKey) {
+            const defaults = ALL_TASK_KEYS_RF.reduce((obj, task) => ({ ...obj, [task]: false }), {});
+            defaults.overall_progress = 0;
+            defaults.user_quiz_answers = {};
+            defaults.quiz_current_score = 0;
+            defaults.quiz_feedback_active = false;
+
+            if (USER_IS_AUTHENTICATED) {
+                try {
+                    const response = await fetch(`/api/load_progress/${pKey}`);
+                    if (response.ok) {
+                        const serverResponse = await response.json();
+                        console.log("[GET PROGRESS DEBUG] Raw serverResponse from API:", JSON.stringify(serverResponse));
+                        
+                        // Extraer el objeto progress del objeto response
+                        const progressData = serverResponse.progress || {};
+                        console.log("[GET PROGRESS DEBUG] Extracted progress data:", JSON.stringify(progressData));
+                        
+                        const cleanedProgress = getCleanedProgress(progressData);
+
+                        if (cleanedProgress && typeof cleanedProgress === 'object' && Object.keys(cleanedProgress).length > 0) {
+                            console.log(`[GET PROGRESS DEBUG] Cleaned server progress being merged for ${pKey}:`, JSON.stringify(cleanedProgress));
+                            return { ...defaults, ...cleanedProgress }; 
+                        } else {
+                            // Si la API devuelve ok pero el progreso está vacío (ej. nuevo usuario), 
+                            // devolvemos los defaults y NO recurrimos a localStorage.
+                            console.log(`[GET PROGRESS DEBUG] Server progress for ${pKey} is empty/invalid. Returning defaults. Not falling back to localStorage.`);
+                            return defaults; 
+                        }
+                    } else if (response.status === 404) {
+                        // Si es 404 (no hay progreso para este usuario/página), también es un caso de "sin progreso en servidor".
+                        // Devolvemos defaults y NO recurrimos a localStorage.
+                        console.log(`[GET PROGRESS DEBUG] Server returned 404 for ${pKey}. Returning defaults. Not falling back to localStorage.`);
+                        return defaults;
+                    } else { 
+                        // Otro error de servidor, aquí sí podríamos considerar localStorage como fallback si quisiéramos,
+                        // pero por ahora, para consistencia si hay error de API, no cargamos nada (o defaults).
+                        console.warn(`Error al cargar progreso desde servidor para ${pKey}: ${response.status}. Not falling back to localStorage.`);
+                        // Podríamos decidir devolver `defaults` aquí también para evitar localStorage si la API falla.
+                        // O, si el fallback a localStorage en caso de error de API es deseado, este bloque se modifica.
+                        // Por ahora, si la API falla (no es 200 OK), vamos al fallback de localStorage.
+                    }
+                } catch (e) {
+                    console.error(`Error en fetch al cargar progreso para ${pKey}:`, e);
+                    // En caso de error de red en el fetch, también se recurrirá a localStorage (comportamiento actual).
+                }
+            }
+
+            // Fallback a localStorage SOLO si !USER_IS_AUTHENTICATED o si el fetch de arriba falló de una manera que no retornó.
+            // Si USER_IS_AUTHENTICATED y el fetch fue exitoso (incluso con progreso vacío o 404), ya deberíamos haber retornado.
+            console.log("[GET PROGRESS DEBUG] Attempting localStorage fallback for " + pKey + " (User Authenticated: " + USER_IS_AUTHENTICATED + ")");
+            try {
+                const stored = localStorage.getItem(pKey);
+                if (stored) {
+                    const localProgress = JSON.parse(stored);
+                    const cleanedLocalProgress = getCleanedProgress(localProgress); // Also clean localStorage just in case
+                    console.log("[GET PROGRESS DEBUG] Cleaned localStorage progress:", JSON.stringify(cleanedLocalProgress));
+                    return { ...defaults, ...cleanedLocalProgress };
+                }
+            } catch (e) { console.error("Error al leer localStorage para RF:", e); }
+            
+            console.log("[GET PROGRESS DEBUG] Returning pure defaults as no server or valid local progress found.");
+            return defaults;
+        }
+
+        async function savePageProgressToStorage_RF(pKey, progress) {
+            if (USER_IS_AUTHENTICATED) {
+                try {
+                    const response = await fetch('/api/save_progress', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ page_key: pKey, progress_data: progress }),
+                    });
+                    if (response.ok) {
+                        console.log(`Progreso guardado en servidor para ${pKey}`);
+                    } else {
+                        console.warn(`Error al guardar progreso en servidor para ${pKey}: ${response.status}`);
+                    }
+                } catch (e) {
+                    console.error(`Error en fetch al guardar progreso para ${pKey}:`, e);
+                }
+            }
+
+            // Guardar siempre en localStorage como respaldo o para modo offline
+            try {
+                localStorage.setItem(pKey, JSON.stringify(progress));
+                window.dispatchEvent(new CustomEvent('rfPageProgressSaved', { detail: { pageKey: pKey, progress } }));
+            } catch (e) { console.error("Error al guardar en localStorage para RF:", e); }
+        }
+
+        async function updateTaskStatusInStorage_RF(taskName, isCompleted) { // Convertida a async
+            let currentProgress = await getPageProgressFromStorage_RF(PAGE_KEY_RF); // async
+            if (currentProgress[taskName] !== isCompleted) {
+                currentProgress[taskName] = isCompleted;
+                if (taskName === TASKS_RF.QUIZ_ATTEMPTED && !isCompleted) {
+                    currentProgress[TASKS_RF.QUIZ_PASSED] = false;
+                    currentProgress.user_quiz_answers = {};
+                    currentProgress.quiz_current_score = 0;
+                    currentProgress.quiz_feedback_active = false;
+                }
+                if (taskName === TASKS_RF.QUIZ_PASSED && isCompleted) {
+                     currentProgress[TASKS_RF.QUIZ_ATTEMPTED] = true;
+                }
+                await savePageProgressToStorage_RF(PAGE_KEY_RF, currentProgress); // async
+                // REMOVED: await calculateAndUpdateOverallProgress_RF(); // async
+            }
+        }
+
+        async function renderTaskStatus_RF() { // Convertida a async
+            const progress = await getPageProgressFromStorage_RF(PAGE_KEY_RF); // async
+            ALL_TASK_KEYS_RF.forEach(taskKey => {
+                const iconElement = taskStatusIcons_RF[taskKey];
+                if (iconElement) {
+                    let newIconHTML = ICON_PENDING_RF;
+                    if (progress[taskKey]) newIconHTML = ICON_COMPLETED_RF;
+                    else if (taskKey === TASKS_RF.QUIZ_PASSED && progress[TASKS_RF.QUIZ_ATTEMPTED]) newIconHTML = ICON_IN_PROGRESS_RF;
+                    iconElement.innerHTML = newIconHTML;
+                }
+            });
+        }
+
+        async function calculateAndUpdateOverallProgress_RF() { // Convertida a async
+            let progress = await getPageProgressFromStorage_RF(PAGE_KEY_RF); // async
+            console.log("[CALC DEBUG] Progress object received by calculateAndUpdateOverallProgress_RF:", JSON.stringify(progress));
+
+            let completedTasks = ALL_TASK_KEYS_RF.filter(taskKey => progress[taskKey]).length;
+            const percentage = TOTAL_TASKS_RF > 0 ? (completedTasks / TOTAL_TASKS_RF) * 100 : 0;
+            progress.overall_progress = percentage;
+            await savePageProgressToStorage_RF(PAGE_KEY_RF, progress); // async - Save after calculation
+
+            const isHundredPercent = percentage.toFixed(0) === '100';
+            if (overallProgressBar_RF) {
+                overallProgressBar_RF.style.width = `${percentage.toFixed(0)}%`;
+                overallProgressBar_RF.classList.toggle('animate-rainbow-border', isHundredPercent);
+            }
+            if (overallProgressText_RF) overallProgressText_RF.textContent = `${percentage.toFixed(0)}%`;
+            
+            await renderTaskStatus_RF(); // async
+            await updateMainCompletionButtonState_RF(); // async
+        }
+        
+        async function handleMarkAllMouseEnter_RF() { // Convertida a async, aunque no usa await directamente
+            if (mainCompletionButton_RF && mainCompletionButton_RF.dataset.isUndo === "true") {
+                mainCompletionButton_RF.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+                mainCompletionButton_RF.classList.add('bg-red-600', 'hover:bg-red-700');
+            }
+        }
+
+        async function handleMarkAllMouseLeave_RF() {
+            if (mainCompletionButton_RF && mainCompletionButton_RF.dataset.isUndo === "true") {
+                mainCompletionButton_RF.classList.remove('bg-red-600', 'hover:bg-red-700');
+                mainCompletionButton_RF.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+            }
+        }
+        
+        async function updateMainCompletionButtonState_RF() { // Convertida a async
+            if (!mainCompletionButton_RF) return;
+            const progress = await getPageProgressFromStorage_RF(PAGE_KEY_RF); // async
+            let allTasksCompleted = ALL_TASK_KEYS_RF.every(task => progress[task]);
+            
+            mainCompletionButton_RF.removeEventListener('mouseenter', handleMarkAllMouseEnter_RF);
+            mainCompletionButton_RF.removeEventListener('mouseleave', handleMarkAllMouseLeave_RF);
+            mainCompletionButton_RF.classList.remove('bg-green-600', 'hover:bg-green-700', 'bg-yellow-500', 'hover:bg-yellow-600', 'bg-red-600', 'hover:bg-red-700');
+
+            if (allTasksCompleted) {
+                mainCompletionButton_RF.textContent = 'Deshacer Completado';
+                mainCompletionButton_RF.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+                mainCompletionButton_RF.dataset.isUndo = "true";
+                mainCompletionButton_RF.addEventListener('mouseenter', handleMarkAllMouseEnter_RF);
+                mainCompletionButton_RF.addEventListener('mouseleave', handleMarkAllMouseLeave_RF);
+            } else {
+                mainCompletionButton_RF.textContent = 'Marcar Todo Completado';
+                mainCompletionButton_RF.classList.add('bg-green-600', 'hover:bg-green-700');
+                mainCompletionButton_RF.dataset.isUndo = "false";
+            }
+        }
+        
+        async function clearAllVisualFeedback_RF(clearGeneralMessage = false) { // Convertida a async, aunque no usa await directamente
+            if (!quizForm_RF) return;
+            quizForm_RF.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                wrapper.classList.remove('correct-answer-rf', 'incorrect-answer-rf', 'border-green-500', 'border-red-500', 'ring-1', 'ring-green-500', 'ring-red-500', 'bg-green-50', 'bg-red-50');
+                wrapper.classList.add('border-gray-300', 'hover:border-gray-400', 'has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                const iconPlaceholder = wrapper.querySelector('.feedback-icon-placeholder span');
+                if (iconPlaceholder) iconPlaceholder.innerHTML = '';
+            });
+            quizForm_RF.querySelectorAll('.specific-question-feedback').forEach(el => {
+                el.textContent = '';
+                el.style.display = 'none';
+            });
+            if (clearGeneralMessage && generalQuizFeedbackDiv_RF) {
+                generalQuizFeedbackDiv_RF.textContent = '';
+                generalQuizFeedbackDiv_RF.style.display = 'none';
+                generalQuizFeedbackDiv_RF.className = 'quiz-feedback-message mt-4 p-3 rounded-md text-sm';
+            }
+        }
+
+        async function displayQuizFeedback_RF() { // Convertida a async
+            if (!quizForm_RF || !generalQuizFeedbackDiv_RF) return false; 
+            const progress = await getPageProgressFromStorage_RF(PAGE_KEY_RF); // async
+            const userAnswers = progress.user_quiz_answers || {};
+            const submitButton = quizForm_RF.querySelector('button[type="submit"]');
+
+            await clearAllVisualFeedback_RF(false); // async 
+
+            if (!progress.quiz_feedback_active && Object.keys(userAnswers).length === 0) {
+                quizForm_RF.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                if (submitButton) {
+                    submitButton.textContent = 'Enviar Respuestas';
+                    submitButton.disabled = false;
+                }
+                return false; // Added a default return
+            }
+            
+            let allCorrect = true;
+            let score = 0;
+
+            for (const questionName in quizDataReglaFalsa) {
+                const userAnswer = userAnswers[questionName];
+                const questionData = quizDataReglaFalsa[questionName];
+                const correctAnswer = questionData.correctAnswer;
+                const specificFeedbackDiv = document.getElementById(`${questionName}-specific-feedback`);
+
+                const radioInputs = quizForm_RF.querySelectorAll(`input[name="${questionName}"]`);
+                radioInputs.forEach(input => {
+                    const wrapper = input.closest('.quiz-option-wrapper');
+                    const iconPlaceholder = wrapper.querySelector('.feedback-icon-placeholder span');
+                    input.disabled = true; 
+                    wrapper.classList.remove('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                    
+                    if (input.value === userAnswer) {
+                        input.checked = true;
+                        if (userAnswer === correctAnswer) {
+                            wrapper.classList.add('correct-answer-rf', 'border-green-500', 'ring-1', 'ring-green-500', 'bg-green-50');
+                            if (iconPlaceholder) iconPlaceholder.textContent = ICON_CORRECT_ANSWER_RF;
+                            score++;
+                        } else {
+                            wrapper.classList.add('incorrect-answer-rf', 'border-red-500', 'ring-1', 'ring-red-500', 'bg-red-50');
+                            if (iconPlaceholder) iconPlaceholder.textContent = ICON_INCORRECT_ANSWER_RF;
+                            allCorrect = false;
+                            if (specificFeedbackDiv && questionData.feedback && questionData.feedback[userAnswer]) {
+                                specificFeedbackDiv.textContent = "Incorrecto. " + questionData.feedback[userAnswer];
+                                specificFeedbackDiv.style.display = 'block';
+                            } else if (specificFeedbackDiv) {
+                                specificFeedbackDiv.textContent = "Incorrecto. Respuesta incorrecta.";
+                                specificFeedbackDiv.style.display = 'block';
+                            }
+                        }
+                    } else if (input.value === correctAnswer) {
+                         wrapper.classList.add('correct-answer-rf', 'border-green-500', 'bg-green-50');
+                         if (userAnswer !== correctAnswer && iconPlaceholder) iconPlaceholder.textContent = ICON_THUMB_UP_RF;
+                    } else {
+                         wrapper.classList.add('border-gray-300');
+                    }
+                });
+            }
+
+            progress.quiz_current_score = score; 
+            progress.quiz_passed = allCorrect;
+            await savePageProgressToStorage_RF(PAGE_KEY_RF, progress); // async - Save score and quiz_passed status
+
+            generalQuizFeedbackDiv_RF.style.display = 'block';
+            if (allCorrect) {
+                generalQuizFeedbackDiv_RF.className = 'mt-4 p-3 rounded-md text-sm bg-green-100 text-green-700 border border-green-200';
+                generalQuizFeedbackDiv_RF.innerHTML = `<strong>¡Felicidades!</strong> Todas tus respuestas son correctas. (${score}/${Object.keys(quizDataReglaFalsa).length})`;
+                if (submitButton) {
+                    submitButton.textContent = 'Cuestionario Aprobado';
+                    submitButton.disabled = true;
+                }
+                await updateTaskStatusInStorage_RF(TASKS_RF.QUIZ_PASSED, true);
+            } else {
+                generalQuizFeedbackDiv_RF.className = 'mt-4 p-3 rounded-md text-sm bg-red-100 text-red-700 border border-red-200';
+                generalQuizFeedbackDiv_RF.innerHTML = `Has respondido correctamente ${score} de ${Object.keys(quizDataReglaFalsa).length} preguntas. Revisa los comentarios e intenta de nuevo.`;
+                if (submitButton) {
+                    submitButton.textContent = 'Intentar de Nuevo';
+                    submitButton.disabled = false;
+                }
+                await updateTaskStatusInStorage_RF(TASKS_RF.QUIZ_PASSED, false);
+            }
+            if (window.MathJax && window.MathJax.typesetPromise && quizForm_RF) {
+                window.MathJax.typesetPromise([quizForm_RF]);
+            }
+            return allCorrect; // Return the pass/fail status
+        }
+        
+        async function initializePyodide_RF() {
+            if (!window.pyodideInstance_RF_Global) { 
+                if (codeOutput_RF) codeOutput_RF.innerHTML = "<p>Cargando Pyodide y entorno...</p>";
+                try {
+                    window.pyodideInstance_RF_Global = await window.loadPyodide();
+                    // Pre-declarar/inicializar variables globales para la salida del script de Python
+                    window.pyodideInstance_RF_Global.globals.set("pyodide_rf_html_output", "");
+                    window.pyodideInstance_RF_Global.globals.set("pyodide_rf_iteration_data", window.pyodideInstance_RF_Global.toPy([]));
+                    window.pyodideInstance_RF_Global.globals.set("pyodide_rf_chart_data_package", window.pyodideInstance_RF_Global.toPy({}));
+                    
+                    if (codeOutput_RF) codeOutput_RF.innerHTML = "<p>Pyodide listo. Presiona 'Ejecutar Código'.</p>";
+                } catch (error) {
+                    console.error("Error al cargar Pyodide para Regla Falsa:", error);
+                    if (codeOutput_RF) codeOutput_RF.innerHTML = "<p>Error al cargar Pyodide. Revisa la consola.</p>";
+                    return null;
+                }
+            }
+            return window.pyodideInstance_RF_Global;
+        }
+
+        async function runCodeNow_RF() {
+            pyodide_RF = await initializePyodide_RF();
+            if (!pyodide_RF) { 
+                if (codeOutput_RF) codeOutput_RF.innerHTML = "<p>Pyodide no está listo. Intenta recargar.</p>"; 
+                return; 
+            }
+            if (!codeInput_RF || !codeOutput_RF) return;
+
+            const pythonCode = codeInput_RF.value;
+            if (codeOutput_RF) codeOutput_RF.innerHTML = "<p>Ejecutando código...</p>";
+            if (chartLoadingMessage_RF) chartLoadingMessage_RF.textContent = "Generando datos para la gráfica...";
+            if (chartCanvas_RF) chartCanvas_RF.style.display = 'none'; // Ocultar mientras se genera
+
+            try {
+                // Limpiar/Reiniciar las variables globales de Pyodide antes de la ejecución
+                pyodide_RF.globals.set("pyodide_rf_html_output", "");
+                // Para listas y dicts, obtener el proxy y limpiarlo es más robusto
+                let iterDataProxy = pyodide_RF.globals.get("pyodide_rf_iteration_data");
+                if (iterDataProxy && typeof iterDataProxy.clear === 'function') iterDataProxy.clear();
+                else pyodide_RF.globals.set("pyodide_rf_iteration_data", pyodide_RF.toPy([])); // Re-inicializar si no es proxy
+                
+                let chartPkgProxy = pyodide_RF.globals.get("pyodide_rf_chart_data_package");
+                if (chartPkgProxy && typeof chartPkgProxy.clear === 'function') chartPkgProxy.clear();
+                else pyodide_RF.globals.set("pyodide_rf_chart_data_package", pyodide_RF.toPy({}));
+
+
+                await pyodide_RF.loadPackagesFromImports(pythonCode); 
+                // El script de Python ahora asignará a 'pyodide_rf_html_output', etc.
+                await pyodide_RF.runPythonAsync(pythonCode); 
+                
+                const htmlResult = pyodide_RF.globals.get("pyodide_rf_html_output");
+                if (codeOutput_RF) {
+                    codeOutput_RF.innerHTML = htmlResult || "<p>Ejecución completada. No se generó salida HTML.</p>";
+                }
+                
+                await updateTaskStatusInStorage_RF(TASKS_RF.RUN_CODE, true); // Changed this line
+                await calculateAndUpdateOverallProgress_RF(); // Added this line
+
+                // La función de gráfico ahora obtendrá los datos del paquete preparado por Python
+                if (chartCanvas_RF) await drawChartJsGraph_RF();
+
+            } catch (error) { 
+                console.error("Error al ejecutar el código Python (Regla Falsa):", error);
+                if (codeOutput_RF) {
+                    codeOutput_RF.innerHTML = `<p style="color:red;">Error en la ejecución: ${error.toString().replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p><pre>${error.stack ? error.stack.replace(/</g, "&lt;").replace(/>/g, "&gt;") : ''}</pre>`;
+                }
+                if (chartLoadingMessage_RF) chartLoadingMessage_RF.textContent = "Error al generar datos para la gráfica.";
+            }
+        }
+        
+        async function drawChartJsGraph_RF() { // Ya no necesita el argumento iterationData
+            pyodide_RF = await initializePyodide_RF();
+            if (!pyodide_RF) { 
+                if(chartLoadingMessage_RF) chartLoadingMessage_RF.textContent = 'Pyodide no está listo para graficar.'; 
+                return; 
+            }
+            if (!chartCanvas_RF) return;
+            
+            if(chartLoadingMessage_RF) chartLoadingMessage_RF.textContent = 'Generando gráfica de Regla Falsa...';
+            
+            try {
+                // Obtener el paquete de datos del gráfico preparado por el script principal de Python
+                if (!pyodide_RF.globals.has("pyodide_rf_chart_data_package")) {
+                    if(chartLoadingMessage_RF) chartLoadingMessage_RF.textContent = 'Datos para la gráfica no encontrados. Ejecute el código principal primero.';
+                    console.warn("pyodide_rf_chart_data_package no encontrado en Pyodide globals.");
+                    if (methodChart_RF && typeof methodChart_RF.destroy === 'function') methodChart_RF.destroy(); // Limpiar gráfico anterior si existe
+                    return;
+                }
+                const chartData = pyodide_RF.globals.get("pyodide_rf_chart_data_package").toJs({ dict_converter: Object.fromEntries });
+
+                if (!chartData || chartData.x_func_vals === undefined || chartData.iterations === undefined) {
+                     if(chartLoadingMessage_RF) chartLoadingMessage_RF.textContent = 'Formato de datos para gráfica incorrecto o incompleto.';
+                     console.warn("Formato de chartData incorrecto o incompleto:", chartData);
+                     if (methodChart_RF && typeof methodChart_RF.destroy === 'function') methodChart_RF.destroy();
+                     return;
+                }
+
+                if (methodChart_RF && typeof methodChart_RF.destroy === 'function') methodChart_RF.destroy();
+                const ctx_rf = chartCanvas_RF.getContext('2d');
+                
+                const datasets_rf = [];
+                // Graficar la función f(x)
+                if (chartData.x_func_vals && chartData.y_func_vals) {
+                    const validFuncPoints = chartData.x_func_vals.map((val, index) => ({x: val, y: chartData.y_func_vals[index]})).filter(p => p.y !== null);
+                    datasets_rf.push({
+                        label: 'f(x)', data: validFuncPoints,
+                        borderColor: 'rgb(54, 162, 235)', borderWidth: 2, fill: false, tension: 0.1, type: 'line', order: 3, pointRadius: 0
+                    });
+                }
+
+                // Graficar puntos iniciales si están disponibles
+                if (chartData.initial_a !== null && chartData.initial_b !== null) {
+                    try {
+                        // Necesitamos evaluar f(initial_a) y f(initial_b) usando la función definida en Pyodide
+                        const fa_initial = pyodide_RF.runPython(`funcion_ejemplo_rf(${chartData.initial_a})`);
+                        const fb_initial = pyodide_RF.runPython(`funcion_ejemplo_rf(${chartData.initial_b})`);
+                        datasets_rf.push({
+                           label: 'Puntos Iniciales',
+                           data: [ {x: chartData.initial_a, y:fa_initial }, {x: chartData.initial_b, y: fb_initial}],
+                           backgroundColor: 'rgba(75, 192, 75, 0.9)', borderColor: 'rgba(75, 192, 75, 1)',
+                           pointRadius: 6, type: 'scatter', order: 0
+                        });
+                    } catch (e) { console.warn("Error graficando puntos iniciales RF:", e); }
+                }
+
+
+                // Graficar las líneas secantes y las estimaciones de la raíz de cada iteración
+                if (chartData.iterations && chartData.iterations.length > 0) {
+                    chartData.iterations.forEach((iter, index) => {
+                        // Línea secante (unión de (a, f(a)) y (b, f(b)))
+                        if (iter.a !== null && iter.b !== null && iter.fa !== null && iter.fb !== null) {
+                             datasets_rf.push({ 
+                                label: `Recta Iter ${iter.iter}`,
+                                data: [{x: iter.a, y: iter.fa}, {x: iter.b, y: iter.fb}],
+                                borderColor: `hsla(${(index * 45 + 15) % 360}, 60%, 60%, 0.6)`, 
+                                borderWidth: 1, borderDash: [5,5], type: 'line', fill: false, order: 1,
+                                pointRadius: 3, pointBackgroundColor: `hsla(${(index * 45 + 15) % 360}, 60%, 60%, 0.6)`
+                            });
+                        }
+                        // Punto de la raíz estimada (xr, 0)
+                        if (iter.xr !== null) {
+                            datasets_rf.push({ 
+                                label: `xr Iter ${iter.iter}`,
+                                data: [{x: iter.xr, y: 0}],
+                                backgroundColor: `hsl(${(index * 45 + 15) % 360}, 80%, 50%)`,
+                                pointRadius: 5, type: 'scatter', order: 2
+                            });
+                        }
+                    });
+                }
+                
+                // Graficar la raíz final encontrada
+                if (chartData.final_root !== null && typeof chartData.final_root === 'number') {
+                     datasets_rf.push({
+                        label: `Raíz Final (${chartData.final_root.toFixed(5)})`,
+                        data: [{x: chartData.final_root, y: 0}],
+                        backgroundColor: 'rgb(255, 99, 132)', pointRadius: 8, pointStyle: 'star', type: 'scatter', order: 4
+                    });
+                }
+                
+                methodChart_RF = new Chart(ctx_rf, {
+                    type: 'scatter', data: { datasets: datasets_rf },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        scales: { 
+                            x: { title: { display: true, text: 'x' }, type: 'linear' }, 
+                            y: { title: { display: true, text: 'f(x)' }, type: 'linear', grid: { zeroLineColor: 'rgba(0,0,0,0.8)', zeroLineWidth:1.5 }} 
+                        },
+                        plugins: { 
+                            legend: { 
+                                position: 'top', 
+                                labels: { 
+                                    filter: (item) => !(item.text.startsWith('Recta Iter') || item.text.startsWith('xr Iter')) || (chartData.iterations && chartData.iterations.length <= 6) 
+                                } 
+                            }, 
+                            title: { display: true, text: "Método de Regla Falsa: Convergencia Gráfica", font: {size: 16} } 
+                        },
+                        animation: { duration: 500 } // Añadir una pequeña animación
+                    }
+                });
+
+                if(chartLoadingMessage_RF) chartLoadingMessage_RF.style.display = 'none';
+                if (chartCanvas_RF) chartCanvas_RF.style.display = 'block'; // Mostrar el canvas después de dibujar
+
+            } catch (error) { 
+                if(chartLoadingMessage_RF) chartLoadingMessage_RF.textContent = 'Error al generar gráfica: ' + (error.message || String(error)); 
+                console.error("Error en drawChartJsGraph_RF:", error); 
+                if (methodChart_RF && typeof methodChart_RF.destroy === 'function') methodChart_RF.destroy(); // Limpiar si hay error
+            }
+        }
+
+        if (runCodeButton_RF) runCodeButton_RF.addEventListener('click', runCodeNow_RF);
+
+        if (quizForm_RF) {
+            quizForm_RF.addEventListener('submit', async function(event) { // Convertida a async
+                event.preventDefault();
+                const currentLocalProgress = await getPageProgressFromStorage_RF(PAGE_KEY_RF); // async
+                const submitButton = quizForm_RF.querySelector('button[type="submit"]');
+
+                console.log("[QUIZ SUBMIT DEBUG] currentLocalProgress.quiz_passed:", currentLocalProgress[TASKS_RF.QUIZ_PASSED]);
+                console.log("[QUIZ SUBMIT DEBUG] submitButton.textContent:", submitButton ? submitButton.textContent : 'Button not found');
+
+                if (currentLocalProgress[TASKS_RF.QUIZ_PASSED] && submitButton && submitButton.textContent !== 'Intentar de Nuevo') {
+                    console.log("[QUIZ SUBMIT DEBUG] Early exit: Quiz already passed and button is not 'Intentar de Nuevo'.");
+                    return;
+                }
+
+                if (submitButton && submitButton.textContent === 'Intentar de Nuevo') {
+                    console.log("[QUIZ SUBMIT DEBUG] 'Intentar de Nuevo' branch entered.");
+                    quizForm_RF.reset();
+                    await clearAllVisualFeedback_RF(true); // async
+                    if(generalQuizFeedbackDiv_RF) generalQuizFeedbackDiv_RF.style.display = 'none';
+                    
+                    let progressToSave = await getPageProgressFromStorage_RF(PAGE_KEY_RF); // async
+                    progressToSave.user_quiz_answers = {};
+                    progressToSave.quiz_current_score = 0;
+                    progressToSave.quiz_feedback_active = false; 
+                    await savePageProgressToStorage_RF(PAGE_KEY_RF, progressToSave); // async
+                    await updateTaskStatusInStorage_RF(TASKS_RF.QUIZ_PASSED, false); // async
+                    
+                    quizForm_RF.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                    quizForm_RF.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                         wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                    });
+                    submitButton.textContent = 'Enviar Respuestas';
+                    return;
+                }
+
+                const formData = new FormData(quizForm_RF);
+                let allAnswered = true;
+                for (const qName of Object.keys(quizDataReglaFalsa)) { if (!formData.has(qName)) { allAnswered = false; break; } }
+
+                if (!allAnswered) {
+                    if (generalQuizFeedbackDiv_RF) {
+                        generalQuizFeedbackDiv_RF.textContent = "Por favor, responde todas las preguntas.";
+                        generalQuizFeedbackDiv_RF.className = 'mt-4 p-3 rounded-md text-sm bg-yellow-100 text-yellow-700 border border-yellow-200';
+                        generalQuizFeedbackDiv_RF.style.display = 'block';
+                    } return;
+                }
+                
+                await updateTaskStatusInStorage_RF(TASKS_RF.QUIZ_ATTEMPTED, true); // async
+                
+                let progress = await getPageProgressFromStorage_RF(PAGE_KEY_RF); // async
+                progress.user_quiz_answers = {}; 
+                for (const qName of Object.keys(quizDataReglaFalsa)) { progress.user_quiz_answers[qName] = formData.get(qName); }
+                progress.quiz_feedback_active = true; 
+                await savePageProgressToStorage_RF(PAGE_KEY_RF, progress); // async
+                
+                const quizWasPassed = await displayQuizFeedback_RF(); // async
+                
+                await calculateAndUpdateOverallProgress_RF(); // async
+            });
+        }
+        
+        if (mainCompletionButton_RF) {
+            mainCompletionButton_RF.addEventListener('click', async () => {
+                // Desactivar el botón mientras se procesa para evitar múltiples clics
+                mainCompletionButton_RF.disabled = true;
+                
+                try {
+                    console.log('[TOGGLE DEBUG RF] Iniciando acción de toggleCompletion');
+                    const progress = await getPageProgressFromStorage_RF(PAGE_KEY_RF);
+                    let allCurrentlyCompleted = ALL_TASK_KEYS_RF.every(taskKey => progress[taskKey]);
+                    let markAllAs = !allCurrentlyCompleted;
+                    
+                    console.log('[TOGGLE DEBUG RF] Estado inicial - allCurrentlyCompleted:', allCurrentlyCompleted, 'markAllAs:', markAllAs);
+                    console.log('[TOGGLE DEBUG RF] Progreso inicial:', JSON.stringify(progress));
+                    
+                    // Actualizar el progreso directamente en lugar de hacer múltiples llamadas
+                    // que podrían interferir entre sí
+                    const updatedProgress = { ...progress };
+                    
+                    // Actualizar todas las tareas a la vez
+                    ALL_TASK_KEYS_RF.forEach(taskName => {
+                        updatedProgress[taskName] = markAllAs;
+                    });
+                    
+                    console.log('[TOGGLE DEBUG RF] Progreso después de actualizar tareas:', JSON.stringify(updatedProgress));
+                    
+                    if (markAllAs) { // Marcar todo como completado
+                        updatedProgress[TASKS_RF.QUIZ_ATTEMPTED] = true;
+                        updatedProgress[TASKS_RF.QUIZ_PASSED] = true;
+                        
+                        // Auto-completar quiz con respuestas correctas
+                        updatedProgress.user_quiz_answers = {};
+                        // Iterar sobre cada pregunta del quiz y asignar la respuesta correcta
+                        for (const questionName in quizDataReglaFalsa) {
+                            updatedProgress.user_quiz_answers[questionName] = quizDataReglaFalsa[questionName].correctAnswer;
+                        }
+                        
+                        console.log('[TOGGLE DEBUG RF] Respuestas correctas asignadas:', JSON.stringify(updatedProgress.user_quiz_answers));
+                        
+                        updatedProgress.quiz_current_score = 100; // 100% si todas son correctas
+                        updatedProgress.quiz_feedback_active = true;
+                        updatedProgress.overall_progress = 100; // Asegurar que el progreso total es 100%
+                        
+                        // Guardar cambios y actualizar UI
+                        await savePageProgressToStorage_RF(PAGE_KEY_RF, updatedProgress);
+                        console.log('[TOGGLE DEBUG RF] Progreso guardado (completado):', JSON.stringify(updatedProgress));
+                        
+                        if (quizForm_RF) await displayQuizFeedback_RF();
+                        await renderTaskStatus_RF();
+                        
+                    } else { // Deshacer completado
+                        updatedProgress.user_quiz_answers = {};
+                        updatedProgress.quiz_current_score = 0;
+                        updatedProgress.quiz_feedback_active = false;
+                        updatedProgress.overall_progress = 0;
+                        
+                        // Guardar cambios
+                        await savePageProgressToStorage_RF(PAGE_KEY_RF, updatedProgress);
+                        console.log('[TOGGLE DEBUG RF] Progreso guardado (reseteado):', JSON.stringify(updatedProgress));
+                        
+                        // Actualizar UI
+                        if (quizForm_RF) {
+                            quizForm_RF.reset();
+                            clearAllVisualFeedback_RF(true);
+                            quizForm_RF.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                            const submitButton = quizForm_RF.querySelector('button[type="submit"]');
+                            if (submitButton) {
+                                submitButton.textContent = 'Enviar Respuestas';
+                                submitButton.disabled = false;
+                            }
+                            quizForm_RF.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                                wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                            });
+                        }
+                        if (generalQuizFeedbackDiv_RF) generalQuizFeedbackDiv_RF.style.display = 'none';
+                        await renderTaskStatus_RF();
+                    }
+                    
+                    // Actualizar barra de progreso y estado de botón
+                    await calculateAndUpdateOverallProgress_RF();
+                    await updateMainCompletionButtonState_RF();
+                    
+                    // Eliminada la notificación alert para mejorar la experiencia de usuario
+                    console.log(markAllAs ? 'Todas las tareas marcadas como completadas.' : 'Se ha deshecho el completado.');
+                    
+                } catch (error) {
+                    console.error('[TOGGLE ERROR RF]', error);
+                    alert('Ocurrió un error al procesar la acción. Por favor, intenta nuevamente.');
+                } finally {
+                    // Reactivar el botón
+                    if (mainCompletionButton_RF) {
+                        mainCompletionButton_RF.disabled = false;
+                    }
+                }
+            });
+        }
+
+        const theorySectionObserverTargetNodeRF = document.getElementById('conclusion-rf') || document.getElementById('teoria-rf');
+        if (theorySectionObserverTargetNodeRF) {
+            const observerOptionsRF = { root: null, rootMargin: '0px', threshold: 0.1 };
+            const observerCallbackRF = (entries) => {
+                entries.forEach(async entry => { // Convertida a async
+                    if (entry.isIntersecting) {
+                        await updateTaskStatusInStorage_RF(TASKS_RF.READ_THEORY, true); // async
+                        await calculateAndUpdateOverallProgress_RF(); // Added this line
+                    }
+                });
+            };
+            const theoryObserver_RF = new IntersectionObserver(observerCallbackRF, observerOptionsRF);
+            theoryObserver_RF.observe(theorySectionObserverTargetNodeRF);
+        }
+        
+        if (window.location.hash) history.replaceState(null, '', window.location.pathname + window.location.search);
+        
+        (async () => { 
+            pyodide_RF = await initializePyodide_RF();
+            if (pyodide_RF && chartCanvas_RF && codeInput_RF && codeInput_RF.value.trim() !== "" && 
+                pyodide_RF.globals.has('funcion_ejemplo_rf') && pyodide_RF.globals.has('iteraciones_rf')) { // Mantuve iteraciones_rf por si acaso, aunque chartDataPackage es el principal
+                await drawChartJsGraph_RF();
+            } else if (chartCanvas_RF && chartLoadingMessage_RF) {
+                 chartLoadingMessage_RF.textContent = "Ejecute el código para generar datos para la gráfica.";
+            }
+
+            const initialProgress_RF = await getPageProgressFromStorage_RF(PAGE_KEY_RF); // async
+            if (initialProgress_RF.quiz_feedback_active || (initialProgress_RF[TASKS_RF.QUIZ_ATTEMPTED] && Object.keys(initialProgress_RF.user_quiz_answers).length > 0) ) {
+                if (quizForm_RF && initialProgress_RF.user_quiz_answers) {
+                     for (const qName in initialProgress_RF.user_quiz_answers) {
+                        const userAnswer = initialProgress_RF.user_quiz_answers[qName];
+                        const escapedUserAnswer = userAnswer.replace(/([\\()\[\]"'])/g, '\\$1');
+                        try {
+                            const radioToSelect = quizForm_RF.querySelector(`input[name="${qName}"][value="${escapedUserAnswer}"]`);
+                            if (radioToSelect) radioToSelect.checked = true;
+                        } catch (e) { console.warn(`Error seleccionando radio RF para ${qName}`, e); }
+                    }
+                }
+                await displayQuizFeedback_RF(); // async
+            } else if (quizForm_RF) { 
+                const submitButton = quizForm_RF.querySelector('button[type="submit"]');
+                if (submitButton) { submitButton.textContent = 'Enviar Respuestas'; submitButton.disabled = false; }
+                quizForm_RF.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                quizForm_RF.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red'));
+                if (window.MathJax && window.MathJax.typesetPromise) window.MathJax.typesetPromise([quizForm_RF]);
+            }
+            await calculateAndUpdateOverallProgress_RF(); // async
+
+            // Listener para el botón de pantalla completa de la salida de código
+            if (fullscreenButton_RF && codeOutput_RF && outputControlsContainer_RF) {
+                fullscreenButton_RF.addEventListener('click', () => {
+                    const isFullscreen = codeOutput_RF.classList.contains('rf-output-fullscreen');
+                    
+                    if (isFullscreen) {
+                        // === EXITING FULLSCREEN ===
+                        outputControlsContainer_RF.style.opacity = '0'; // Fade out container
+                        if(increaseFontButton_RF) increaseFontButton_RF.style.display = 'none'; // Hide buttons immediately
+                        if(decreaseFontButton_RF) decreaseFontButton_RF.style.display = 'none';
+
+                        if (rfCodeOutputInitialRect) {
+                            const finalRect = codeOutput_RF.getBoundingClientRect();
+                            const scaleX = rfCodeOutputInitialRect.width / finalRect.width;
+                            const scaleY = rfCodeOutputInitialRect.height / finalRect.height;
+                            const deltaX = (rfCodeOutputInitialRect.left + rfCodeOutputInitialRect.width / 2) - (finalRect.left + finalRect.width / 2);
+                            const deltaY = (rfCodeOutputInitialRect.top + rfCodeOutputInitialRect.height / 2) - (finalRect.top + finalRect.height / 2);
+                            codeOutput_RF.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+                        }
+
+                        setTimeout(() => {
+                            codeOutput_RF.style.transition = 'none'; 
+                            codeOutput_RF.classList.remove('rf-output-fullscreen');
+                            document.body.classList.remove('rf-body-fullscreen-active');
+                            
+                            outputControlsContainer_RF.classList.remove('rf-output-controls-container-fixed');
+                            outputControlsContainer_RF.style.transition = 'none'; 
+                            outputControlsContainer_RF.style.opacity = '1'; // Restore opacity for non-fullscreen
+                            outputControlsContainer_RF.offsetHeight; 
+                            outputControlsContainer_RF.style.transition = ''; 
+
+                            codeOutput_RF.style.transform = '';
+                            if (originalOutputFontSize_RF) { 
+                                codeOutput_RF.style.fontSize = originalOutputFontSize_RF;
+                            }
+                            codeOutput_RF.offsetHeight; 
+                            codeOutput_RF.style.transition = ''; 
+
+                            fullscreenButton_RF.innerHTML = `
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15" />
+                                </svg>
+                            `;
+                            fullscreenButton_RF.title = "Ver en pantalla completa";
+                            rfCodeOutputInitialRect = null; 
+                        }, 500); 
+
+                    } else {
+                        // === ENTERING FULLSCREEN ===
+                        originalOutputFontSize_RF = window.getComputedStyle(codeOutput_RF).fontSize;
+                        rfCodeOutputInitialRect = codeOutput_RF.getBoundingClientRect(); 
+                        
+                        outputControlsContainer_RF.style.transition = 'none'; 
+                        outputControlsContainer_RF.style.opacity = '0';     
+                        outputControlsContainer_RF.offsetHeight; 
+                        outputControlsContainer_RF.style.transition = ''; 
+
+                        codeOutput_RF.style.transition = 'none'; 
+                        codeOutput_RF.classList.add('rf-output-fullscreen');
+                        document.body.classList.add('rf-body-fullscreen-active');
+                        outputControlsContainer_RF.classList.add('rf-output-controls-container-fixed'); 
+                        
+                        const finalRect = codeOutput_RF.getBoundingClientRect(); 
+                        const scaleX = rfCodeOutputInitialRect.width / finalRect.width;
+                        const scaleY = rfCodeOutputInitialRect.height / finalRect.height;
+                        const deltaX = (rfCodeOutputInitialRect.left + rfCodeOutputInitialRect.width / 2) - (finalRect.left + finalRect.width / 2);
+                        const deltaY = (rfCodeOutputInitialRect.top + rfCodeOutputInitialRect.height / 2) - (finalRect.top + finalRect.height / 2);
+                        codeOutput_RF.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+                        
+                        codeOutput_RF.offsetHeight; 
+                        codeOutput_RF.style.transition = ''; 
+                        codeOutput_RF.style.transform = 'translate(0px, 0px) scale(1)'; 
+
+                        fullscreenButton_RF.innerHTML = `
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9V4.5M15 9h4.5M15 9l5.25-5.25M15 15v4.5M15 15h4.5M15 15l5.25 5.25" />
+                            </svg>
+                        `;
+                        fullscreenButton_RF.title = "Salir de pantalla completa";
+                        
+                        setTimeout(() => {
+                            outputControlsContainer_RF.style.opacity = '1'; // Fade in container
+                            if(increaseFontButton_RF) increaseFontButton_RF.style.display = 'inline-flex';
+                            if(decreaseFontButton_RF) decreaseFontButton_RF.style.display = 'inline-flex';
+                        }, 500); 
+                    }
+                });
+            }
+
+            if (increaseFontButton_RF && codeOutput_RF) {
+                increaseFontButton_RF.addEventListener('click', () => {
+                    if (codeOutput_RF.classList.contains('rf-output-fullscreen')) {
+                        let currentSize = parseFloat(window.getComputedStyle(codeOutput_RF).fontSize);
+                        if (currentSize < MAX_FONT_SIZE_PX_RF) {
+                            codeOutput_RF.style.fontSize = (currentSize + FONT_SIZE_STEP_PX_RF) + 'px';
+                            // Animar botón AA
+                            increaseFontButton_RF.classList.add('rf-font-button-flash-blue');
+                            setTimeout(() => {
+                                increaseFontButton_RF.classList.remove('rf-font-button-flash-blue');
+                            }, 400); // Duración de la animación
+                        }
+                    }
+                });
+            }
+
+            if (decreaseFontButton_RF && codeOutput_RF) {
+                decreaseFontButton_RF.addEventListener('click', () => {
+                    if (codeOutput_RF.classList.contains('rf-output-fullscreen')) {
+                        let currentSize = parseFloat(window.getComputedStyle(codeOutput_RF).fontSize);
+                        if (currentSize > MIN_FONT_SIZE_PX_RF) {
+                            codeOutput_RF.style.fontSize = (currentSize - FONT_SIZE_STEP_PX_RF) + 'px';
+                            // Animar botón aa
+                            decreaseFontButton_RF.classList.add('rf-font-button-flash-red');
+                            setTimeout(() => {
+                                decreaseFontButton_RF.classList.remove('rf-font-button-flash-red');
+                            }, 400); // Duración de la animación
+                        }
+                    }
+                });
+            }
+            // Ocultar botones de fuente inicialmente, ya que solo funcionan en fullscreen
+            if(increaseFontButton_RF) increaseFontButton_RF.style.display = 'none';
+            if(decreaseFontButton_RF) decreaseFontButton_RF.style.display = 'none';
+        })(); // Correctly invoke the IIAFE
+    }); // Closes DOMContentLoaded listener
+    </script>
+    <!-- END RF SCRIPT -->
+
+    <!-- Vue App Initialization Script -->
+    <script type="module">
+        const { createApp, ref, onMounted, onUnmounted, watch, nextTick } = Vue;
+
+        const LeftSidebarRF = { // Unique component name
+            template: `{% raw %}
+                <aside :class="[
+                    'bg-gradient-to-b from-red-500 to-red-700', 'shadow-xl', 'rounded-lg', 'p-4',
+                    'flex', 'flex-col',
+                    'transition-all', 'duration-300', 'ease-in-out',
+                    'order-1',
+                    isCollapsed ? 'w-full lg:w-20' : 'w-full lg:w-64',
+                    'self-start',
+                    'lg:sticky', 'lg:top-8',
+                    'lg:max-h-[calc(100vh-4rem)]',
+                    'overflow-y-auto'
+                ]">
+                    <div class="flex justify-between items-center mb-4 border-b border-red-400 pb-3">
+                        <h3 v-show="!isCollapsed" class="text-lg font-semibold text-white select-none">Contenido</h3>
+                        <button @click="toggleCollapse" class="p-1.5 ml-2 text-white hover:bg-red-700 rounded focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-75" :aria-label="isCollapsed ? 'Expandir menú' : 'Colapsar menú'">
+                            <svg v-if="!isCollapsed" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5" /></svg>
+                            <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5m-6-15l7.5 7.5-7.5 7.5" /></svg>
+                        </button>
+                    </div>
+                    <nav v-show="!isCollapsed">
+                        <ul class="space-y-1">
+                            <li v-for="item in navItems" :key="item.id">
+                                <a :href="item.href" @click.prevent="smoothScroll(item.href)"
+                                   :class="['nav-link block px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 flex items-center', isActive(item.id) ? 'bg-white text-custom-blue font-semibold shadow-sm' : 'text-red-100 hover:bg-red-700 hover:text-white']">
+                                    <span v-html="item.iconSVG" class="mr-3 translate-y-px"></span>
+                                    <span>{{ item.text }}</span>
+                                </a></li></ul></nav>
+                    <nav v-show="isCollapsed" class="mt-4">
+                         <ul class="space-y-1">
+                            <li v-for="item in navItems" :key="item.id + '-collapsed'">
+                                <a :href="item.href" @click.prevent="smoothScroll(item.href)" :title="item.text" :aria-label="item.text"
+                                   :class="['nav-link-collapsed block py-2 pl-2.5 pr-1.5 rounded-md transition-colors duration-150 flex justify-center items-center', isActive(item.id) ? 'bg-white text-custom-blue shadow-sm' : 'text-red-100 hover:bg-red-700 hover:text-white']">
+                                    <span v-html="item.iconSVG" class="w-6 h-6 translate-y-px"></span>
+                                </a></li></ul></nav></aside>{% endraw %}`,
+            setup() {
+                const isCollapsed = ref(false);
+                const activeSectionId = ref('teoria-rf'); // Default active section
+                const navItems = ref([
+                    { id: 'teoria-rf', text: 'Fundamento Teórico', href: '#teoria-rf', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>' },
+                    { id: 'algoritmo-rf', text: 'Pasos del Algoritmo', href: '#algoritmo-rf', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" /></svg>' },
+                    { id: 'ejemplo-rf', text: 'Ejemplo Detallado', href: '#ejemplo-rf', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>' },
+                    { id: 'codigo-rf', text: 'Implementación (Python)', href: '#codigo-rf', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" /></svg>' },
+                    { id: 'graficas-rf', text: 'Gráficas Interactivas', href: '#graficas-rf', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>' },
+                    { id: 'videos-rf', text: 'Videos Explicativos', href: '#videos-rf', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.75.75 0 010 1.656l-5.603 3.113A.75.75 0 019 15.95V9.05a.75.75 0 011.307-.588l5.603 3.112z" /></svg>' },
+                    { id: 'conclusion-rf', text: 'Conclusión', href: '#conclusion-rf', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' },
+                    { id: 'referencias-rf', text: 'Referencias', href: '#referencias-rf', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 3.75V16.5L12 14.25L7.5 16.5V3.75m9 0H18A2.25 2.25 0 0120.25 6v12A2.25 2.25 0 0118 20.25H6A2.25 2.25 0 013.75 18V6A2.25 2.25 0 016 3.75h1.5m9 0h-9" /></svg>' },
+                    { id: 'cuestionario-rf', text: 'Cuestionario', href: '#cuestionario-rf', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' }
+                ]);
+                let sections = [];
+                const toggleCollapse = () => isCollapsed.value = !isCollapsed.value;
+                const isActive = (id) => activeSectionId.value === id;
+                const smoothScroll = (targetHref) => {
+                    const targetId = targetHref.substring(1);
+                    const targetElement = document.getElementById(targetId);
+                    if (targetElement) {
+                        targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+                        history.pushState(null, null, targetHref); 
+                    }
+                };
+                const handleScroll = () => {
+                    if (!sections.length) return;
+                    const scrollMarginTopValue = parseInt(getComputedStyle(sections[0]).scrollMarginTop) || 96;
+                    let newActiveSectionId = null;
+                    for (let i = 0; i < sections.length; i++) {
+                        const section = sections[i];
+                        const sectionTopBoundary = section.offsetTop - scrollMarginTopValue;
+                        const sectionBottomBoundary = sectionTopBoundary + section.offsetHeight;
+                        if (window.scrollY >= sectionTopBoundary && window.scrollY < sectionBottomBoundary) {
+                            newActiveSectionId = section.id; break;
+                        }
+                    }
+                    if (newActiveSectionId === null) {
+                        for (let i = sections.length - 1; i >= 0; i--) {
+                            if ((sections[i].offsetTop - scrollMarginTopValue) <= window.scrollY + 5) {
+                                newActiveSectionId = sections[i].id; break;
+                            }
+                        }
+                    }
+                    if (newActiveSectionId === null && sections.length > 0 && window.scrollY < (sections[0].offsetTop - scrollMarginTopValue)) {
+                       newActiveSectionId = sections[0].id;
+                    }
+                    if (activeSectionId.value !== newActiveSectionId) activeSectionId.value = newActiveSectionId;
+                };
+                onMounted(() => {
+                    nextTick(() => {
+                        sections = Array.from(document.querySelectorAll('main article section[id]'));
+                        handleScroll(); 
+                        window.addEventListener('scroll', handleScroll, { passive: true });
+                    });
+                });
+                onUnmounted(() => window.removeEventListener('scroll', handleScroll));
+                return { isCollapsed, toggleCollapse, navItems, isActive, smoothScroll, activeSectionId };
+            }
+        };
+
+        const appRF = createApp({ // Unique app instance name
+            setup() {
+                const METHOD_KEY_RF_VUE = "regla-falsa"; 
+                const METHOD_NAME_TITLE_CASE_RF_VUE = "Regla Falsa";
+                // Props for LeftSidebarRF, if any, would be managed here.
+                // For now, LeftSidebarRF is self-contained like Bisección's.
+                return { METHOD_KEY_RF_VUE, METHOD_NAME_TITLE_CASE_RF_VUE };
+            }
+        });
+        appRF.component('left-sidebar-rf', LeftSidebarRF); // Register with unique name
+        appRF.config.compilerOptions.isCustomElement = tag => tag.startsWith('mjx-');
+        appRF.mount('#app-rf'); // Mount to unique ID
+    </script>
+
+    <!-- Script para controlar el preloader -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Forzar un tiempo mínimo de carga para el preloader
+            const MIN_LOADING_TIME = 1800; // Aumentado para dar más tiempo a los componentes Vue
+            const loadStartTime = Date.now();
+            
+            // Bandera para verificar si Vue está listo
+            window.vueReady = false;
+            
+            // Ocultar el preloader y mostrar el contenido cuando todo esté cargado
+            const revealContent = function() {
+                // Verificar si Vue está listo
+                if (!window.vueReady) {
+                    console.log('Esperando a que Vue esté listo...');
+                    setTimeout(revealContent, 100);
+                    return;
+                }
+                
+                const timeElapsed = Date.now() - loadStartTime;
+                const additionalWait = Math.max(0, MIN_LOADING_TIME - timeElapsed);
+                
+                // Esperar al menos el tiempo mínimo de carga
+                setTimeout(function() {
+                    // Primero hacer visible pero con opacidad 0
+                    document.body.classList.add('content-ready');
+                    
+                    // Luego de un breve momento, hacer la transición de opacidad
+                    setTimeout(function() {
+                        document.body.classList.add('loaded');
+                        const preloader = document.getElementById('sidebar-preloader');
+                        if (preloader) {
+                            preloader.classList.add('hidden');
+                        }
+                    }, 100);
+                }, additionalWait);
+            };
+            
+            // Ejecutar después de la carga de la ventana
+            window.addEventListener('load', function() {
+                // Asegurar que MathJax termine de renderizar (si existe)
+                if (window.MathJax && window.MathJax.typesetPromise) {
+                    window.MathJax.typesetPromise().then(function() {
+                        // Añadir demora adicional para contenido dinámico
+                        setTimeout(revealContent, 800); // Aumentado para dar más tiempo
+                    });
+                } else {
+                    // Si no hay MathJax, añadir demora de todos modos
+                    setTimeout(revealContent, 1000); // Aumentado para dar más tiempo
+                }
+            });
+            
+            // Como respaldo, si la carga tarda demasiado, mostrar el contenido
+            setTimeout(function() {
+                if (!document.body.classList.contains('loaded')) {
+                    console.log('Activando temporizador de respaldo');
+                    window.vueReady = true; // Forzar que Vue se considere listo
+                    document.body.classList.add('content-ready');
+                    setTimeout(function() {
+                        document.body.classList.add('loaded');
+                        const preloader = document.getElementById('sidebar-preloader');
+                        if (preloader) {
+                            preloader.classList.add('hidden');
+                        }
+                        console.log('Fallback timer triggered for page load');
+                    }, 100);
+                }
+            }, 3000); // Aumentado a 3 segundos para dar más tiempo
+        });
+    </script>
+    
+    <script>
+        // Cuando la aplicación Vue esté montada, marcar como listo
+        document.addEventListener('DOMContentLoaded', function() {
+            // Dar tiempo para que Vue se monte completamente
+            setTimeout(function() {
+                window.vueReady = true;
+                console.log('Vue marcado como listo');
+            }, 500);
+        });
+    </script>
+</body>
+</html>

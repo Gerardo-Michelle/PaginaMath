@@ -1,0 +1,1709 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jacobi - Métodos Numéricos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'custom-blue': '#242A38',
+                        'custom-red': '#E94560',
+                        'custom-gray-bg': '#F3F4F6',
+                        'sidebar-bg': '#FFFFFF',
+                        'sidebar-text': '#4B5563',
+                        'sidebar-hover-bg': '#FEF2F2',
+                    }
+                }
+            }
+        }
+    </script>
+    <script>
+        window.MathJax = {
+            tex: { packages: {'[+]': ['input/mml', 'output/chtml']} },
+            chtml: { matchFontHeight: false },
+            options: { ignoreHtmlClass: 'tex2jax_ignore', processHtmlClass: 'tex2jax_process' }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        @keyframes animatedRainbowBorder { 0% { background-position: 0% center; } 100% { background-position: 200% center; } }
+        .animate-rainbow-border::before {
+            content: ''; position: absolute; z-index: -1; top: -2px; left: -2px; right: -2px; bottom: -2px;
+            border-radius: 9999px;
+            background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #007bff, #8a2be2, #ff00ff, #ff0000);
+            background-size: 200% 100%;
+            animation: animatedRainbowBorder 3s linear infinite;
+        }
+        .animate-rainbow-border { position: relative; z-index: 0; }
+        .correct-answer-jac { border-color: #10B981; background-color: #D1FAE5; }
+        .incorrect-answer-jac { border-color: #EF4444; background-color: #FEE2E2; }
+
+        .jac-output-fullscreen {
+            position: fixed !important; top: 0 !important; left: 0 !important;
+            width: 100vw !important; height: 100vh !important;
+            z-index: 9990 !important; background-color: #111827 !important;
+            padding: 20px !important; margin: 0 !important; border-radius: 0 !important;
+            overflow-y: auto !important; max-height: 100vh !important;
+        }
+        .jac-body-fullscreen-active { overflow: hidden !important; }
+        .jac-output-controls-container-fixed {
+            position: fixed !important; top: 15px !important; right: 15px !important;
+            z-index: 9999 !important; display: flex !important;
+            align-items: center !important; gap: 0.25rem !important;
+        }
+        .jac-font-button-flash-red { animation: jac-flash-red 0.4s ease-out; }
+        @keyframes jac-flash-red { 0% { background-color: #EF4444; } 100% { background-color: #374151; } }
+        .jac-font-button-flash-blue { animation: jac-flash-blue 0.4s ease-out; }
+        @keyframes jac-flash-blue { 0% { background-color: #3B82F6; } 100% { background-color: #374151; } }
+
+        .iteration-log-table { border-collapse: collapse; margin: 10px auto; font-family: monospace; font-size:0.9em; width: 90%; }
+        .iteration-log-table th, .iteration-log-table td { border: 1px solid #555; padding: 6px 10px; text-align: center; }
+        .iteration-log-table th { background-color: #333; font-weight:normal; }
+        .step-description { margin-top:15px; margin-bottom:5px; font-style: italic; text-align:center; font-size:0.9em;}
+
+        #jac-d3-charts-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+        .jac-d3-chart {
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background-color: #fff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        #jac-d3-svg-convergence-container .axis path,
+        #jac-d3-svg-convergence-container .axis line,
+        #jac-d3-svg-error-container .axis path,
+        #jac-d3-svg-error-container .axis line {
+            fill: none;
+            stroke: #333;
+            shape-rendering: crispEdges;
+        }
+        #jac-d3-svg-convergence-container .axis text,
+        #jac-d3-svg-error-container .axis text {
+            font-family: 'Inter', sans-serif;
+            font-size: 0.75em;
+            fill: #555;
+        }
+        #jac-d3-svg-convergence-container .line,
+        #jac-d3-svg-error-container .line {
+            fill: none;
+            stroke-width: 2px;
+        }
+        .jac-d3-tooltip {
+            position: absolute;
+            text-align: center;
+            padding: 6px;
+            font-size: 12px;
+            background: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .jac-d3-legend {
+            font-family: 'Inter', sans-serif;
+            font-size: 0.8em;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 5px;
+        }
+        .jac-d3-legend-item {
+            display: flex;
+            align-items: center;
+        }
+        .jac-d3-legend-color {
+            width: 12px;
+            height: 12px;
+            margin-right: 5px;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body class="bg-custom-gray-bg text-gray-700 font-sans antialiased">
+    <div id="app-jac">
+        <header class="bg-custom-blue text-white shadow-md">
+            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                <h1 class="text-xl font-semibold"><a href="../index.html" class="hover:text-gray-300">Métodos Numéricos</a></h1>
+                <nav><a href="../index.html#method-cards-container" class="text-sm px-4 py-2 rounded-md hover:bg-gray-700 transition-colors duration-150">Volver a Métodos</a></nav>
+            </div>
+        </header>
+
+        <div class="container mx-auto mt-8 mb-8 flex flex-col lg:flex-row lg:space-x-8 px-4">
+            <left-sidebar-jac></left-sidebar-jac>
+            <main class="w-full flex-1 min-w-0 bg-white shadow-xl rounded-lg p-6 md:p-8 order-2 mb-6 lg:mb-0">
+                <article class="method-content">
+                    <h2 class="text-3xl font-bold mb-6 text-gray-800 border-b border-gray-200 pb-4">Método de Jacobi</h2>
+
+                    <section id="teoria-jac" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Fundamento Teórico</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            El método de Jacobi es un algoritmo iterativo utilizado para determinar las soluciones de un sistema de ecuaciones lineales \(Ax = b\). Es uno de los métodos iterativos más sencillos conceptualmente. Se basa en despejar cada variable de una ecuación del sistema y luego actualizar todas las variables simultáneamente en cada paso de iteración, utilizando únicamente los valores de las variables de la iteración anterior.
+                        </p>
+
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Dado un sistema de \(n\) ecuaciones lineales con \(n\) incógnitas:
+                        </p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ a_{i1}x_1 + a_{i2}x_2 + \dots + a_{ii}x_i + \dots + a_{in}x_n = b_i \]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Si el elemento diagonal \(a_{ii} \neq 0\), podemos despejar \(x_i\) de la \(i\)-ésima ecuación. La fórmula de iteración para cada componente \(x_i\) en la iteración \((k+1)\) es:
+                        </p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ x_i^{(k+1)} = \frac{1}{a_{ii}} \left( b_i - \sum_{j=1, j \neq i}^{n} a_{ij}x_j^{(k)} \right) \]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Donde \(k\) es el índice de la iteración. Es crucial observar que, a diferencia del método de Gauss-Seidel, el método de Jacobi calcula todas las componentes del nuevo vector \(x^{(k+1)}\) basándose exclusivamente en los valores del vector \(x^{(k)}\) de la iteración previa. Esto significa que los valores actualizados \(x_1^{(k+1)}, x_2^{(k+1)}, \dots\) no se utilizan para calcular otras componentes dentro de la misma iteración \((k+1)\) hasta que esta se complete y se pase a la siguiente.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed">
+                            La convergencia del método de Jacobi está garantizada si la matriz A es estrictamente diagonal dominante (es decir, para cada fila, el valor absoluto del elemento diagonal es mayor que la suma de los valores absolutos de los demás elementos de la fila). Aunque esta es una condición suficiente, el método puede converger en otros casos. Generalmente, si tanto el método de Jacobi como el de Gauss-Seidel convergen, Gauss-Seidel suele hacerlo más rápidamente.
+                        </p>
+                    </section>
+
+                    <section id="algoritmo-jac" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Pasos del Algoritmo</h3>
+                        <ol class="list-decimal list-inside space-y-3 pl-4 text-gray-600 leading-relaxed">
+                            <li>
+                                <strong>Verificar Diagonal (Opcional, pero recomendado):</strong> Comprobar si la matriz A es estrictamente diagonal dominante. Si no lo es, intentar reordenar las filas (y correspondientemente el vector b) para lograrlo, si es posible. Esto mejora la probabilidad y velocidad de convergencia.
+                            </li>
+                            <li>
+                                <strong>Aproximación Inicial:</strong> Elegir un vector de aproximación inicial \(x^{(0)}\). Es común usar un vector de ceros: \(x^{(0)} = [0, 0, \dots, 0]^T\).
+                            </li>
+                            <li>
+                                <strong>Definir Criterios de Parada:</strong> Establecer una tolerancia \(\epsilon\) (error máximo admisible para la solución) y un número máximo de iteraciones \(N_{max}\).
+                            </li>
+                            <li>
+                                <strong>Iterar:</strong> Para \(k = 0, 1, 2, \dots, N_{max}-1\):
+                                <ol type="a" class="list-[lower-alpha] list-inside space-y-2 pl-6 mt-2">
+                                    <li>
+                                        Crear un nuevo vector temporal, \(x_{nuevo}^{(k+1)}\), para almacenar los valores calculados en esta iteración.
+                                    </li>
+                                    <li>
+                                        Para cada incógnita \(i = 1, 2, \dots, n\) (donde \(n\) es el número de ecuaciones):
+                                        <ol type="i" class="list-roman list-inside space-y-1 pl-4 mt-1">
+                                            <li>
+                                                Calcular la suma de los términos que involucran los valores de la iteración anterior:
+                                                <br>\( \sigma = \sum_{j=1, j \neq i}^{n} a_{ij}x_j^{(k)} \)
+                                            </li>
+                                            <li>
+                                                Actualizar la componente \(i\) en el vector temporal:
+                                                <br>Si \(a_{ii} \neq 0\), entonces \( x_{nuevo,i}^{(k+1)} = \frac{1}{a_{ii}} (b_i - \sigma) \).
+                                                <br>Si \(a_{ii} = 0\), el método falla (o requiere un reordenamiento previo que no se hizo).
+                                            </li>
+                                        </ol>
+                                    </li>
+                                    <li>
+                                        <strong>Verificar Convergencia:</strong> Calcular el error entre el vector solución recién calculado \(x_{nuevo}^{(k+1)}\) y el anterior \(x^{(k)}\). Una medida común es la norma infinito:
+                                        <br>\( \text{Error} = \max_{1 \le i \le n} |x_{nuevo,i}^{(k+1)} - x_i^{(k)}| \)
+                                    </li>
+                                    <li>
+                                        <strong>Actualizar el vector solución:</strong> Asignar \(x^{(k+1)} = x_{nuevo}^{(k+1)}\).
+                                    </li>
+                                    <li>
+                                        Si \(\text{Error} < \epsilon\), el proceso ha convergido. La solución aproximada es \(x^{(k+1)}\). Detener.
+                                    </li>
+                                </ol>
+                            </li>
+                            <li>
+                                <strong>Resultado:</strong> Si se alcanza \(N_{max}\) sin que el error sea menor que \(\epsilon\), el método no convergió en el número de iteraciones permitido. Se puede reportar la última aproximación \(x^{(N_{max})}\) y una advertencia.
+                            </li>
+                        </ol>
+                    </section>
+
+                    <section id="ejemplo-jac" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Ejemplo Paso a Paso</h3>
+                        <p class="text-gray-600 leading-relaxed mb-3"><strong>Problema:</strong> Resolver el sistema con el método de Jacobi, usando \(x^{(0)} = [0, 0, 0]^T\) y una tolerancia \(\epsilon = 0.1\).</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                            \(5x_1 - x_2 + 2x_3 = 12\)<br>
+                            \(3x_1 + 8x_2 - 2x_3 = -25\)<br>
+                            \(x_1 + x_2 + 4x_3 = 6\)
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mb-2"><strong>Ecuaciones de iteración (Jacobi):</strong></p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                            \(x_1^{(k+1)} = \frac{1}{5} (12 + x_2^{(k)} - 2x_3^{(k)})\)<br>
+                            \(x_2^{(k+1)} = \frac{1}{8} (-25 - 3x_1^{(k)} + 2x_3^{(k)})\)<br>
+                            \(x_3^{(k+1)} = \frac{1}{4} (6 - x_1^{(k)} - x_2^{(k)}) \)
+                        </div>
+
+                        <p class="font-medium text-gray-700 mb-1"><strong>Iteración 1 (k=0):</strong> Usando \(x^{(0)} = [0, 0, 0]^T\)</p>
+                        <ul class="list-disc list-inside space-y-1 pl-4 text-gray-600">
+                            <li>\(x_1^{(1)} = \frac{1}{5} (12 + 0 - 2 \cdot 0) = \frac{12}{5} = 2.4\)</li>
+                            <li>\(x_2^{(1)} = \frac{1}{8} (-25 - 3 \cdot 0 + 2 \cdot 0) = \frac{-25}{8} = -3.125\)</li>
+                            <li>\(x_3^{(1)} = \frac{1}{4} (6 - 0 - 0) = \frac{6}{4} = 1.5\)</li>
+                        </ul>
+                        <p class="text-gray-600 leading-relaxed mt-1">\(x^{(1)} = [2.4, -3.125, 1.5]^T\).</p>
+                        <p class="text-gray-600 leading-relaxed">Error \(= \max(|2.4-0|, |-3.125-0|, |1.5-0|) = 3.125\). (Error \(> \epsilon\))</p>
+
+                        <p class="font-medium text-gray-700 mb-1 mt-3"><strong>Iteración 2 (k=1):</strong> Usando \(x^{(1)} = [2.4, -3.125, 1.5]^T\)</p>
+                        <ul class="list-disc list-inside space-y-1 pl-4 text-gray-600 break-words overflow-x-auto">
+                            <li>\(x_1^{(2)} = \frac{1}{5} (12 + (-3.125) - 2(1.5)) = \frac{12 - 3.125 - 3}{5} = \frac{5.875}{5} = 1.175\)</li>
+                            <li>\(x_2^{(2)} = \frac{1}{8} (-25 - 3(2.4) + 2(1.5)) = \frac{-25 - 7.2 + 3}{8} = \frac{-29.2}{8} = -3.65\)</li>
+                            <li>\(x_3^{(2)} = \frac{1}{4} (6 - 2.4 - (-3.125)) = \frac{6 - 2.4 + 3.125}{4} = \frac{6.725}{4} = 1.68125\)</li>
+                        </ul>
+                        <p class="text-gray-600 leading-relaxed mt-1 break-words overflow-x-auto">\(x^{(2)} \approx [1.175, -3.65, 1.68125]^T\).</p>
+                        <p class="text-gray-600 leading-relaxed break-words overflow-x-auto">Error \(= \max(|1.175 - 2.4|, |-3.65 - (-3.125)|, |1.68125 - 1.5|) = \max(1.225, 0.525, 0.18125) = 1.225\). (Error \(> \epsilon\))</p>
+
+                        <p class="font-medium text-gray-700 mb-1 mt-3"><strong>Iteración 3 (k=2):</strong> Usando \(x^{(2)} = [1.175, -3.65, 1.68125]^T\)</p>
+                        <ul class="list-disc list-inside space-y-1 pl-4 text-gray-600 break-words overflow-x-auto">
+                            <li>\(x_1^{(3)} = \frac{1}{5} (12 + (-3.65) - 2(1.68125)) = \frac{12 - 3.65 - 3.3625}{5} = \frac{4.9875}{5} = 0.9975\)</li>
+                            <li>\(x_2^{(3)} = \frac{1}{8} (-25 - 3(1.175) + 2(1.68125)) = \frac{-25 - 3.525 + 3.3625}{8} = \frac{-25.1625}{8} \approx -3.14531\)</li>
+                            <li>\(x_3^{(3)} = \frac{1}{4} (6 - 1.175 - (-3.65)) = \frac{6 - 1.175 + 3.65}{4} = \frac{8.475}{4} = 2.11875\)</li>
+                        </ul>
+                        <p class="text-gray-600 leading-relaxed mt-1 break-words overflow-x-auto">\(x^{(3)} \approx [0.9975, -3.14531, 2.11875]^T\).</p>
+                         <p class="text-gray-600 leading-relaxed break-words overflow-x-auto">Error \(= \max(|0.9975 - 1.175|, |-3.14531 - (-3.65)|, |2.11875 - 1.68125|) = \max(0.1775, 0.50469, 0.4375) \approx 0.50469\). (Error \(> \epsilon\))</p>
+
+                        <p class="text-gray-600 leading-relaxed mt-2">El proceso continúa. La solución exacta es \(x_1=1, x_2=-3, x_3=2\). Jacobi converge más lentamente que Gauss-Seidel para este sistema.</p>
+                    </section>
+
+                    <section id="codigo-jac" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Código de Implementación (Python)</h3>
+                        <p class="text-gray-600 leading-relaxed mb-3">
+                            El siguiente código implementa el método de Jacobi. Puedes modificar la matriz `A_matrix`, el vector `b_vector`, la estimación inicial `x_initial`, la tolerancia `tol` y el número máximo de iteraciones `max_iter` en el código para resolver diferentes sistemas.
+                        </p>
+                        <div class="code-editor-container bg-gray-50 p-4 rounded-lg shadow-inner">
+                            <textarea id="jac-code-input" class="code-input w-full h-[600px] p-3 border border-gray-300 rounded-md font-mono text-sm" style="resize: none;">
+import numpy as np
+
+def format_iteration_html_jac(iter_num, x_vector, error, num_vars, precision=6):
+    x_cols = "".join([f"<th>x<sub>{i+1}</sub></th>" for i in range(num_vars)])
+    x_vals = "".join([f"<td>{val:.{precision}f}</td>" for val in x_vector])
+    error_val_str = f"{error:.{precision}e}" if error is not None else "N/A"
+
+    html = f"""
+    <table class="iteration-log-table">
+        <thead><tr><th>Iteración</th>{x_cols}<th>Error</th></tr></thead>
+        <tbody><tr><td>{iter_num}</td>{x_vals}<td>{error_val_str}</td></tr></tbody>
+    </table>
+    """
+    return html
+
+def jacobi_solve_pyodide(A_matrix_str, b_vector_str, x_initial_str="None", tol_str="1e-7", max_iter_str="100"):
+    html_log_parts = []
+    visualization_steps = [] # For D3.js
+
+    try:
+        A_list = eval(A_matrix_str)
+        b_list = eval(b_vector_str)
+        A = np.array(A_list, dtype=float)
+        b_vec = np.array(b_list, dtype=float)
+        n = len(b_vec)
+
+        if x_initial_str.lower() == "none" or not x_initial_str:
+            x = np.zeros(n, dtype=float)
+        else:
+            x_initial_list = eval(x_initial_str)
+            x = np.array(x_initial_list, dtype=float)
+            if len(x) != n:
+                 raise ValueError(f"La longitud del vector inicial x ({len(x)}) no coincide con el número de variables ({n}).")
+
+        tol = float(tol_str)
+        max_iter = int(max_iter_str)
+    except Exception as e:
+        error_msg = f'<p style="color: red; text-align:center;">Error parseando entradas: {e}. Asegúrate que las matrices y vectores estén en formato Python, ej: A=[[1,2],[3,4]], b=[5,6], x_initial=[0,0].</p>'
+        return None, error_msg, []
+
+    if A.shape[0] != n or A.shape[1] != n:
+        return None, '<p style="color: red; text-align:center;">Error: La matriz A debe ser cuadrada y compatible con b.</p>', []
+
+    diag_A_vals = np.diag(A)
+    if np.any(np.abs(diag_A_vals) < 1e-12):
+        desc_zero_diag = "Error: Uno o más elementos de la diagonal principal son cero (o muy cercanos a cero). El método de Jacobi no puede continuar."
+        html_log_parts.append(f'<p style="color: red; text-align:center;">{desc_zero_diag}</p>')
+        visualization_steps.append({
+            "iteration": 0, "x_vector": x.tolist(), "error": np.nan,
+            "description": desc_zero_diag, "type": "error_stop"
+        })
+        return None, "".join(html_log_parts), visualization_steps
+
+    # Check for diagonal dominance (sufficient, not necessary condition)
+    diag_A_abs = np.abs(diag_A_vals)
+    sum_abs_off_diag = np.sum(np.abs(A), axis=1) - diag_A_abs
+    if not np.all(diag_A_abs > sum_abs_off_diag):
+        html_log_parts.append('<p class="step-description" style="color: orange;">Advertencia: La matriz A no es estrictamente diagonal dominante. La convergencia no está garantizada.</p>')
+
+    html_log_parts.append('<p class="step-description">Iteración 0 (Valores Iniciales):</p>')
+    html_log_parts.append(format_iteration_html_jac(0, x, None, n))
+    visualization_steps.append({
+        "iteration": 0,
+        "x_vector": x.copy().tolist(),
+        "error": None,
+        "description": f"Valores iniciales: x = {x.round(5).tolist()}"
+    })
+
+    x_new = np.zeros_like(x)
+
+    for k_iter in range(max_iter):
+        x_old = x.copy() # Store previous iteration's x
+        iter_description_parts = [f"Iteración {k_iter+1}:"]
+
+        for i_eq in range(n):
+            sigma = 0
+            for j_col in range(n):
+                if i_eq != j_col:
+                    sigma += A[i_eq, j_col] * x_old[j_col] # Use x_old for ALL components
+
+            x_new[i_eq] = (b_vec[i_eq] - sigma) / A[i_eq, i_eq]
+            iter_description_parts.append(f"  x_nuevo<sub>{i_eq+1}</sub> calculado como {x_new[i_eq]:.6f} (usando x_old)")
+
+        x = x_new.copy() # Update x with all new values simultaneously
+        current_error = np.linalg.norm(x - x_old, np.inf) # Infinity norm for error
+
+        html_log_parts.append(f'<p class="step-description">Iteración {k_iter+1}:</p>')
+        html_log_parts.append(format_iteration_html_jac(k_iter + 1, x, current_error, n))
+
+        visualization_steps.append({
+            "iteration": k_iter + 1,
+            "x_vector": x.copy().tolist(),
+            "x_old_vector": x_old.copy().tolist(),
+            "error": current_error,
+            "description": "\n".join(iter_description_parts) + f"\nError: {current_error:.6e}",
+            "type": "iteration_step"
+        })
+
+        if current_error < tol:
+            success_msg = f"Convergencia alcanzada después de {k_iter+1} iteraciones."
+            html_log_parts.append(f'<p class="step-description" style="color: green; font-weight:bold;">{success_msg}</p>')
+            visualization_steps.append({
+                "iteration": k_iter + 1, "x_vector": x.tolist(), "error": current_error,
+                "description": success_msg, "type": "converged"
+            })
+            return x, "".join(html_log_parts), visualization_steps
+
+        if np.isnan(current_error) or np.isinf(current_error):
+            fail_msg = f"Divergencia detectada en la iteración {k_iter+1} (error es NaN o Inf)."
+            html_log_parts.append(f'<p class="step-description" style="color: red; font-weight:bold;">{fail_msg}</p>')
+            visualization_steps.append({
+                "iteration": k_iter + 1, "x_vector": x.tolist(), "error": np.nan,
+                "description": fail_msg, "type": "diverged"
+            })
+            return None, "".join(html_log_parts), visualization_steps
+
+    # Max iterations reached
+    max_iter_msg = f"Se alcanzó el número máximo de iteraciones ({max_iter}). Error actual: {current_error:.6e}"
+    html_log_parts.append(f'<p class="step-description" style="color: orange;">{max_iter_msg}</p>')
+    visualization_steps.append({
+        "iteration": max_iter, "x_vector": x.tolist(), "error": current_error,
+        "description": max_iter_msg, "type": "max_iterations_reached"
+    })
+    return x, "".join(html_log_parts), visualization_steps
+
+# --- Parámetros Ejemplo ---
+default_A_matrix_str_jac = "[[5, -1, 2], [3, 8, -2], [1, 1, 4]]"
+default_b_vector_str_jac = "[12, -25, 6]"
+default_x_initial_str_jac = "[0, 0, 0]" # o "None"
+default_tol_str_jac = "1e-5"
+default_max_iter_str_jac = "50" # Jacobi might need more iterations
+
+# --- Bloque principal para ejecución en Pyodide ---
+if __name__ == "__main__":
+    py_html_buffer = []
+
+    A_str = globals().get("A_matrix_param_jac", default_A_matrix_str_jac)
+    b_str = globals().get("b_vector_param_jac", default_b_vector_str_jac)
+    x_init_str = globals().get("x_initial_param_jac", default_x_initial_str_jac)
+    tol_val_str = globals().get("tol_param_jac", default_tol_str_jac)
+    max_iter_val_str = globals().get("max_iter_param_jac", default_max_iter_str_jac)
+
+    py_html_buffer.append('<div style="text-align: center; font-weight: bold; margin-bottom:15px; font-size:1.1em; padding-top:10px;">MÉTODO DE JACOBI (Salida de Texto)</div>')
+    try:
+        A_disp = np.array(eval(A_str))
+        b_disp = np.array(eval(b_str))
+        x_init_disp_str = x_init_str
+        if x_init_str.lower() == "none": x_init_disp_str = "Vector de ceros (por defecto)"
+        else: x_init_disp_str = str(np.array(eval(x_init_str)))
+
+        py_html_buffer.append(f'<div style="text-align: center; margin-bottom:5px; font-family:monospace;">Matriz A:<br>{str(A_disp).replace(" ", "&nbsp;")}</div>')
+        py_html_buffer.append(f'<div style="text-align: center; margin-bottom:5px; font-family:monospace;">Vector b:<br>{str(b_disp).replace(" ", "&nbsp;")}</div>')
+        py_html_buffer.append(f'<div style="text-align: center; margin-bottom:5px; font-family:monospace;">x inicial:<br>{x_init_disp_str.replace(" ", "&nbsp;")}</div>')
+        py_html_buffer.append(f'<div style="text-align: center; margin-bottom:5px;">Tolerancia: {tol_val_str}</div>')
+        py_html_buffer.append(f'<div style="text-align: center; margin-bottom:15px;">Max Iteraciones: {max_iter_val_str}</div>')
+    except Exception as e:
+        py_html_buffer.append(f'<p style="color:red; text-align:center;">Error al mostrar parámetros de entrada: {e}</p>')
+
+    solution_jac, log_html_jac, d3_steps_jac = jacobi_solve_pyodide(A_str, b_str, x_init_str, tol_val_str, max_iter_val_str)
+    py_html_buffer.append(log_html_jac)
+
+    if solution_jac is not None:
+        py_html_buffer.append('<div style="text-align: center; font-weight: bold; margin-top: 20px; margin-bottom: 10px;">RESULTADOS FINALES (Texto)</div>')
+        sol_str_jac = ", ".join([f"{x_val:.6f}" for x_val in solution_jac])
+        py_html_buffer.append(f'<div style="text-align:center; padding:5px;">Solución aproximada (x): [{sol_str_jac}]</div>')
+        try:
+            A_val = np.array(eval(A_str))
+            b_val = np.array(eval(b_str))
+            Ax = A_val @ solution_jac
+            error_vec = Ax - b_val.flatten()
+            final_residual_norm = np.linalg.norm(error_vec)
+            py_html_buffer.append(f'<div style="text-align:center; font-size:0.85em; padding:5px;">Verificación A*x = {str(Ax.round(5))} (Original b = {str(b_val.round(5))})</div>')
+            py_html_buffer.append(f'<div style="text-align:center; font-size:0.85em; padding:5px;">Norma del residual ||Ax - b||: {final_residual_norm:.2e}</div>')
+        except Exception as e_verify:
+            py_html_buffer.append(f'<p style="color:orange; text-align:center;">No se pudo verificar la solución: {e_verify}</p>')
+    elif "Divergencia detectada" not in log_html_jac and "Error: Uno o más elementos de la diagonal" not in log_html_jac :
+         py_html_buffer.append('<div style="text-align: center; color: orange; margin-top:10px; padding:5px;">El método no convergió o no se encontró una solución con los parámetros dados.</div>')
+
+    chart_data_package_jac = {
+        "visualization_steps": d3_steps_jac,
+        "solution_vector": solution_jac.tolist() if solution_jac is not None else None,
+        "num_variables": len(eval(b_str)) if b_str else 0
+    }
+
+    if "pyodide_js" in globals():
+        pyodide_globals = globals()['pyodide_js'].globals
+        pyodide_globals.set("pyodide_jac_html_output", "".join(py_html_buffer))
+
+        chart_data_proxy_out = pyodide_globals.get("pyodide_jac_chart_data_package")
+        if chart_data_proxy_out is not None and hasattr(chart_data_proxy_out, 'clear'):
+            chart_data_proxy_out.clear()
+            for key, value in chart_data_package_jac.items():
+                chart_data_proxy_out.set(key, value)
+        else:
+            from pyodide.ffi import to_js
+            pyodide_globals.set("pyodide_jac_chart_data_package", to_js(chart_data_package_jac, dict_converter=js.Object.fromEntries))
+    else:
+        global pyodide_jac_html_output, pyodide_jac_chart_data_package
+        pyodide_jac_html_output = "".join(py_html_buffer)
+        pyodide_jac_chart_data_package = chart_data_package_jac
+                            </textarea>
+                            <button id="run-jac-code-button" class="run-button mt-4 px-5 py-2.5 bg-custom-red text-white rounded-md hover:bg-red-700">Ejecutar Código</button>
+                            <div class="relative mt-5">
+                                <h4 class="mb-2 text-lg font-semibold text-gray-700">Salida de Texto:</h4>
+                                <div id="jac-output-controls-container" class="absolute top-0 right-0 z-10 flex items-center space-x-1 transition-all duration-500 ease-out">
+                                    <button id="jac-decrease-font-button" title="Disminuir fuente" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs font-semibold flex items-center justify-center" style="min-width: 30px;">aa</button>
+                                    <button id="jac-increase-font-button" title="Aumentar fuente" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs font-semibold flex items-center justify-center" style="min-width: 30px;">AA</button>
+                                    <button id="jac-fullscreen-output-button" title="Ver en pantalla completa" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15" /></svg>
+                                    </button>
+                                </div>
+                                <pre id="jac-code-output" class="code-output bg-gray-900 text-white p-4 pt-8 rounded-md min-h-[100px] whitespace-pre-wrap text-xs leading-relaxed max-h-96 overflow-y-auto font-mono transition-all duration-500 ease-out">Presiona "Ejecutar Código" para ver la salida de texto detallada.</pre>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="graficas-jac" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Visualización Interactiva de Jacobi</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Observa la convergencia de las componentes de la solución \(x\) y la disminución del error a lo largo de las iteraciones.
+                            Usa los controles para navegar entre los pasos.
+                        </p>
+                        <div id="jacobi-d3-visualization" class="bg-gray-100 p-4 rounded-lg shadow-inner">
+                            <div id="jac-d3-controls" class="mb-4 flex flex-wrap items-center justify-center gap-2">
+                                <button id="jac-d3-prev" class="p-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Anterior"></button>
+                                <button id="jac-d3-next" class="p-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Siguiente"></button>
+                                <button id="jac-d3-play" class="p-2.5 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Play"></button>
+                                <input type="range" id="jac-d3-slider" min="0" value="0" class="mx-2 flex-grow max-w-xs align-middle accent-custom-red disabled:opacity-50 disabled:cursor-not-allowed">
+                                <div class="flex items-center text-sm">
+                                    <label for="jac-d3-speed" class="mr-1">Velocidad:</label>
+                                    <input type="range" id="jac-d3-speed" min="100" max="2000" value="500" step="100" class="w-24 align-middle accent-custom-red">
+                                    <span id="jac-d3-speed-value" class="ml-1 w-10 text-right">500ms</span>
+                                </div>
+                            </div>
+                            <div id="jac-d3-operation-description" class="mb-3 text-sm text-center font-mono h-auto min-h-[2em] p-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-md leading-tight">
+                                Ejecute el código para generar la visualización.
+                            </div>
+                            <div id="jac-d3-charts-container" class="flex flex-col items-center gap-y-6">
+                                <div class="w-full max-w-2xl">
+                                    <h4 class="text-center text-md font-semibold text-gray-700 mb-1">Convergencia de Componentes \(x_i\)</h4>
+                                    <div id="jac-d3-legend-convergence" class="jac-d3-legend mb-1"></div>
+                                    <svg id="jac-d3-svg-convergence-container" class="jac-d3-chart w-full h-64"></svg>
+                                </div>
+                                <div class="w-full max-w-2xl mt-4">
+                                     <h4 class="text-center text-md font-semibold text-gray-700 mb-1">Convergencia del Error</h4>
+                                    <svg id="jac-d3-svg-error-container" class="jac-d3-chart w-full h-56"></svg>
+                                </div>
+                            </div>
+                            <div class="jac-d3-tooltip"></div>
+                        </div>
+                    </section>
+
+                    <section id="videos-jac" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Videos Explicativos</h3>
+                        <div style="position: relative; padding-bottom: 56.25%; /* 16:9 Aspect Ratio */ height: 0; overflow: hidden; max-width: 100%;" class="my-6 rounded-lg shadow-lg bg-black">
+                            <iframe
+                                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
+                                src="https://www.youtube.com/embed/s_XFSeH7xG0?start=21"
+                                title="Video Explicativo del Método de Jacobi"
+                                frameborder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                referrerpolicy="strict-origin-when-cross-origin"
+                                allowfullscreen>
+                            </iframe>
+                        </div>
+                    </section>
+
+                    <section id="conclusion-jac" class="mb-10 scroll-mt-24">
+                         <h3 class="text-2xl font-semibold mb-4 text-gray-700">Conclusión y Aplicaciones</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            El método de Jacobi es un algoritmo iterativo fundamental y conceptualmente simple para resolver sistemas de ecuaciones lineales. Su principal ventaja radica en la facilidad con la que se puede paralelizar, ya que el cálculo de cada componente del vector solución en una nueva iteración depende únicamente de los valores de la iteración anterior, permitiendo que todas las componentes se calculen de forma independiente y simultánea.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Sin embargo, su convergencia tiende a ser más lenta en comparación con el método de Gauss-Seidel (si ambos convergen). Al igual que Gauss-Seidel, una condición suficiente para la convergencia de Jacobi es que la matriz de coeficientes sea estrictamente diagonal dominante. Si esta condición no se cumple, el método puede no converger o hacerlo muy lentamente. A pesar de su posible lentitud, su simplicidad lo hace valioso como herramienta educativa y en ciertos contextos de computación paralela.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-2 font-medium"><strong>Aplicaciones:</strong></p>
+                        <ul class="list-disc list-inside space-y-2 pl-4 text-gray-600 mb-4">
+                            <li>Sistemas de ecuaciones lineales donde la implementación en arquitecturas de cómputo paralelo es una prioridad.</li>
+                            <li>Como método introductorio para entender los conceptos básicos de los solucionadores iterativos.</li>
+                            <li>En la resolución de problemas de discretización de Ecuaciones Diferenciales Parciales, aunque a menudo es superado en eficiencia por métodos como Gauss-Seidel o SOR (Successive Over-Relaxation) en entornos secuenciales.</li>
+                            <li>Puede ser utilizado como un componente dentro de esquemas de solución más complejos o como precondicionador.</li>
+                        </ul>
+                    </section>
+
+                    <section id="referencias-jac" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Referencias</h3>
+                        <ul class="list-disc list-inside space-y-2 text-gray-600 leading-relaxed pl-4">
+                            <li>Chapra, S. C., & Canale, R. P. (2015). <em>Numerical Methods for Engineers</em> (7th ed.). McGraw-Hill Education. (Capítulo 11).</li>
+                            <li>Quarteroni, A., Sacco, R., & Saleri, F. (2007). <em>Numerical Mathematics</em> (2nd ed.). Springer.</li>
+                        </ul>
+                    </section>
+
+                    <section id="cuestionario-jac" class="scroll-mt-24 mb-10">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Cuestionario: Método de Jacobi</h3>
+                        <form id="quiz-jacobi" class="space-y-6 bg-gray-50 p-6 rounded-lg shadow-inner">
+                            <!-- Pregunta 1 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">1. En la fórmula iterativa del método de Jacobi, \(x_i^{(k+1)} = \frac{1}{a_{ii}} (b_i - \sum_{j \neq i} a_{ij}x_j^{(k)})\), los valores \(x_j^{(k)}\) utilizados en la sumatoria provienen de:</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 1</legend>
+                                    <div class="space-y-2">
+                                        <label for="q1-opt1-jac" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt1-jac" name="question-1-jac" type="radio" value="La iteración actual (k+1), utilizando los valores más recientes disponibles." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">La iteración actual (k+1), utilizando los valores más recientes disponibles.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt2-jac" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt2-jac" name="question-1-jac" type="radio" value="Enteramente de la iteración anterior (k) para todas las componentes de x." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Enteramente de la iteración anterior (k) para todas las componentes de x.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt3-jac" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt3-jac" name="question-1-jac" type="radio" value="Una combinación de valores de la iteración (k) y (k+1)." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Una combinación de valores de la iteración (k) y (k+1).</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-1-jac-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <!-- Pregunta 2 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">2. ¿Cuál de las siguientes afirmaciones es generalmente cierta respecto a la velocidad de convergencia de Jacobi y Gauss-Seidel, si ambos convergen?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 2</legend>
+                                    <div class="space-y-2">
+                                        <label for="q2-opt1-jac" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt1-jac" name="question-2-jac" type="radio" value="Jacobi converge más rápido que Gauss-Seidel." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Jacobi converge más rápido que Gauss-Seidel.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt2-jac" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt2-jac" name="question-2-jac" type="radio" value="Gauss-Seidel converge más rápido que Jacobi." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Gauss-Seidel converge más rápido que Jacobi.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt3-jac" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt3-jac" name="question-2-jac" type="radio" value="Ambos métodos convergen a la misma velocidad." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Ambos métodos convergen a la misma velocidad.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-2-jac-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <!-- Pregunta 3 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">3. Una característica importante del método de Jacobi que facilita su implementación en arquitecturas de cómputo paralelo es:</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 3</legend>
+                                    <div class="space-y-2">
+                                        <label for="q3-opt1-jac" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt1-jac" name="question-3-jac" type="radio" value="Que siempre converge en un número fijo de iteraciones." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Que siempre converge en un número fijo de iteraciones.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt2-jac" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt2-jac" name="question-3-jac" type="radio" value="Que el cálculo de cada nueva componente x_i^(k+1) es independiente de las otras componentes x_j^(k+1) (j!=i) en la misma iteración." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Que el cálculo de cada nueva componente \(x_i^{(k+1)}\) es independiente de las otras componentes \(x_j^{(k+1)}\) (\(j \neq i\)) en la misma iteración.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt3-jac" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt3-jac" name="question-3-jac" type="radio" value="Que no requiere una estimación inicial x(0)." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Que no requiere una estimación inicial \(x^{(0)}\).</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-3-jac-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                             <!-- Pregunta 4 -->
+                             <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">4. Para el sistema \(2x_1 + x_2 = 5\), \(x_1 + 3x_2 = 5\), con \(x^{(0)} = [0, 0]^T\). ¿Cuál es el valor de \(x_2^{(1)}\) en la primera iteración de Jacobi?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 4</legend>
+                                    <div class="space-y-2">
+                                        <label for="q4-opt1-jac" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt1-jac" name="question-4-jac" type="radio" value="2.5" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">2.5</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q4-opt2-jac" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt2-jac" name="question-4-jac" type="radio" value="5/3" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">5/3 (aprox. 1.667)</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q4-opt3-jac" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt3-jac" name="question-4-jac" type="radio" value="0" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">0</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-4-jac-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <button type="submit" class="mt-6 w-full px-6 py-3 bg-custom-red text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors duration-150">
+                                Enviar Respuestas
+                            </button>
+                        </form>
+                        <div id="quiz-feedback-jacobi" class="quiz-feedback-message mt-4 p-3 rounded-md text-sm" style="display: none;"></div>
+                    </section>
+                </article>
+            </main>
+
+            <aside class="w-full lg:w-1/4 bg-sidebar-bg shadow-xl rounded-lg p-6 self-start sticky top-8 order-3 space-y-6">
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-4">Perfil</h3>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex-shrink-0">
+                           <svg class="w-12 h-12 text-gray-400 bg-gray-100 rounded-full p-1 ring-1 ring-gray-200" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-800 text-md">Estudiante Paralelo</p>
+                            <p class="text-sm text-gray-500">Explorador de Vectores</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pb-6 border-b border-gray-200 space-y-3">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide">Progreso en Jacobi</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li class="flex items-center">
+                            <span id="task-read-theory-status-jac" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Leer la teoría completa</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-run-code-status-jac" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Ejecutar el código Python</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-attempted-status-jac" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Intentar el cuestionario</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-passed-status-jac" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Aprobar el cuestionario</span>
+                        </li>
+                    </ul>
+                    <div class="flex items-center justify-between mb-1 mt-3">
+                       <span class="text-xs font-medium text-custom-red">Progreso General</span>
+                       <span id="right-sidebar-progress-text-jac" class="text-xs font-medium text-custom-red right-sidebar-progress-text">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div id="right-sidebar-progress-bar-jac" class="bg-custom-red h-3 rounded-full right-sidebar-progress-bar transition-width duration-500 ease-in-out" style="width: 0%"></div>
+                    </div>
+                    <button id="completion-jacobi-sidebar" class="mt-4 w-full completion-button px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Marcar Todo Completado</button>
+                </div>
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Recursos y Notas</h3>
+                    <p class="text-sm text-gray-600"><a href="https://archive.org/details/numerical-methods-for-engineers-7th-edit" target="_blank" rel="noopener noreferrer" class="hover:text-custom-red hover:underline">Métodos Numéricos para Ingenieros 7ma Edición de Chapra</a></p>
+                    <img src="https://images.cdn3.buscalibre.com/fit-in/360x360/97/ff/97ffa61a8adb147e569e12c4f1f797b3.jpg" alt="Portada Chapra" class="mt-2 w-full rounded-md shadow-sm">
+                </div>
+                <div>
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Siguiente Paso</h3>
+                     <a href="../methods/metodo-inversa.html" class="group flex items-center text-sm font-medium text-custom-red hover:text-red-700">
+                       <span>Explorar Metodo de la Inversa</span>
+                       <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </a>
+                </div>
+            </aside>
+        </div>
+
+        <footer class="bg-custom-blue text-gray-300 text-center p-6 mt-12">
+            <p>&copy; 2024 Plataforma Educativa de Métodos Numéricos. <a href="../index.html" class="hover:text-white underline">Volver al inicio</a></p>
+        </footer>
+    </div>
+
+    <!-- Jacobi SCRIPT (Logica JS General de la página, Pyodide, Quiz, D3) -->
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const PAGE_KEY_JAC = 'jacobi';
+        const QUIZ_FORM_ID_JAC = 'quiz-jacobi';
+        const QUIZ_FEEDBACK_ID_JAC = 'quiz-feedback-jacobi';
+        const COMPLETION_BUTTON_ID_JAC = 'completion-jacobi-sidebar';
+        const CODE_INPUT_ID_JAC = 'jac-code-input';
+        const CODE_OUTPUT_ID_JAC = 'jac-code-output';
+        const RUN_CODE_BUTTON_ID_JAC = 'run-jac-code-button';
+        const outputControlsContainer_JAC = document.getElementById('jac-output-controls-container');
+        const fullscreenButton_JAC = document.getElementById('jac-fullscreen-output-button');
+        const increaseFontButton_JAC = document.getElementById('jac-increase-font-button');
+        const decreaseFontButton_JAC = document.getElementById('jac-decrease-font-button');
+        let originalOutputFontSize_JAC = '';
+        const MIN_FONT_SIZE_PX_JAC = 8;
+        const MAX_FONT_SIZE_PX_JAC = 28;
+        const FONT_SIZE_STEP_PX_JAC = 1;
+        let jacCodeOutputInitialRect = null;
+
+        const TASKS_JAC = {
+            READ_THEORY: 'read_theory_jac',
+            RUN_CODE: 'run_code_jac',
+            QUIZ_ATTEMPTED: 'quiz_attempted_jac',
+            QUIZ_PASSED: 'quiz_passed_jac'
+        };
+        const ALL_TASK_KEYS_JAC = Object.values(TASKS_JAC);
+        const TOTAL_TASKS_JAC = ALL_TASK_KEYS_JAC.length;
+
+        const ICON_PENDING_JAC = '<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0-4.418-4.03-8-9-8S3 7.582 3 12c0 1.454.402 2.813 1.098 3.977L3 21l5.023-1.098A8.902 8.902 0 0012 21c4.97 0 9-3.582 9-9z"></path></svg>';
+        const ICON_COMPLETED_JAC = '<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>';
+        const ICON_IN_PROGRESS_JAC = '<svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V9.05a.75.75 0 011.307-.588l5.603 3.112z" clip-rule="evenodd"></path></svg>';
+        const ICON_CORRECT_ANSWER_JAC = '✔️';
+        const ICON_INCORRECT_ANSWER_JAC = '❌';
+        const ICON_THUMB_UP_JAC = '👍';
+        const quizDataJacobi = {
+            "question-1-jac": {
+                correctAnswer: "Enteramente de la iteración anterior (k) para todas las componentes de x.",
+                feedback: {
+                    "La iteración actual (k+1), utilizando los valores más recientes disponibles.": "Incorrecto. Esto describe al método de Gauss-Seidel, donde los valores actualizados se usan tan pronto como están disponibles en la misma iteración.",
+                    "Una combinación de valores de la iteración (k) y (k+1).": "Incorrecto. El método de Jacobi utiliza estrictamente los valores de la iteración (k) para calcular todos los componentes de (k+1)."
+                }
+            },
+            "question-2-jac": {
+                correctAnswer: "Gauss-Seidel converge más rápido que Jacobi.",
+                feedback: {
+                    "Jacobi converge más rápido que Gauss-Seidel.": "Incorrecto. Generalmente, si ambos convergen, Gauss-Seidel aprovecha la información actualizada más rápidamente, lo que suele llevar a una convergencia más veloz.",
+                    "Ambos métodos convergen a la misma velocidad.": "Incorrecto. Sus tasas de convergencia suelen ser diferentes."
+                }
+            },
+            "question-3-jac": {
+                correctAnswer: "Que el cálculo de cada nueva componente x_i^(k+1) es independiente de las otras componentes x_j^(k+1) (j!=i) en la misma iteración.",
+                feedback: {
+                    "Que siempre converge en un número fijo de iteraciones.": "Incorrecto. La convergencia no está garantizada para todos los sistemas, y el número de iteraciones varía.",
+                    "Que no requiere una estimación inicial x(0).": "Incorrecto. Como método iterativo, Jacobi sí necesita una estimación inicial para comenzar el proceso."
+                }
+            },
+            "question-4-jac": {
+                // x1_new = (5 - 1*x2_old) / 2.  x2_old = 0. So, x1_new = 5/2 = 2.5
+                // x2_new = (5 - 1*x1_old) / 3.  x1_old = 0. So, x2_new = 5/3.
+                correctAnswer: "5/3",
+                feedback: {
+                    "2.5": "Incorrecto. Este sería el valor de \(x_1^{(1)}\). Recuerda calcular \(x_2^{(1)}\) usando \(x_1^{(0)}\).",
+                    "0": "Incorrecto. Revisa la fórmula de Jacobi para \(x_2^{(1)}\): \(x_2^{(1)} = (b_2 - a_{21}x_1^{(0)}) / a_{22}\)."
+                }
+            }
+        };
+
+        let pyodide_JAC = null;
+        const mainCompletionButton_JAC = document.getElementById(COMPLETION_BUTTON_ID_JAC);
+        const quizForm_JAC = document.getElementById(QUIZ_FORM_ID_JAC);
+        const generalQuizFeedbackDiv_JAC = document.getElementById(QUIZ_FEEDBACK_ID_JAC);
+        const codeInput_JAC = document.getElementById(CODE_INPUT_ID_JAC);
+        const codeOutput_JAC = document.getElementById(CODE_OUTPUT_ID_JAC);
+        const runCodeButton_JAC = document.getElementById(RUN_CODE_BUTTON_ID_JAC);
+
+        const taskStatusIcons_JAC = {};
+        taskStatusIcons_JAC[TASKS_JAC.READ_THEORY] = document.getElementById('task-read-theory-status-jac');
+        taskStatusIcons_JAC[TASKS_JAC.RUN_CODE] = document.getElementById('task-run-code-status-jac');
+        taskStatusIcons_JAC[TASKS_JAC.QUIZ_ATTEMPTED] = document.getElementById('task-quiz-attempted-status-jac');
+        taskStatusIcons_JAC[TASKS_JAC.QUIZ_PASSED] = document.getElementById('task-quiz-passed-status-jac');
+        const overallProgressText_JAC = document.getElementById('right-sidebar-progress-text-jac');
+        const overallProgressBar_JAC = document.getElementById('right-sidebar-progress-bar-jac');
+
+
+        function getPageProgressFromStorage_JAC(pKey) {
+            const defaults = ALL_TASK_KEYS_JAC.reduce((obj, task) => ({ ...obj, [task]: false }), {});
+            defaults.overall_progress = 0;
+            defaults.user_quiz_answers = {};
+            defaults.quiz_current_score = 0;
+            defaults.quiz_feedback_active = false;
+            try {
+                const stored = localStorage.getItem(pKey);
+                if (stored) return { ...defaults, ...JSON.parse(stored) };
+            } catch (e) { console.error("Error al leer localStorage para JAC:", e); }
+            return defaults;
+        }
+
+        function savePageProgressToStorage_JAC(pKey, progress) {
+            try {
+                localStorage.setItem(pKey, JSON.stringify(progress));
+                window.dispatchEvent(new CustomEvent('jacPageProgressSaved', { detail: { pageKey: pKey, progress } }));
+            } catch (e) { console.error("Error al guardar en localStorage para JAC:", e); }
+        }
+
+        function updateTaskStatusInStorage_JAC(taskName, isCompleted) {
+            let currentProgress = getPageProgressFromStorage_JAC(PAGE_KEY_JAC);
+            if (currentProgress[taskName] !== isCompleted) {
+                currentProgress[taskName] = isCompleted;
+                if (taskName === TASKS_JAC.QUIZ_ATTEMPTED && !isCompleted) { // Resetting quiz attempt
+                    currentProgress[TASKS_JAC.QUIZ_PASSED] = false;
+                    currentProgress.user_quiz_answers = {};
+                    currentProgress.quiz_current_score = 0;
+                    currentProgress.quiz_feedback_active = false;
+                }
+                if (taskName === TASKS_JAC.QUIZ_PASSED && isCompleted) { // Passing quiz implies attempted
+                     currentProgress[TASKS_JAC.QUIZ_ATTEMPTED] = true;
+                }
+                savePageProgressToStorage_JAC(PAGE_KEY_JAC, currentProgress);
+                calculateAndUpdateOverallProgress_JAC();
+            }
+        }
+
+        function renderTaskStatus_JAC() {
+            const progress = getPageProgressFromStorage_JAC(PAGE_KEY_JAC);
+            ALL_TASK_KEYS_JAC.forEach(taskKey => {
+                const iconElement = taskStatusIcons_JAC[taskKey];
+                if (iconElement) {
+                    let newIconHTML = ICON_PENDING_JAC;
+                    if (progress[taskKey]) newIconHTML = ICON_COMPLETED_JAC;
+                    else if (taskKey === TASKS_JAC.QUIZ_PASSED && progress[TASKS_JAC.QUIZ_ATTEMPTED]) newIconHTML = ICON_IN_PROGRESS_JAC; // Quiz attempted but not passed
+                    iconElement.innerHTML = newIconHTML;
+                }
+            });
+        }
+
+        function calculateAndUpdateOverallProgress_JAC() {
+            let progress = getPageProgressFromStorage_JAC(PAGE_KEY_JAC);
+            let completedTasks = ALL_TASK_KEYS_JAC.filter(taskKey => progress[taskKey]).length;
+            const percentage = TOTAL_TASKS_JAC > 0 ? (completedTasks / TOTAL_TASKS_JAC) * 100 : 0;
+            progress.overall_progress = percentage;
+            savePageProgressToStorage_JAC(PAGE_KEY_JAC, progress);
+
+            const isHundredPercent = percentage.toFixed(0) === '100';
+            if (overallProgressBar_JAC) {
+                overallProgressBar_JAC.style.width = `${percentage.toFixed(0)}%`;
+                overallProgressBar_JAC.classList.toggle('animate-rainbow-border', isHundredPercent);
+            }
+            if (overallProgressText_JAC) overallProgressText_JAC.textContent = `${percentage.toFixed(0)}%`;
+
+            renderTaskStatus_JAC();
+            updateMainCompletionButtonState_JAC();
+        }
+
+        function handleMarkAllMouseEnter_JAC() {
+            if (mainCompletionButton_JAC && mainCompletionButton_JAC.dataset.isUndo === "true") {
+                mainCompletionButton_JAC.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+                mainCompletionButton_JAC.classList.add('bg-red-600', 'hover:bg-red-700');
+            }
+        }
+
+        function handleMarkAllMouseLeave_JAC() {
+            if (mainCompletionButton_JAC && mainCompletionButton_JAC.dataset.isUndo === "true") {
+                mainCompletionButton_JAC.classList.remove('bg-red-600', 'hover:bg-red-700');
+                mainCompletionButton_JAC.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+            }
+        }
+
+        function updateMainCompletionButtonState_JAC() {
+            if (!mainCompletionButton_JAC) return;
+            const progress = getPageProgressFromStorage_JAC(PAGE_KEY_JAC);
+            let allTasksCompleted = ALL_TASK_KEYS_JAC.every(task => progress[task]);
+
+            mainCompletionButton_JAC.removeEventListener('mouseenter', handleMarkAllMouseEnter_JAC);
+            mainCompletionButton_JAC.removeEventListener('mouseleave', handleMarkAllMouseLeave_JAC);
+            mainCompletionButton_JAC.classList.remove('bg-green-600', 'hover:bg-green-700', 'bg-yellow-500', 'hover:bg-yellow-600', 'bg-red-600', 'hover:bg-red-700');
+
+            if (allTasksCompleted) {
+                mainCompletionButton_JAC.textContent = 'Deshacer Completado';
+                mainCompletionButton_JAC.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+                mainCompletionButton_JAC.dataset.isUndo = "true";
+                mainCompletionButton_JAC.addEventListener('mouseenter', handleMarkAllMouseEnter_JAC);
+                mainCompletionButton_JAC.addEventListener('mouseleave', handleMarkAllMouseLeave_JAC);
+            } else {
+                mainCompletionButton_JAC.textContent = 'Marcar Todo Completado';
+                mainCompletionButton_JAC.classList.add('bg-green-600', 'hover:bg-green-700');
+                mainCompletionButton_JAC.dataset.isUndo = "false";
+            }
+        }
+
+        function clearAllVisualFeedback_JAC(clearGeneralMessage = false) {
+            if (!quizForm_JAC) return;
+            quizForm_JAC.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                wrapper.classList.remove('correct-answer-jac', 'incorrect-answer-jac', 'border-green-500', 'border-red-500', 'ring-1', 'ring-green-500', 'ring-red-500', 'bg-green-50', 'bg-red-50');
+                wrapper.classList.add('border-gray-300', 'hover:border-gray-400', 'has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                const iconPlaceholder = wrapper.querySelector('.feedback-icon-placeholder span');
+                if (iconPlaceholder) iconPlaceholder.innerHTML = '';
+            });
+            quizForm_JAC.querySelectorAll('.specific-question-feedback').forEach(el => {
+                el.textContent = '';
+                el.style.display = 'none';
+            });
+            if (clearGeneralMessage && generalQuizFeedbackDiv_JAC) {
+                generalQuizFeedbackDiv_JAC.textContent = '';
+                generalQuizFeedbackDiv_JAC.style.display = 'none';
+                generalQuizFeedbackDiv_JAC.className = 'quiz-feedback-message mt-4 p-3 rounded-md text-sm';
+            }
+        }
+
+        function displayQuizFeedback_JAC() {
+            if (!quizForm_JAC || !generalQuizFeedbackDiv_JAC) return false;
+            const progress = getPageProgressFromStorage_JAC(PAGE_KEY_JAC);
+            const userAnswers = progress.user_quiz_answers || {};
+            const submitButton = quizForm_JAC.querySelector('button[type="submit"]');
+
+            clearAllVisualFeedback_JAC(false);
+
+            if (!progress.quiz_feedback_active && Object.keys(userAnswers).length === 0) { // No feedback to display, ensure form is active
+                quizForm_JAC.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                if (submitButton) {
+                    submitButton.textContent = 'Enviar Respuestas';
+                    submitButton.disabled = false;
+                }
+                return false; // Indicate no feedback was displayed
+            }
+
+            let allCorrect = true;
+            let score = 0;
+
+            for (const questionName in quizDataJacobi) {
+                const userAnswer = userAnswers[questionName];
+                const questionData = quizDataJacobi[questionName];
+                const correctAnswer = questionData.correctAnswer;
+                const specificFeedbackDiv = document.getElementById(`${questionName}-specific-feedback`);
+
+                const radioInputs = quizForm_JAC.querySelectorAll(`input[name="${questionName}"]`);
+                radioInputs.forEach(input => {
+                    const wrapper = input.closest('.quiz-option-wrapper');
+                    const iconPlaceholder = wrapper.querySelector('.feedback-icon-placeholder span');
+                    input.disabled = true; // Disable inputs when feedback is shown
+                    wrapper.classList.remove('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+
+
+                    if (input.value === userAnswer) { // This was the user's answer
+                        input.checked = true; // Ensure it's visually checked
+                        if (userAnswer === correctAnswer) {
+                            wrapper.classList.add('correct-answer-jac', 'border-green-500', 'ring-1', 'ring-green-500', 'bg-green-50');
+                            if (iconPlaceholder) iconPlaceholder.textContent = ICON_CORRECT_ANSWER_JAC;
+                            score++;
+                        } else { // User's answer was incorrect
+                            wrapper.classList.add('incorrect-answer-jac', 'border-red-500', 'ring-1', 'ring-red-500', 'bg-red-50');
+                            if (iconPlaceholder) iconPlaceholder.textContent = ICON_INCORRECT_ANSWER_JAC;
+                            allCorrect = false;
+                            if (specificFeedbackDiv && questionData.feedback && questionData.feedback[userAnswer]) {
+                                specificFeedbackDiv.innerHTML = "Incorrecto. " + questionData.feedback[userAnswer]; // Use innerHTML for potential MathJax
+                                specificFeedbackDiv.style.display = 'block';
+                            } else if (specificFeedbackDiv) { // Generic incorrect feedback if specific one is missing
+                                specificFeedbackDiv.textContent = "Incorrecto. Respuesta incorrecta.";
+                                specificFeedbackDiv.style.display = 'block';
+                            }
+                        }
+                    } else if (input.value === correctAnswer) { // This is the correct answer, but user didn't pick it
+                         wrapper.classList.add('correct-answer-jac', 'border-green-500', 'bg-green-50'); // Highlight correct one
+                         if (userAnswer !== correctAnswer && iconPlaceholder) iconPlaceholder.textContent = ICON_THUMB_UP_JAC; // Show thumb up if it was the right one but not selected
+                    } else { // An option that was neither selected nor correct
+                         wrapper.classList.add('border-gray-300'); // Default border
+                    }
+                });
+            }
+
+            progress.quiz_current_score = score; // Update score in progress object
+            progress.quiz_passed = allCorrect;   // Update passed status
+            savePageProgressToStorage_JAC(PAGE_KEY_JAC, progress); // Save updated progress
+
+            generalQuizFeedbackDiv_JAC.style.display = 'block';
+            if (allCorrect) {
+                generalQuizFeedbackDiv_JAC.className = 'mt-4 p-3 rounded-md text-sm bg-green-100 text-green-700 border border-green-200';
+                generalQuizFeedbackDiv_JAC.innerHTML = `<strong>¡Felicidades!</strong> Todas tus respuestas son correctas. (${score}/${Object.keys(quizDataJacobi).length})`;
+                if (submitButton) {
+                    submitButton.textContent = 'Cuestionario Aprobado';
+                    submitButton.disabled = true; // Disable if passed
+                }
+            } else {
+                generalQuizFeedbackDiv_JAC.className = 'mt-4 p-3 rounded-md text-sm bg-red-100 text-red-700 border border-red-200';
+                generalQuizFeedbackDiv_JAC.innerHTML = `Has respondido correctamente ${score} de ${Object.keys(quizDataJacobi).length} preguntas. Revisa los comentarios e intenta de nuevo.`;
+                if (submitButton) {
+                    submitButton.textContent = 'Intentar de Nuevo'; // Allow re-attempt
+                    submitButton.disabled = false;
+                }
+            }
+            if (window.MathJax && window.MathJax.typesetPromise && quizForm_JAC) {
+                window.MathJax.typesetPromise([quizForm_JAC, generalQuizFeedbackDiv_JAC]); // Typeset general feedback too
+            }
+            return allCorrect;
+        }
+
+        async function initializePyodide_JAC() {
+            if (!window.pyodideInstance_JAC_Global) { // Check for a global instance for Jacobi
+                if (codeOutput_JAC) codeOutput_JAC.innerHTML = "<p>Cargando Pyodide y entorno...</p>";
+                try {
+                    window.pyodideInstance_JAC_Global = await window.loadPyodide();
+                    await window.pyodideInstance_JAC_Global.loadPackage("numpy");
+                    window.pyodide_jac_globals = window.pyodideInstance_JAC_Global.globals; // Set Jacobi-specific global proxy
+                    window.pyodide_jac_globals.set("pyodide_jac_html_output", "");
+                    window.pyodide_jac_globals.set("pyodide_jac_chart_data_package", window.pyodideInstance_JAC_Global.toPy({}));
+                    if (codeOutput_JAC) codeOutput_JAC.innerHTML = "<p>Pyodide listo. Presiona 'Ejecutar Código'.</p>";
+                } catch (error) {
+                    console.error("Error al cargar Pyodide para Jacobi:", error);
+                    if (codeOutput_JAC) codeOutput_JAC.innerHTML = "<p>Error al cargar Pyodide. Revisa la consola.</p>";
+                    return null;
+                }
+            }
+            // If instance exists but globals proxy not set (e.g. due to async race or prior error)
+            if (!window.pyodide_jac_globals && window.pyodideInstance_JAC_Global) {
+                 window.pyodide_jac_globals = window.pyodideInstance_JAC_Global.globals;
+            }
+            return window.pyodideInstance_JAC_Global;
+        }
+
+        async function runCodeNow_JAC() {
+            pyodide_JAC = await initializePyodide_JAC();
+            if (!pyodide_JAC || !window.pyodide_jac_globals) { // Check Jacobi-specific globals
+                if (codeOutput_JAC) codeOutput_JAC.innerHTML = "<p>Pyodide no está listo. Intenta recargar.</p>";
+                return;
+            }
+            if (!codeInput_JAC || !codeOutput_JAC) return;
+
+            const pythonCode = codeInput_JAC.value;
+            if (codeOutput_JAC) codeOutput_JAC.innerHTML = "<p>Ejecutando código...</p>";
+            jac_d3_opDesc.html("Generando datos para la visualización...");
+            jac_d3_svgConvergence.selectAll("*").remove();
+            jac_d3_svgError.selectAll("*").remove();
+            jac_d3_legendConvergence.html("");
+
+            try {
+                // Ensure Jacobi-specific globals are prepared
+                window.pyodide_jac_globals.set("pyodide_jac_html_output", "");
+                let chartPkgProxy = window.pyodide_jac_globals.get("pyodide_jac_chart_data_package");
+                if (chartPkgProxy && typeof chartPkgProxy.clear === 'function') chartPkgProxy.clear();
+                else window.pyodide_jac_globals.set("pyodide_jac_chart_data_package", pyodide_JAC.toPy({}));
+
+                await pyodide_JAC.loadPackagesFromImports(pythonCode);
+                await pyodide_JAC.runPythonAsync(pythonCode);
+
+                const htmlResult = window.pyodide_jac_globals.get("pyodide_jac_html_output");
+                if (codeOutput_JAC) {
+                    codeOutput_JAC.innerHTML = htmlResult || "<p>Ejecución completada. No se generó salida HTML de texto.</p>";
+                }
+                updateTaskStatusInStorage_JAC(TASKS_JAC.RUN_CODE, true);
+
+                const d3DataPackage = window.pyodide_jac_globals.get("pyodide_jac_chart_data_package").toJs({ dict_converter: Object.fromEntries });
+                initializeJACVisualization(d3DataPackage); // Call Jacobi-specific D3 init
+
+            } catch (error) {
+                console.error("Error al ejecutar el código Python (Jacobi):", error);
+                if (codeOutput_JAC) {
+                    codeOutput_JAC.innerHTML = `<p style="color:red;">Error en la ejecución: ${error.toString().replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p><pre>${error.stack ? error.stack.replace(/</g, "&lt;").replace(/>/g, "&gt;") : ''}</pre>`;
+                }
+                jac_d3_opDesc.html("Error al generar datos para la visualización.");
+            }
+        }
+
+        // --- D3.js Jacobi Visualization Logic (similar to Gauss-Seidel) ---
+        let jac_d3_currentStepIndex = 0;
+        let jac_d3_visualizationData = [];
+        let jac_d3_numVariables = 0;
+        let jac_d3_isPlaying = false;
+        let jac_d3_animationSpeed = 500; // ms per step in play mode
+        let jac_d3_playInterval = null;
+
+        const jac_d3_margin = {top: 20, right: 30, bottom: 40, left: 50};
+        const jac_d3_svgConvergence = d3.select("#jac-d3-svg-convergence-container");
+        const jac_d3_svgError = d3.select("#jac-d3-svg-error-container");
+        const jac_d3_legendConvergence = d3.select("#jac-d3-legend-convergence");
+        const jac_d3_opDesc = d3.select("#jac-d3-operation-description");
+        const jac_d3_tooltip = d3.select(".jac-d3-tooltip"); // Common tooltip if needed
+
+        const jac_d3_prevButton = d3.select("#jac-d3-prev");
+        const jac_d3_nextButton = d3.select("#jac-d3-next");
+        const jac_d3_playButton = d3.select("#jac-d3-play");
+        const jac_d3_slider = d3.select("#jac-d3-slider");
+        const jac_d3_speedSlider = d3.select("#jac-d3-speed");
+        const jac_d3_speedValueText = d3.select("#jac-d3-speed-value");
+
+        const ICON_JAC_PREVIOUS = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M15.225 15.077a.75.75 0 01-1.06 0L8.94 9.852a.75.75 0 010-1.06l5.224-5.224a.75.75 0 011.06 1.06L10.532 9.322l4.693 4.695a.75.75 0 010 1.06z"/></svg>';
+        const ICON_JAC_NEXT = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M4.775 4.923a.75.75 0 011.06 0l5.224 5.224a.75.75 0 010 1.06l-5.224 5.224a.75.75 0 01-1.06-1.06L9.468 10.678 4.775 5.983a.75.75 0 010-1.06z"/></svg>';
+        const ICON_JAC_PLAY = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"/></svg>';
+        const ICON_JAC_PAUSE = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M5.75 4.5a.75.75 0 00-.75.75v10.5a.75.75 0 001.5 0V5.25a.75.75 0 00-.75-.75zm8.5 0a.75.75 0 00-.75.75v10.5a.75.75 0 001.5 0V5.25a.75.75 0 00-.75-.75z"/></svg>';
+
+        const jac_d3_colorScale = d3.scaleOrdinal(d3.schemeCategory10);
+
+        function initializeJACVisualization(data) {
+            jac_d3_svgConvergence.selectAll("*").remove();
+            jac_d3_svgError.selectAll("*").remove();
+            jac_d3_legendConvergence.html("");
+
+            if (!data || !data.visualization_steps || data.visualization_steps.length === 0) {
+                jac_d3_opDesc.html("No hay datos de visualización. Ejecute el código.");
+                jac_d3_prevButton.property("disabled", true).html(ICON_JAC_PREVIOUS);
+                jac_d3_nextButton.property("disabled", true).html(ICON_JAC_NEXT);
+                jac_d3_slider.property("disabled", true).attr("max",0).property("value",0);
+                jac_d3_playButton.property("disabled", true).html(ICON_JAC_PLAY);
+                return;
+            }
+            jac_d3_visualizationData = data.visualization_steps;
+            jac_d3_numVariables = data.num_variables || (jac_d3_visualizationData[0].x_vector ? jac_d3_visualizationData[0].x_vector.length : 0);
+            jac_d3_currentStepIndex = 0;
+            jac_d3_isPlaying = false;
+            if (jac_d3_playInterval) clearInterval(jac_d3_playInterval);
+
+            jac_d3_prevButton.html(ICON_JAC_PREVIOUS).property("disabled", false);
+            jac_d3_nextButton.html(ICON_JAC_NEXT).property("disabled", false);
+            jac_d3_playButton.html(ICON_JAC_PLAY).property("disabled", false);
+            jac_d3_slider.attr("max", jac_d3_visualizationData.length - 1).property("value", 0).property("disabled", false);
+
+            renderJACStep(jac_d3_currentStepIndex);
+            updateJACControls();
+        }
+
+        function renderJACStep(stepIndex) {
+            if (stepIndex < 0 || stepIndex >= jac_d3_visualizationData.length) return;
+            const currentStepData = jac_d3_visualizationData[stepIndex];
+            jac_d3_opDesc.html(currentStepData.description || `Iteración ${currentStepData.iteration}`);
+            jac_d3_slider.property("value", stepIndex);
+
+            const dataToShow = jac_d3_visualizationData.slice(0, stepIndex + 1);
+
+            // --- Convergence Plot (x_i values) ---
+            const convWidth = jac_d3_svgConvergence.node().getBoundingClientRect().width - jac_d3_margin.left - jac_d3_margin.right;
+            const convHeight = jac_d3_svgConvergence.node().getBoundingClientRect().height - jac_d3_margin.top - jac_d3_margin.bottom;
+
+            jac_d3_svgConvergence.selectAll("*").remove();
+            const convG = jac_d3_svgConvergence.append("g").attr("transform", `translate(${jac_d3_margin.left},${jac_d3_margin.top})`);
+
+            const xScaleConv = d3.scaleLinear()
+                .domain([0, d3.max(jac_d3_visualizationData, d => d.iteration)])
+                .range([0, convWidth]);
+
+            const allXValues = jac_d3_visualizationData.flatMap(d => d.x_vector || []);
+            const yMinConv = d3.min(allXValues);
+            const yMaxConv = d3.max(allXValues);
+
+            const yScaleConv = d3.scaleLinear()
+                .domain([ (yMinConv !== undefined && yMinConv < 0) ? yMinConv * 1.1 : (yMinConv !== undefined ? yMinConv * 0.9 : -1),
+                          (yMaxConv !== undefined && yMaxConv > 0) ? yMaxConv * 1.1 : (yMaxConv !== undefined ? yMaxConv * 0.9 : 1) ])
+                .range([convHeight, 0]).nice();
+
+            convG.append("g").attr("class", "axis axis--x")
+                .attr("transform", `translate(0,${convHeight})`)
+                .call(d3.axisBottom(xScaleConv).ticks(Math.min(10, jac_d3_visualizationData.length-1)).tickFormat(d3.format("d")));
+            convG.append("g").attr("class", "axis axis--y").call(d3.axisLeft(yScaleConv).ticks(5));
+
+            jac_d3_legendConvergence.html("");
+            for (let i = 0; i < jac_d3_numVariables; i++) {
+                const line = d3.line()
+                    .x(d => xScaleConv(d.iteration))
+                    .y(d => yScaleConv(d.x_vector[i]));
+
+                convG.append("path").datum(dataToShow.filter(d => d.x_vector && d.x_vector.length > i))
+                    .attr("class", "line")
+                    .attr("fill", "none")
+                    .attr("stroke", jac_d3_colorScale(i))
+                    .attr("stroke-width", 1.5)
+                    .attr("d", line);
+
+                const legendItem = jac_d3_legendConvergence.append("div").attr("class", "jac-d3-legend-item");
+                legendItem.append("div").attr("class", "jac-d3-legend-color").style("background-color", jac_d3_colorScale(i));
+                legendItem.append("span").text(`x${i+1}`);
+            }
+            convG.selectAll(".current-iter-marker-conv").remove();
+            convG.append("line")
+                .attr("class", "current-iter-marker-conv")
+                .attr("x1", xScaleConv(currentStepData.iteration))
+                .attr("x2", xScaleConv(currentStepData.iteration))
+                .attr("y1", 0)
+                .attr("y2", convHeight)
+                .attr("stroke", "grey")
+                .attr("stroke-width", 1.5)
+                .attr("stroke-dasharray", "4 2");
+
+            // --- Error Plot ---
+            const errorWidth = jac_d3_svgError.node().getBoundingClientRect().width - jac_d3_margin.left - jac_d3_margin.right;
+            const errorHeight = jac_d3_svgError.node().getBoundingClientRect().height - jac_d3_margin.top - jac_d3_margin.bottom;
+
+            jac_d3_svgError.selectAll("*").remove();
+            const errorG = jac_d3_svgError.append("g").attr("transform", `translate(${jac_d3_margin.left},${jac_d3_margin.top})`);
+
+            const dataWithError = dataToShow.filter(d => d.error !== null && d.error !== undefined && !isNaN(d.error) && d.iteration > 0);
+
+            const xScaleError = d3.scaleLinear()
+                .domain([1, d3.max(jac_d3_visualizationData, d => d.iteration) || 1])
+                .range([0, errorWidth]);
+
+            const yMinError = d3.min(jac_d3_visualizationData, d => (d.error !== null && d.error !== undefined && d.iteration > 0) ? d.error : undefined );
+            const yMaxError = d3.max(jac_d3_visualizationData, d => (d.error !== null && d.error !== undefined && d.iteration > 0) ? d.error : undefined );
+
+            const yScaleError = d3.scaleLog()
+                .domain([ Math.max(1e-12, yMinError || 1e-12), Math.max(1, yMaxError || 1) ])
+                .range([errorHeight, 0]).nice();
+
+            errorG.append("g").attr("class", "axis axis--x")
+                .attr("transform", `translate(0,${errorHeight})`)
+                .call(d3.axisBottom(xScaleError).ticks(Math.min(10, jac_d3_visualizationData.length-1)).tickFormat(d3.format("d")));
+            errorG.append("g").attr("class", "axis axis--y")
+                .call(d3.axisLeft(yScaleError).ticks(5, ".1e"));
+
+            if (dataWithError.length > 0) {
+                const errorLine = d3.line()
+                    .x(d => xScaleError(d.iteration))
+                    .y(d => yScaleError(d.error));
+
+                errorG.append("path").datum(dataWithError)
+                    .attr("class", "line")
+                    .attr("fill", "none")
+                    .attr("stroke", "steelblue")
+                    .attr("stroke-width", 1.5)
+                    .attr("d", errorLine);
+            }
+            errorG.selectAll(".current-iter-marker-error").remove();
+            errorG.append("line")
+                .attr("class", "current-iter-marker-error")
+                .attr("x1", xScaleError(currentStepData.iteration))
+                .attr("x2", xScaleError(currentStepData.iteration))
+                .attr("y1", 0)
+                .attr("y2", errorHeight)
+                .attr("stroke", "grey")
+                .attr("stroke-width", 1.5)
+                .attr("stroke-dasharray", "4 2");
+
+            updateJACControls();
+        }
+
+        function updateJACControls() {
+            jac_d3_prevButton.property("disabled", jac_d3_currentStepIndex <= 0);
+            jac_d3_nextButton.property("disabled", jac_d3_currentStepIndex >= jac_d3_visualizationData.length - 1);
+            jac_d3_slider.property("value", jac_d3_currentStepIndex);
+            jac_d3_playButton.property("disabled", jac_d3_visualizationData.length === 0);
+        }
+        function stopJACPlayback() {
+            jac_d3_isPlaying = false;
+            clearInterval(jac_d3_playInterval);
+            jac_d3_playButton.html(ICON_JAC_PLAY).attr("aria-label", "Play");
+        }
+
+        jac_d3_prevButton.on("click", () => {
+            if (jac_d3_isPlaying) stopJACPlayback();
+            if (jac_d3_currentStepIndex > 0) {
+                jac_d3_currentStepIndex--;
+                renderJACStep(jac_d3_currentStepIndex);
+            }
+        });
+
+        jac_d3_nextButton.on("click", () => {
+            if (jac_d3_isPlaying) stopJACPlayback();
+            if (jac_d3_currentStepIndex < jac_d3_visualizationData.length - 1) {
+                jac_d3_currentStepIndex++;
+                renderJACStep(jac_d3_currentStepIndex);
+            }
+        });
+        jac_d3_playButton.on("click", () => {
+            if (jac_d3_visualizationData.length === 0) return;
+            jac_d3_isPlaying = !jac_d3_isPlaying;
+            if (jac_d3_isPlaying) {
+                jac_d3_playButton.html(ICON_JAC_PAUSE).attr("aria-label", "Pause");
+                if (jac_d3_currentStepIndex >= jac_d3_visualizationData.length - 1) {
+                    jac_d3_currentStepIndex = -1;
+                }
+                jac_d3_playInterval = setInterval(() => {
+                    if (jac_d3_currentStepIndex < jac_d3_visualizationData.length - 1) {
+                        jac_d3_currentStepIndex++;
+                        renderJACStep(jac_d3_currentStepIndex);
+                    } else {
+                        stopJACPlayback();
+                    }
+                }, jac_d3_animationSpeed + 50);
+            } else {
+                stopJACPlayback();
+            }
+        });
+
+        jac_d3_slider.on("input", function() {
+            if (jac_d3_isPlaying) stopJACPlayback();
+            jac_d3_currentStepIndex = +this.value;
+            renderJACStep(jac_d3_currentStepIndex);
+        });
+
+        jac_d3_speedSlider.on("input", function() {
+            jac_d3_animationSpeed = +this.value;
+            jac_d3_speedValueText.text(`${jac_d3_animationSpeed}ms`);
+            if (jac_d3_isPlaying) {
+                stopJACPlayback();
+                jac_d3_playButton.dispatch("click");
+            }
+        });
+        jac_d3_speedValueText.text(`${jac_d3_speedSlider.property("value")}ms`);
+
+
+        if (runCodeButton_JAC) runCodeButton_JAC.addEventListener('click', runCodeNow_JAC);
+
+        if (quizForm_JAC) {
+            quizForm_JAC.addEventListener('submit', function(event) {
+                event.preventDefault();
+                const currentLocalProgress = getPageProgressFromStorage_JAC(PAGE_KEY_JAC);
+                const submitButton = quizForm_JAC.querySelector('button[type="submit"]');
+
+                if (currentLocalProgress[TASKS_JAC.QUIZ_PASSED] && submitButton.textContent !== 'Intentar de Nuevo') return; // Already passed, no re-submit unless "Try Again"
+
+                if (submitButton && submitButton.textContent === 'Intentar de Nuevo') {
+                    quizForm_JAC.reset();
+                    clearAllVisualFeedback_JAC(true); // Clear all, including general message
+                    if(generalQuizFeedbackDiv_JAC) generalQuizFeedbackDiv_JAC.style.display = 'none';
+
+                    // Reset quiz-related progress in storage
+                    let progressToSave = getPageProgressFromStorage_JAC(PAGE_KEY_JAC);
+                    progressToSave.user_quiz_answers = {};
+                    progressToSave.quiz_current_score = 0;
+                    progressToSave.quiz_feedback_active = false;
+                    // TASKS_JAC.QUIZ_ATTEMPTED remains true or is set by form submission
+                    savePageProgressToStorage_JAC(PAGE_KEY_JAC, progressToSave);
+                    updateTaskStatusInStorage_JAC(TASKS_JAC.QUIZ_PASSED, false); // Crucially, mark as not passed
+
+                    quizForm_JAC.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                     quizForm_JAC.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                         wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                    });
+                    submitButton.textContent = 'Enviar Respuestas';
+                    return; // Stop here, user will fill and submit again
+                }
+
+                // Standard submission process
+                const formData = new FormData(quizForm_JAC);
+                let allAnswered = true;
+                for (const qName of Object.keys(quizDataJacobi)) { if (!formData.has(qName)) { allAnswered = false; break; } }
+
+                if (!allAnswered) {
+                    if (generalQuizFeedbackDiv_JAC) {
+                        generalQuizFeedbackDiv_JAC.textContent = "Por favor, responde todas las preguntas.";
+                        generalQuizFeedbackDiv_JAC.className = 'mt-4 p-3 rounded-md text-sm bg-yellow-100 text-yellow-700 border border-yellow-200';
+                        generalQuizFeedbackDiv_JAC.style.display = 'block';
+                    } return;
+                }
+
+                updateTaskStatusInStorage_JAC(TASKS_JAC.QUIZ_ATTEMPTED, true);
+
+                // Store answers and set feedback active
+                let progress = getPageProgressFromStorage_JAC(PAGE_KEY_JAC);
+                progress.user_quiz_answers = {};
+                for (const qName of Object.keys(quizDataJacobi)) { progress.user_quiz_answers[qName] = formData.get(qName); }
+                progress.quiz_feedback_active = true;
+                savePageProgressToStorage_JAC(PAGE_KEY_JAC, progress);
+
+                const quizWasPassed = displayQuizFeedback_JAC(); // This function also saves score and passed status
+                updateTaskStatusInStorage_JAC(TASKS_JAC.QUIZ_PASSED, quizWasPassed); // Redundant if displayQuizFeedback_JAC saves, but safe
+                calculateAndUpdateOverallProgress_JAC(); // Update overall progress based on new task status
+            });
+        }
+
+        if (mainCompletionButton_JAC) {
+             mainCompletionButton_JAC.addEventListener('click', () => {
+                const progress = getPageProgressFromStorage_JAC(PAGE_KEY_JAC);
+                let allCurrentlyCompleted = ALL_TASK_KEYS_JAC.every(taskKey => progress[taskKey]);
+                let markAllAs = !allCurrentlyCompleted; // Toggle state
+
+                ALL_TASK_KEYS_JAC.forEach(taskName => updateTaskStatusInStorage_JAC(taskName, markAllAs));
+
+                // Specific handling for quiz when marking all complete or resetting
+                let updatedProgress = getPageProgressFromStorage_JAC(PAGE_KEY_JAC);
+                if (!markAllAs) { // Resetting all tasks
+                    updatedProgress.user_quiz_answers = {};
+                    updatedProgress.quiz_current_score = 0;
+                    updatedProgress.quiz_feedback_active = false;
+                    if (quizForm_JAC) {
+                        quizForm_JAC.reset();
+                        quizForm_JAC.querySelectorAll('input[type="radio"]').forEach(r => r.disabled = false);
+                        const sb = quizForm_JAC.querySelector('button[type="submit"]');
+                        if(sb) sb.textContent = 'Enviar Respuestas';
+                        quizForm_JAC.querySelectorAll('.quiz-option-wrapper').forEach(w => w.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red'));
+
+                    }
+                    clearAllVisualFeedback_JAC(true);
+                } else { // Marking all tasks as complete
+                     updatedProgress[TASKS_JAC.QUIZ_ATTEMPTED] = true; // Ensure quiz is marked as attempted
+                     updatedProgress[TASKS_JAC.QUIZ_PASSED] = true;   // And passed
+                    // Auto-fill correct answers if not already done (e.g., if quiz was never "really" taken)
+                    if (Object.keys(updatedProgress.user_quiz_answers).length === 0 || updatedProgress.quiz_current_score !== Object.keys(quizDataJacobi).length) {
+                        for (const qName in quizDataJacobi) updatedProgress.user_quiz_answers[qName] = quizDataJacobi[qName].correctAnswer;
+                        updatedProgress.quiz_current_score = Object.keys(quizDataJacobi).length;
+                    }
+                    updatedProgress.quiz_feedback_active = true; // Ensure feedback shows as "passed"
+                }
+                savePageProgressToStorage_JAC(PAGE_KEY_JAC, updatedProgress);
+
+                if (quizForm_JAC) displayQuizFeedback_JAC(); // Display feedback based on new state
+                calculateAndUpdateOverallProgress_JAC(); // Recalculate progress bar etc.
+
+                // Hide general feedback if resetting
+                if (generalQuizFeedbackDiv_JAC && !markAllAs) generalQuizFeedbackDiv_JAC.style.display = 'none';
+                alert(markAllAs ? 'Todas las tareas marcadas como completadas.' : 'Se ha deshecho el completado.');
+            });
+        }
+
+        const theorySectionObserverTargetNodeJAC = document.getElementById('conclusion-jac') || document.getElementById('teoria-jac'); // Target for theory reading
+        if (theorySectionObserverTargetNodeJAC) {
+            const observerOptionsJAC = { root: null, rootMargin: '0px', threshold: 0.1 }; // 10% visibility
+            const observerCallbackJAC = (entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) updateTaskStatusInStorage_JAC(TASKS_JAC.READ_THEORY, true);
+                });
+            };
+            const theoryObserver_JAC = new IntersectionObserver(observerCallbackJAC, observerOptionsJAC);
+            theoryObserver_JAC.observe(theorySectionObserverTargetNodeJAC);
+        }
+
+        // Clear hash from URL on load if present, to prevent unintended scrolling
+        if (window.location.hash) history.replaceState(null, '', window.location.pathname + window.location.search);
+
+        // Initialize Pyodide and D3 on page load
+        (async () => {
+            pyodide_JAC = await initializePyodide_JAC();
+            initializeJACVisualization(null); // Initialize D3 with null data to set up controls
+        })();
+
+        // Initial load of quiz state and progress from localStorage
+        const initialProgress_JAC = getPageProgressFromStorage_JAC(PAGE_KEY_JAC);
+        if (initialProgress_JAC.quiz_feedback_active || (initialProgress_JAC[TASKS_JAC.QUIZ_ATTEMPTED] && Object.keys(initialProgress_JAC.user_quiz_answers).length > 0) ) {
+            if (quizForm_JAC && initialProgress_JAC.user_quiz_answers) {
+                 // Pre-select radio buttons based on stored answers
+                 for (const qName in initialProgress_JAC.user_quiz_answers) {
+                    const userAnswer = initialProgress_JAC.user_quiz_answers[qName];
+                    // Escape special characters in userAnswer for querySelector
+                    const escapedUserAnswer = userAnswer.replace(/([\\()\[\]"'.:/])/g, '\\$1');
+                    try {
+                        const radioToSelect = quizForm_JAC.querySelector(`input[name="${qName}"][value="${escapedUserAnswer}"]`);
+                        if (radioToSelect) radioToSelect.checked = true;
+                    } catch (e) { console.warn(`Error seleccionando radio JAC para ${qName} con valor "${userAnswer}":`, e); }
+                }
+            }
+            displayQuizFeedback_JAC(); // Display the feedback based on stored state
+        } else if (quizForm_JAC) { // No previous attempt, or reset state
+            const submitButton = quizForm_JAC.querySelector('button[type="submit"]');
+            if (submitButton) { submitButton.textContent = 'Enviar Respuestas'; submitButton.disabled = false; }
+            quizForm_JAC.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+             quizForm_JAC.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red'));
+            if (window.MathJax && window.MathJax.typesetPromise) window.MathJax.typesetPromise([quizForm_JAC]); // Typeset if needed
+        }
+        calculateAndUpdateOverallProgress_JAC(); // Update overall progress display
+
+
+        if (fullscreenButton_JAC && codeOutput_JAC && outputControlsContainer_JAC) {
+             fullscreenButton_JAC.addEventListener('click', () => {
+                const isFullscreen = codeOutput_JAC.classList.contains('jac-output-fullscreen');
+                if (isFullscreen) {
+                    outputControlsContainer_JAC.style.opacity = '0';
+                    if(increaseFontButton_JAC) increaseFontButton_JAC.style.display = 'none';
+                    if(decreaseFontButton_JAC) decreaseFontButton_JAC.style.display = 'none';
+                    if (jacCodeOutputInitialRect) {
+                        const finalRect = codeOutput_JAC.getBoundingClientRect();
+                        const scaleX = jacCodeOutputInitialRect.width / finalRect.width;
+                        const scaleY = jacCodeOutputInitialRect.height / finalRect.height;
+                        const deltaX = (jacCodeOutputInitialRect.left + jacCodeOutputInitialRect.width / 2) - (finalRect.left + finalRect.width / 2);
+                        const deltaY = (jacCodeOutputInitialRect.top + jacCodeOutputInitialRect.height / 2) - (finalRect.top + finalRect.height / 2);
+                        codeOutput_JAC.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+                     }
+                    setTimeout(() => {
+                        codeOutput_JAC.style.transition = 'none';
+                        codeOutput_JAC.classList.remove('jac-output-fullscreen');
+                        document.body.classList.remove('jac-body-fullscreen-active');
+                        outputControlsContainer_JAC.classList.remove('jac-output-controls-container-fixed');
+                        outputControlsContainer_JAC.style.transition = 'none'; outputControlsContainer_JAC.style.opacity = '1';
+                        outputControlsContainer_JAC.offsetHeight; outputControlsContainer_JAC.style.transition = '';
+                        codeOutput_JAC.style.transform = '';
+                        if (originalOutputFontSize_JAC) codeOutput_JAC.style.fontSize = originalOutputFontSize_JAC;
+                        codeOutput_JAC.offsetHeight; codeOutput_JAC.style.transition = '';
+                        fullscreenButton_JAC.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15" /></svg>`;
+                        fullscreenButton_JAC.title = "Ver en pantalla completa"; jacCodeOutputInitialRect = null;
+                    }, 500);
+                } else {
+                    originalOutputFontSize_JAC = window.getComputedStyle(codeOutput_JAC).fontSize;
+                    jacCodeOutputInitialRect = codeOutput_JAC.getBoundingClientRect();
+                    outputControlsContainer_JAC.style.transition = 'none'; outputControlsContainer_JAC.style.opacity = '0';
+                    outputControlsContainer_JAC.offsetHeight; outputControlsContainer_JAC.style.transition = '';
+                    codeOutput_JAC.style.transition = 'none';
+                    codeOutput_JAC.classList.add('jac-output-fullscreen');
+                    document.body.classList.add('jac-body-fullscreen-active');
+                    outputControlsContainer_JAC.classList.add('jac-output-controls-container-fixed');
+
+                    const finalRect = codeOutput_JAC.getBoundingClientRect();
+                    const scaleX = jacCodeOutputInitialRect.width / finalRect.width;
+                    const scaleY = jacCodeOutputInitialRect.height / finalRect.height;
+                    const deltaX = (jacCodeOutputInitialRect.left + jacCodeOutputInitialRect.width / 2) - (finalRect.left + finalRect.width / 2);
+                    const deltaY = (jacCodeOutputInitialRect.top + jacCodeOutputInitialRect.height / 2) - (finalRect.top + finalRect.height / 2);
+                    codeOutput_JAC.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+                    codeOutput_JAC.offsetHeight;
+                    codeOutput_JAC.style.transition = '';
+                    codeOutput_JAC.style.transform = 'translate(0px, 0px) scale(1)';
+                    fullscreenButton_JAC.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9V4.5M15 9h4.5M15 9l5.25-5.25M15 15v4.5M15 15h4.5M15 15l5.25 5.25" /></svg>`;
+                    fullscreenButton_JAC.title = "Salir de pantalla completa";
+                    setTimeout(() => {
+                        outputControlsContainer_JAC.style.opacity = '1';
+                        if(increaseFontButton_JAC) increaseFontButton_JAC.style.display = 'inline-flex';
+                        if(decreaseFontButton_JAC) decreaseFontButton_JAC.style.display = 'inline-flex';
+                    }, 500);
+                }
+            });
+        }
+        if (increaseFontButton_JAC && codeOutput_JAC) {
+            increaseFontButton_JAC.addEventListener('click', () => {
+                if (codeOutput_JAC.classList.contains('jac-output-fullscreen')) {
+                    let currentSize = parseFloat(window.getComputedStyle(codeOutput_JAC).fontSize);
+                    if (currentSize < MAX_FONT_SIZE_PX_JAC) {
+                        codeOutput_JAC.style.fontSize = (currentSize + FONT_SIZE_STEP_PX_JAC) + 'px';
+                        increaseFontButton_JAC.classList.add('jac-font-button-flash-blue');
+                        setTimeout(() => { increaseFontButton_JAC.classList.remove('jac-font-button-flash-blue'); }, 400);
+                    }
+                }
+            });
+        }
+        if (decreaseFontButton_JAC && codeOutput_JAC) {
+             decreaseFontButton_JAC.addEventListener('click', () => {
+                if (codeOutput_JAC.classList.contains('jac-output-fullscreen')) {
+                    let currentSize = parseFloat(window.getComputedStyle(codeOutput_JAC).fontSize);
+                    if (currentSize > MIN_FONT_SIZE_PX_JAC) {
+                        codeOutput_JAC.style.fontSize = (currentSize - FONT_SIZE_STEP_PX_JAC) + 'px';
+                        decreaseFontButton_JAC.classList.add('jac-font-button-flash-red');
+                        setTimeout(() => { decreaseFontButton_JAC.classList.remove('jac-font-button-flash-red'); }, 400);
+                    }
+                }
+            });
+        }
+        if(increaseFontButton_JAC) increaseFontButton_JAC.style.display = 'none';
+        if(decreaseFontButton_JAC) decreaseFontButton_JAC.style.display = 'none';
+
+    });
+    </script>
+
+    <!-- Vue App Initialization Script -->
+    <script type="module">
+        const { createApp, ref, onMounted, onUnmounted, watch, nextTick } = Vue;
+        const LeftSidebarJAC = { // Renamed for Jacobi
+            template: `{% raw %}
+                <aside 
+                    :class="[
+                        'bg-gradient-to-b from-red-500 to-red-700', 'shadow-xl', 'rounded-lg', 'p-4',
+                        'flex', 'flex-col',
+                        'transition-all', 'duration-300', 'ease-in-out',
+                        'order-1', 
+                        isCollapsed ? 'w-full lg:w-20' : 'w-full lg:w-64',
+                        'self-start', 
+                        'lg:sticky', 'lg:top-8', 
+                        'lg:max-h-[calc(100vh-4rem)]', 
+                        'overflow-y-auto'
+                    ]"
+                    aria-label="Sidebar de navegación del método">
+                    <div class="flex justify-between items-center mb-4 border-b border-red-400 pb-3">
+                        <h3 v-show="!isCollapsed" class="text-lg font-semibold text-white select-none">Contenido</h3>
+                        <button @click="toggleCollapse" class="p-1.5 ml-2 text-white hover:bg-red-700 rounded focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-75" :aria-label="isCollapsed ? 'Expandir menú' : 'Colapsar menú'">
+                            <svg v-if="!isCollapsed" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5" /></svg>
+                            <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5m-6-15l7.5 7.5-7.5 7.5" /></svg>
+                        </button>
+                    </div>
+                    <nav v-show="!isCollapsed">
+                        <ul class="space-y-1">
+                            <li v-for="item in navItems" :key="item.id">
+                                <a :href="item.href" @click.prevent="smoothScroll(item.href)"
+                                   :class="['nav-link block px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 flex items-center', isActive(item.id) ? 'bg-white text-custom-blue font-semibold shadow-sm' : 'text-red-100 hover:bg-red-700 hover:text-white']">
+                                    <span v-html="item.iconSVG" class="mr-3 translate-y-px"></span>
+                                    <span>{{ item.text }}</span>
+                                </a></li></ul></nav>
+                    <nav v-show="isCollapsed" class="mt-4">
+                         <ul class="space-y-1">
+                            <li v-for="item in navItems" :key="item.id + '-collapsed'">
+                                <a :href="item.href" @click.prevent="smoothScroll(item.href)" :title="item.text" :aria-label="item.text"
+                                   :class="['nav-link-collapsed block py-2 pl-2.5 pr-1.5 rounded-md transition-colors duration-150 flex justify-center items-center', isActive(item.id) ? 'bg-white text-custom-blue shadow-sm' : 'text-red-100 hover:bg-red-700 hover:text-white']">
+                                    <span v-html="item.iconSVG" class="w-6 h-6 translate-y-px"></span>
+                                </a></li></ul></nav></aside>{% endraw %}`,
+            setup() {
+                const isCollapsed = ref(false);
+                const activeSectionId = ref('teoria-jac'); // Default for Jacobi
+                const navItems = ref([ // Update for Jacobi sections
+                    { id: 'teoria-jac', text: 'Fundamento Teórico', href: '#teoria-jac', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>' },
+                    { id: 'algoritmo-jac', text: 'Pasos del Algoritmo', href: '#algoritmo-jac', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" /></svg>' },
+                    { id: 'ejemplo-jac', text: 'Ejemplo Detallado', href: '#ejemplo-jac', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>' },
+                    { id: 'codigo-jac', text: 'Implementación (Python)', href: '#codigo-jac', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" /></svg>' },
+                    { id: 'graficas-jac', text: 'Visualización Interactiva', href: '#graficas-jac', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 14.25v2.25m3-4.5v4.5m3-6.75v6.75m3-9v9M6 20.25h12A2.25 2.25 0 0020.25 18V6A2.25 2.25 0 0018 3.75H6A2.25 2.25 0 003.75 6v12A2.25 2.25 0 006 20.25z" /></svg>' },
+                    { id: 'videos-jac', text: 'Videos Explicativos', href: '#videos-jac', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.75.75 0 010 1.656l-5.603 3.113A.75.75 0 019 15.95V9.05a.75.75 0 011.307-.588l5.603 3.112z" /></svg>' },
+                    { id: 'conclusion-jac', text: 'Conclusión', href: '#conclusion-jac', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' },
+                    { id: 'referencias-jac', text: 'Referencias', href: '#referencias-jac', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 3.75V16.5L12 14.25L7.5 16.5V3.75m9 0H18A2.25 2.25 0 0120.25 6v12A2.25 2.25 0 0118 20.25H6A2.25 2.25 0 013.75 18V6A2.25 2.25 0 016 3.75h1.5m9 0h-9" /></svg>' },
+                    { id: 'cuestionario-jac', text: 'Cuestionario', href: '#cuestionario-jac', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' }
+                ]);
+                let sections = [];
+                const toggleCollapse = () => isCollapsed.value = !isCollapsed.value;
+                const isActive = (id) => activeSectionId.value === id;
+                const smoothScroll = (targetHref) => {
+                    const targetId = targetHref.substring(1);
+                    const targetElement = document.getElementById(targetId);
+                    if (targetElement) {
+                        targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+                        history.pushState(null, null, targetHref);
+                    }
+                };
+                const handleScroll = () => {
+                    if (!sections.length) return;
+                    const scrollMarginTopValue = parseInt(getComputedStyle(sections[0]).scrollMarginTop) || 96;
+                    let newActiveSectionId = null;
+
+                    for (let i = 0; i < sections.length; i++) {
+                        const section = sections[i];
+                        const sectionTopBoundary = section.offsetTop - scrollMarginTopValue;
+                        const sectionBottomBoundary = sectionTopBoundary + section.offsetHeight;
+                        if (window.scrollY >= sectionTopBoundary && window.scrollY < sectionBottomBoundary) {
+                            newActiveSectionId = section.id;
+                            break;
+                        }
+                    }
+                    if (newActiveSectionId === null) {
+                        if (window.scrollY < (sections[0].offsetTop - scrollMarginTopValue)) {
+                            newActiveSectionId = sections[0].id;
+                        } else if (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 50) {
+                             newActiveSectionId = sections[sections.length-1].id;
+                        } else {
+                             for (let i = sections.length - 1; i >= 0; i--) {
+                                if ((sections[i].offsetTop - scrollMarginTopValue) <= window.scrollY + 5) {
+                                    newActiveSectionId = sections[i].id; break;
+                                }
+                            }
+                        }
+                    }
+                     if (activeSectionId.value !== newActiveSectionId && newActiveSectionId !== null) {
+                        activeSectionId.value = newActiveSectionId;
+                    }
+                };
+                onMounted(() => {
+                    nextTick(() => {
+                        sections = Array.from(document.querySelectorAll('main article section[id]'));
+                        handleScroll();
+                        window.addEventListener('scroll', handleScroll, { passive: true });
+                    });
+                });
+                onUnmounted(() => window.removeEventListener('scroll', handleScroll));
+                return { isCollapsed, toggleCollapse, navItems, isActive, smoothScroll, activeSectionId };
+            }
+        };
+        const appJAC = createApp({ // Renamed for Jacobi
+            setup() {
+                const METHOD_KEY_JAC_VUE = "jacobi"; // Renamed
+                const METHOD_NAME_TITLE_CASE_JAC_VUE = "Jacobi"; // Renamed
+                return { METHOD_KEY_JAC_VUE, METHOD_NAME_TITLE_CASE_JAC_VUE };
+            }
+        });
+        appJAC.component('left-sidebar-jac', LeftSidebarJAC); // Renamed component
+        appJAC.config.compilerOptions.isCustomElement = tag => tag.startsWith('mjx-');
+        appJAC.mount('#app-jac'); // Mount to Jacobi-specific ID
+    </script>
+</body>
+</html>

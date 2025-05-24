@@ -1,0 +1,1867 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Método de Montante - Métodos Numéricos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'custom-blue': '#242A38',
+                        'custom-red': '#E94560',
+                        'custom-gray-bg': '#F3F4F6',
+                        'sidebar-bg': '#FFFFFF',
+                        'sidebar-text': '#4B5563',
+                        'sidebar-hover-bg': '#FEF2F2',
+                    }
+                }
+            }
+        }
+    </script>
+    <script>
+        window.MathJax = {
+            tex: { packages: {'[+]': ['input/mml', 'output/chtml']} },
+            chtml: { matchFontHeight: false },
+            options: { ignoreHtmlClass: 'tex2jax_ignore', processHtmlClass: 'tex2jax_process' }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        @keyframes animatedRainbowBorder { 0% { background-position: 0% center; } 100% { background-position: 200% center; } }
+        .animate-rainbow-border::before {
+            content: ''; position: absolute; z-index: -1; top: -2px; left: -2px; right: -2px; bottom: -2px;
+            border-radius: 9999px;
+            background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #007bff, #8a2be2, #ff00ff, #ff0000);
+            background-size: 200% 100%;
+            animation: animatedRainbowBorder 3s linear infinite;
+        }
+        .animate-rainbow-border { position: relative; z-index: 0; }
+        .correct-answer-montante { border-color: #10B981; background-color: #D1FAE5; }
+        .incorrect-answer-montante { border-color: #EF4444; background-color: #FEE2E2; }
+
+        .montante-output-fullscreen {
+            position: fixed !important; top: 0 !important; left: 0 !important;
+            width: 100vw !important; height: 100vh !important;
+            z-index: 9990 !important; background-color: #111827 !important;
+            padding: 20px !important; margin: 0 !important; border-radius: 0 !important;
+            overflow-y: auto !important; max-height: 100vh !important;
+        }
+        .montante-body-fullscreen-active { overflow: hidden !important; }
+        .montante-output-controls-container-fixed {
+            position: fixed !important; top: 15px !important; right: 15px !important;
+            z-index: 9999 !important; display: flex !important;
+            align-items: center !important; gap: 0.25rem !important;
+        }
+        .montante-font-button-flash-red { animation: montante-flash-red 0.4s ease-out; }
+        @keyframes montante-flash-red { 0% { background-color: #EF4444; } 100% { background-color: #374151; } }
+        .montante-font-button-flash-blue { animation: montante-flash-blue 0.4s ease-out; }
+        @keyframes montante-flash-blue { 0% { background-color: #3B82F6; } 100% { background-color: #374151; } }
+
+        .matrix-table { border-collapse: collapse; margin: 10px auto; font-family: monospace; font-size:0.9em; }
+        .matrix-table th, .matrix-table td { border: 1px solid #555; padding: 6px 10px; text-align: right; }
+        .matrix-table th { background-color: #333; font-weight:normal; }
+        .pivot-element { background-color: #4CAF50 !important; color: white; font-weight: bold; }
+        .involved-element { background-color: #FFC107 !important; color: black; } /* Amarillo para elementos de cálculo */
+        .target-update-element { background-color: #2196F3 !important; color: white; } /* Azul para el elemento que se actualiza */
+        .matrix-separator { border-right: 2px solid #999 !important; }
+        .step-description { margin-top:15px; margin-bottom:5px; font-style: italic; text-align:center; font-size:0.9em;}
+
+        /* D3 Visualization Styles for Montante */
+        #montante-d3-svg-container .row-group rect {
+            stroke: #b0bec5; stroke-width: 1px; fill: white; shape-rendering: crispEdges;
+        }
+        #montante-d3-svg-container .row-group text {
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+            text-anchor: middle; dominant-baseline: central; fill: #263238; font-size: 0.85em; pointer-events: none;
+        }
+        #montante-d3-svg-container .pivot-highlight rect { fill: #A5D6A7 !important; stroke: #66BB6A !important; } /* Verde pastel */
+        #montante-d3-svg-container .calc-element-highlight rect { fill: #FFF59D !important; stroke: #FBC02D !important; } /* Amarillo pastel */
+        #montante-d3-svg-container .updated-element-highlight rect { fill: #90CAF9 !important; stroke: #64B5F6 !important; } /* Azul pastel */
+        #montante-d3-svg-container .zeroed-element-highlight rect { fill: #CFD8DC !important; } /* Gris claro */
+         #montante-d3-svg-container .problem-row-highlight rect { fill: #FFCDD2 !important; }
+        #montante-d3-svg-container .matrix-column-separator { stroke: #78909c; stroke-width: 1.5px; stroke-dasharray: 3 2; }
+        #montante-d3-prev-pivot-display {
+            font-size: 0.9em; font-family: monospace; color: #4A5568;
+            padding: 4px 8px; background-color: #E2E8F0; border-radius: 4px;
+            border: 1px solid #CBD5E0;
+        }
+    </style>
+</head>
+<body class="bg-custom-gray-bg text-gray-700 font-sans antialiased">
+    <div id="app-montante">
+        <header class="bg-custom-blue text-white shadow-md">
+            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                <h1 class="text-xl font-semibold"><a href="../index.html" class="hover:text-gray-300">Métodos Numéricos</a></h1>
+                <nav><a href="../index.html#method-cards-container" class="text-sm px-4 py-2 rounded-md hover:bg-gray-700 transition-colors duration-150">Volver a Métodos</a></nav>
+            </div>
+        </header>
+
+        <div class="container mx-auto mt-8 mb-8 flex flex-col lg:flex-row lg:space-x-8 px-4">
+            <left-sidebar-montante></left-sidebar-montante>
+            <main class="w-full flex-1 min-w-0 bg-white shadow-xl rounded-lg p-6 md:p-8 order-2 mb-6 lg:mb-0">
+                <article class="method-content">
+                    <h2 class="text-3xl font-bold mb-6 text-gray-800 border-b border-gray-200 pb-4">Método de Montante (Algoritmo de Bareiss)</h2>
+
+                    <section id="teoria-montante" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Fundamento Teórico</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            El Método de Montante, también conocido como Algoritmo de Bareiss o método de pivoteo libre de fracciones, es un algoritmo para calcular el determinante de una matriz con entradas enteras o para resolver sistemas de ecuaciones lineales exactas. Una de sus características distintivas es que, si la matriz original contiene solo enteros, todas las operaciones intermedias (antes de la división final por el pivote anterior) también resultarán en enteros. Esto evita la acumulación de errores de redondeo por fracciones si se trabaja con aritmética exacta.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            El método se basa en la identidad de Sylvester (también conocida como identidad de Desnanot-Jacobi). Para el algoritmo, se utiliza una regla de transformación para cada elemento \(a_{ij}\) de la matriz basada en un elemento pivote \(a_{kk}\) (el pivote actual) y el pivote del paso anterior \(p_{prev}\).
+                        </p>
+                        <p class="text-gray-600 leading-relaxed">Para cada elemento \(a_{ij}\) que no está en la fila o columna del pivote \(a_{kk}\), la transformación es:</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                             \[ a'_{ij} = \frac{a_{kk} \cdot a_{ij} - a_{ik} \cdot a_{kj}}{p_{prev}} \]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            donde \(p_{prev}\) es el pivote del paso anterior (inicialmente se toma como 1). Cuando se aplica para resolver sistemas \(Ax=b\), se trabaja con la matriz aumentada \([A|b]\).
+                        </p>
+                    </section>
+
+                    <section id="algoritmo-montante" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Pasos del Algoritmo (para resolver \(Ax=b\) - Variante Diagonalización)</h3>
+                        <ol class="list-decimal list-inside space-y-3 pl-4 text-gray-600 leading-relaxed">
+                            <li>Formar la matriz aumentada \([M] = [A|b]\). Sea \(n\) el número de filas (y de incógnitas).</li>
+                            <li>Inicializar \(p_{prev} = 1\) (pivote anterior al primer pivote, conceptualmente \(M_{-1,-1}=1\)).</li>
+                            <li>Para \(k = 0, \ldots, n-1\) (iterando sobre la columna pivote \(k\), el pivote será \(M_{k,k}\)):
+                                <ol type="a" class="list-[lower-alpha] list-inside space-y-2 pl-6 mt-2">
+                                    <li>
+                                        <strong>Pivote Actual y Verificación:</strong> El pivote actual es \(M_{k,k}\).
+                                        Si \(M_{k,k} = 0\), intentar intercambiar la fila \(k\) con una fila \(i > k\) tal que \(M_{i,k} \neq 0\). Si no es posible, la matriz es singular (\(\det(A)=0\)). Si se está resolviendo un sistema, esto puede implicar no solución o infinitas soluciones.
+                                    </li>
+                                    <li>
+                                        <strong>Transformación de Elementos:</strong> Para cada fila \(i = 0, \ldots, n-1\) (donde \(i \neq k\)):
+                                        <br>Para cada columna \(j = k+1, \ldots, n\) (incluyendo la columna aumentada):
+                                        <div class="text-center my-2 text-gray-600 tex2jax_process">
+                                            \[ M_{i,j}^{\text{nuevo}} = \frac{M_{k,k} \cdot M_{i,j}^{\text{actual}} - M_{i,k}^{\text{actual}} \cdot M_{k,j}^{\text{actual}}}{p_{prev}} \]
+                                        </div>
+                                        (Asegurarse de usar los valores de \(M\) *antes* de esta iteración \(k\) para el lado derecho de la ecuación si no se hace una copia). Es más seguro trabajar sobre una copia o calcular todos los nuevos valores antes de actualizar la matriz.
+                                    </li>
+                                    <li>
+                                        <strong>Puesta a Cero de la Columna Pivote:</strong> Para cada fila \(i = 0, \ldots, n-1\) (donde \(i \neq k\)), establecer \(M_{i,k} = 0\).
+                                    </li>
+                                    <li>
+                                        <strong>Actualización del Pivote Anterior:</strong> El pivote actual \(M_{k,k}\) se convierte en el \(p_{prev}\) para la siguiente iteración (k+1). Es decir, \(p_{prev} = M_{k,k}\) (el valor que tenía \(M_{k,k}\) al inicio de la iteración \(k\), antes de cualquier normalización si se hiciera, aunque Montante no normaliza el pivote a 1 en la diagonal durante el proceso).
+                                    </li>
+                                </ol>
+                            </li>
+                            <li>
+                                <strong>Obtención de la Solución:</strong> Al final de las \(n\) iteraciones, la matriz \(A\) está en forma diagonal (no necesariamente identidad). La solución para cada \(x_k\) es:
+                                <div class="text-center my-2 text-gray-600 tex2jax_process">
+                                    \[ x_k = \frac{M_{k,n}}{M_{k,k}} \]
+                                </div>
+                                (Donde \(M_{k,n}\) es el elemento en la k-ésima fila de la columna aumentada).
+                            </li>
+                            <li>
+                                <strong>Determinante:</strong> El determinante de la matriz original \(A\) es el valor del último elemento diagonal \(M_{n-1,n-1}\) de la parte \(A\) transformada, al final del proceso (antes de la división para obtener \(x_k\)). Si se realizan \(n\) pivotes \(p_0, p_1, \dots, p_{n-1}\), el último valor \(M_{n-1,n-1}\) tras el último paso de transformación (asociado al pivote \(M_{n-1,n-1}\)) es el determinante.
+                            </li>
+                        </ol>
+                        <p class="text-sm text-gray-500 mt-2"><em>Nota: El manejo del "pivote anterior" \(p_{prev}\) es crucial. En cada etapa \(k\), el \(p_{prev}\) que se usa como denominador fue el pivote \(M_{k-1,k-1}\) de la etapa \(k-1\).</em></p>
+                    </section>
+
+                    <section id="ejemplo-montante" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Ejemplo Paso a Paso (Resolver \(Ax=b\))</h3>
+                        <p class="text-gray-600 leading-relaxed mb-3"><strong>Sistema:</strong></p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ \begin{aligned} 2x_1 + x_2 &= 5 \\ x_1 + x_2 &= 3 \end{aligned} \]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed mb-2">Matriz Aumentada: \(M = \left[ \begin{array}{cc|c} 2 & 1 & 5 \\ 1 & 1 & 3 \end{array} \right]\). Pivote anterior \(p_{prev} = 1\).</p>
+                        
+                        <p class="font-medium text-gray-700 mb-1 mt-4"><strong>Iteración k=0 (Pivote \(M_{0,0}=2\). Denominador \(p_{prev}=1\)):</strong></p>
+                        <ul class="list-disc list-inside space-y-1 pl-4 text-gray-600">
+                            <li>Fila \(i=1\) (la única fila que no es la fila pivote):</li>
+                            <ul class="list-disc list-inside space-y-1 pl-6 mt-1">
+                                <li>Columna \(j=1\) (elemento \(M_{1,1}\)):<br>
+                                \(M_{1,1}^{\text{nuevo}} = (M_{0,0} \cdot M_{1,1} - M_{1,0} \cdot M_{0,1}) / p_{prev} = (2 \cdot 1 - 1 \cdot 1) / 1 = (2 - 1) / 1 = 1\)</li>
+                                <li>Columna \(j=2\) (elemento \(M_{1,2}\), parte aumentada):<br>
+                                \(M_{1,2}^{\text{nuevo}} = (M_{0,0} \cdot M_{1,2} - M_{1,0} \cdot M_{0,2}) / p_{prev} = (2 \cdot 3 - 1 \cdot 5) / 1 = (6 - 5) / 1 = 1\)</li>
+                            </ul>
+                            <li>Poner a cero la columna del pivote (excepto el pivote): \(M_{1,0} = 0\).</li>
+                        </ul>
+                        <p class="text-gray-600 leading-relaxed mt-2">Matriz después de la iteración \(k=0\):</p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                         \(M = \left[ \begin{array}{cc|c} 2 & 1 & 5 \\ 0 & 1 & 1 \end{array} \right]\)
+                        </div>
+                        <p class="text-gray-600 leading-relaxed">Actualizar pivote anterior: \(p_{prev} = M_{0,0} = 2\).</p>
+
+                        <p class="font-medium text-gray-700 mb-1 mt-4"><strong>Iteración k=1 (Pivote \(M_{1,1}=1\). Denominador \(p_{prev}=2\)):</strong></p>
+                         <ul class="list-disc list-inside space-y-1 pl-4 text-gray-600">
+                            <li>Fila \(i=0\) (la única fila que no es la fila pivote):</li>
+                            <ul class="list-disc list-inside space-y-1 pl-6 mt-1">
+                                <li>Columna \(j=2\) (elemento \(M_{0,2}\), parte aumentada, única columna a la derecha del pivote actual \(M_{1,1}\) que no es el propio pivote):<br>
+                                \(M_{0,2}^{\text{nuevo}} = (M_{1,1} \cdot M_{0,2} - M_{0,1} \cdot M_{1,2}) / p_{prev} = (1 \cdot 5 - 1 \cdot 1) / 2 = (5 - 1) / 2 = 4 / 2 = 2\)</li>
+                            </ul>
+                            <li>Poner a cero la columna del pivote (excepto el pivote): \(M_{0,1} = 0\).</li>
+                        </ul>
+                        <p class="text-gray-600 leading-relaxed mt-2">Matriz después de la iteración \(k=1\):</p>
+                         <div class="text-center my-3 text-gray-600 tex2jax_process">
+                         \(M = \left[ \begin{array}{cc|c} 2 & 0 & 4 \\ 0 & 1 & 1 \end{array} \right]\)
+                        </div>
+                        <p class="text-gray-600 leading-relaxed">Actualizar pivote anterior: \(p_{prev} = M_{1,1} = 1\). (Este sería el determinante si solo se calculara el determinante).</p>
+                        
+                        <p class="font-medium text-gray-700 mb-1 mt-4"><strong>Solución:</strong></p>
+                        <div class="text-center my-3 text-gray-600 tex2jax_process">
+                        \[ x_1 = \frac{M_{0,2}}{M_{0,0}} = \frac{4}{2} = 2 \]
+                        \[ x_2 = \frac{M_{1,2}}{M_{1,1}} = \frac{1}{1} = 1 \]
+                        </div>
+                        <p class="text-gray-600 leading-relaxed">El determinante de \(A\) es el último pivote \(M_{1,1}\) de la matriz diagonal (antes de la normalización final para la solución), que es 1. (O, más formalmente, el valor \(M_{n-1,n-1}\) al final del último paso de transformación).</p>
+                    </section>
+
+                    <section id="codigo-montante" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Código de Implementación (Python)</h3>
+                        <p class="text-gray-600 leading-relaxed mb-3">
+                            El siguiente código implementa el método de Montante para resolver sistemas \(Ax=b\) o calcular determinantes, usando aritmética de fracciones para exactitud.
+                            La salida de texto mostrará los pasos y la visualización interactiva usará los datos generados.
+                        </p>
+                        <div class="code-editor-container bg-gray-50 p-4 rounded-lg shadow-inner">
+                            <textarea id="montante-code-input" class="code-input w-full h-[600px] p-3 border border-gray-300 rounded-md font-mono text-sm" style="resize: none;">
+import numpy as np
+from fractions import Fraction
+
+def format_matrix_html(matrix, pivot_coords=None, involved_coords=None, target_coords=None, n_coeffs=None, precision=5, use_fraction=False):
+    html = '<table class="matrix-table">'
+    for i, row in enumerate(matrix):
+        html += '<tr>'
+        for j, val_obj in enumerate(row):
+            val_display = val_obj
+            if use_fraction:
+                formatted_val = str(val_obj)
+            else: # Display as float for D3, but Python still uses Fraction
+                val_float = float(val_obj)
+                if abs(val_float) < 1e-9 : val_float = 0.0
+                formatted_val = f"{val_float:.{precision}f}"
+                if formatted_val.replace("0", "").replace(".", "").replace("-","") == "":
+                    formatted_val = "0.00000" if "." in formatted_val else "0"
+                if formatted_val.endswith('.' + '0' * precision):
+                    formatted_val = str(int(round(val_float)))
+
+
+            cell_class_list = []
+            if pivot_coords and i == pivot_coords[0] and j == pivot_coords[1]:
+                cell_class_list.append("pivot-element")
+            if involved_coords:
+                for ic_row, ic_col in involved_coords:
+                    if i == ic_row and j == ic_col:
+                        cell_class_list.append("involved-element")
+                        break
+            if target_coords and i == target_coords[0] and j == target_coords[1]:
+                cell_class_list.append("target-update-element")
+            
+            td_class_str = f'class="{" ".join(cell_class_list)}"' if cell_class_list else ''
+            if n_coeffs and j == n_coeffs - 1: # Separator line for augmented matrix
+                 current_class = " ".join(cell_class_list)
+                 separator_class = "matrix-separator"
+                 if current_class:
+                     td_class_str = f'class="{current_class} {separator_class}"'
+                 else:
+                     td_class_str = f'class="{separator_class}"'
+
+            html += f'<td {td_class_str}>{formatted_val}</td>'
+        html += '</tr>'
+    html += '</table>'
+    return html
+
+def montante_solve_pyodide(A_matrix_str, b_vector_str=None, use_pivoting_str="true"):
+    html_log_parts = []
+    visualization_steps = []
+
+    try:
+        A_list = eval(A_matrix_str)
+        M_list = [[Fraction(x) for x in row] for row in A_list]
+        
+        is_for_determinant_only = False
+        if b_vector_str and b_vector_str.strip() and b_vector_str.lower() != 'none':
+            b_list = eval(b_vector_str)
+            b_frac = [Fraction(x) for x in b_list]
+            if len(M_list) != len(b_frac):
+                 raise ValueError("Dimensiones de A y b no coinciden.")
+            M_augmented_list = [row + [b_val] for row, b_val in zip(M_list, b_frac)]
+        else: # Determinant only
+            is_for_determinant_only = True
+            M_augmented_list = M_list # No augmentation
+
+        M = np.array(M_augmented_list, dtype=object) # Use object dtype for Fractions
+        
+        use_pivoting = use_pivoting_str.lower() == "true"
+
+    except Exception as e:
+        error_msg = f'<p style="color: red; text-align:center;">Error parseando entrada: {e}. Formato: [[1,2],[3,4]] y [5,6] (o None para determinante).</p>'
+        return None, None, error_msg, []
+
+    n_rows = M.shape[0]
+    n_cols_original_A = len(A_list[0])
+    n_cols_M = M.shape[1] # Will be n_rows + 1 for Ax=b, or n_rows for det(A)
+
+    if n_rows != n_cols_original_A and not is_for_determinant_only: # Ax=b requires square A
+         return None, None, '<p style="color: red; text-align:center;">Error: Matriz A debe ser cuadrada para Ax=b.</p>', []
+    if n_rows != n_cols_original_A and is_for_determinant_only and n_rows != n_cols_M : # Det(A) requires square A
+         return None, None, '<p style="color: red; text-align:center;">Error: Matriz A debe ser cuadrada para determinante.</p>', []
+
+
+    html_log_parts.append('<p class="step-description">Matriz Inicial (o Aumentada):</p>')
+    html_log_parts.append(format_matrix_html(M, n_coeffs=n_cols_original_A if not is_for_determinant_only else None, use_fraction=True))
+    visualization_steps.append({
+        "matrix": [[float(x) for x in r] for r in M.tolist()], "operation_type": "initial", 
+        "description": "Matriz Inicial" + (" Aumentada" if not is_for_determinant_only else ""),
+        "num_coeffs": n_cols_original_A if not is_for_determinant_only else None,
+        "prev_pivot_val": 1
+    })
+
+    p_prev = Fraction(1) # Pivote del paso k-1
+
+    for k in range(n_rows): # k es la fila/columna del pivote actual
+        pivot_val = M[k, k]
+        
+        current_desc = f"Iteración k={k+1}. Pivote actual M[{k},{k}] = {str(pivot_val)}. Pivote anterior p_prev = {str(p_prev)}"
+        html_log_parts.append(f'<p class="step-description" style="margin-top:20px;">{current_desc}</p>')
+        visualization_steps.append({
+            "matrix": [[float(x) for x in r] for r in M.tolist()], "operation_type": "select_pivot",
+            "description": current_desc,
+            "pivot_coords": [k, k], "prev_pivot_val": float(p_prev),
+            "num_coeffs": n_cols_original_A if not is_for_determinant_only else None,
+        })
+
+        if pivot_val == 0 and use_pivoting:
+            found_pivot = False
+            for i_swap in range(k + 1, n_rows):
+                if M[i_swap, k] != 0:
+                    M[[k, i_swap]] = M[[i_swap, k]] # Intercambiar filas
+                    pivot_val = M[k, k]
+                    found_pivot = True
+                    swap_desc = f"Pivote cero. Intercambiando Fila {k+1} con Fila {i_swap+1}. Nuevo pivote M[{k},{k}] = {str(pivot_val)}"
+                    html_log_parts.append(f'<p class="step-description" style="color:orange;">{swap_desc}</p>')
+                    html_log_parts.append(format_matrix_html(M, pivot_coords=(k,k), n_coeffs=n_cols_original_A if not is_for_determinant_only else None, use_fraction=True))
+                    visualization_steps.append({
+                        "matrix": [[float(x) for x in r] for r in M.tolist()], "operation_type": "swap_rows",
+                        "description": swap_desc, "pivot_coords": [k,k], "swapped_rows_indices": [k, i_swap],
+                        "prev_pivot_val": float(p_prev),
+                        "num_coeffs": n_cols_original_A if not is_for_determinant_only else None,
+                    })
+                    break
+            if not found_pivot:
+                # Matrix is singular
+                det_val = Fraction(0)
+                singular_msg = f"Matriz singular (pivote cero en M[{k}][{k}] no se pudo resolver). Det=0."
+                html_log_parts.append(f'<p style="color: red; text-align:center;">{singular_msg}</p>')
+                visualization_steps.append({
+                     "matrix": [[float(x) for x in r] for r in M.tolist()], "operation_type": "singular_matrix",
+                     "description": singular_msg, "pivot_coords": [k,k], "prev_pivot_val": float(p_prev),
+                     "num_coeffs": n_cols_original_A if not is_for_determinant_only else None,
+                })
+                if is_for_determinant_only: return det_val, None, "".join(html_log_parts), visualization_steps
+                # Check for inconsistency for Ax=b
+                is_row_k_zero_in_A_part = all(M[k, j_col] == 0 for j_col in range(k, n_cols_original_A))
+                if not is_for_determinant_only and is_row_k_zero_in_A_part and M[k, n_cols_original_A] != 0:
+                    raise ValueError("Sistema inconsistente.")
+                else: # Infinitas soluciones o trivial (si b_k también es 0)
+                    raise ValueError(singular_msg + " El sistema puede tener infinitas soluciones o ser inconsistente.")
+
+        if pivot_val == 0 and not use_pivoting: # No pivoting and pivot is zero
+             det_val = Fraction(0)
+             singular_msg = f"Matriz singular (pivote cero en M[{k}][{k}] y pivoteo desactivado). Det=0."
+             html_log_parts.append(f'<p style="color: red; text-align:center;">{singular_msg}</p>')
+             visualization_steps.append({
+                "matrix": [[float(x) for x in r] for r in M.tolist()], "operation_type": "singular_matrix",
+                "description": singular_msg, "pivot_coords": [k,k], "prev_pivot_val": float(p_prev),
+                "num_coeffs": n_cols_original_A if not is_for_determinant_only else None,
+             })
+             if is_for_determinant_only: return det_val, None, "".join(html_log_parts), visualization_steps
+             raise ValueError(singular_msg)
+
+
+        if p_prev == 0: # Should not happen if pivot_val != 0 logic is correct
+            div_zero_msg = "Error: División por pivote anterior cero."
+            html_log_parts.append(f'<p style="color: red; text-align:center;">{div_zero_msg}</p>')
+            visualization_steps.append({"matrix": [[float(x) for x in r] for r in M.tolist()], "operation_type": "error", "description": div_zero_msg})
+            if is_for_determinant_only: return Fraction(0), None, "".join(html_log_parts), visualization_steps
+            raise ValueError(div_zero_msg)
+            
+        M_next_iter = M.copy() # Work on a copy for this iteration's calculations
+
+        html_log_parts.append('<p class="step-description">Aplicando transformación de Montante:</p>')
+        # Actualizar elementos
+        for i in range(n_rows):
+            if i == k: # No transformar la fila pivote aún
+                continue
+            for j in range(k + 1, n_cols_M): # Columnas a la derecha del pivote, incluyendo aumentada
+                val_numerator = (pivot_val * M[i, j] - M[i, k] * M[k, j])
+                
+                M_next_iter[i, j] = val_numerator / p_prev
+                
+                # For visualization of this specific calculation
+                calc_desc = f"Calculando M'[{i},{j}] = (M[{k},{k}]*M[{i},{j}] - M[{i},{k}]*M[{k},{j}]) / p_prev"
+                calc_desc_vals = f"M'[{i},{j}] = ({str(pivot_val)}*{str(M[i,j])} - {str(M[i,k])}*{str(M[k,j])}) / {str(p_prev)} = {str(M_next_iter[i,j])}"
+                
+                html_log_parts.append(f'<p style="font-size:0.8em; text-align:center; margin-bottom:1px;">{calc_desc_vals}</p>')
+                visualization_steps.append({
+                    "matrix": [[float(x) for x in r] for r in M.tolist()], # Matrix before this specific update
+                    "matrix_after_op": [[float(x) for x in r] for r in M_next_iter.tolist()], # Matrix with this M_ij updated
+                    "operation_type": "calculate_element",
+                    "description": f"{calc_desc}<br>{calc_desc_vals}",
+                    "pivot_coords": [k, k], 
+                    "involved_elements_coords": [[i,j], [i,k], [k,j]], # M_ij, M_ik, M_kj
+                    "updated_element_coords": [i,j],
+                    "prev_pivot_val": float(p_prev),
+                    "num_coeffs": n_cols_original_A if not is_for_determinant_only else None,
+                })
+        M = M_next_iter # Apply all updates for this k
+
+        # Poner a cero columna del pivote (excepto el pivote mismo)
+        html_log_parts.append('<p class="step-description">Poniendo a cero elementos en la columna del pivote:</p>')
+        M_before_zeroing = M.copy()
+        zeroing_applied = False
+        for i in range(n_rows):
+            if i != k and M[i,k] != 0:
+                M[i, k] = Fraction(0)
+                zeroing_applied = True
+        
+        if zeroing_applied:
+            html_log_parts.append(format_matrix_html(M, pivot_coords=(k,k), n_coeffs=n_cols_original_A if not is_for_determinant_only else None, use_fraction=True))
+            visualization_steps.append({
+                "matrix_before_op": [[float(x) for x in r] for r in M_before_zeroing.tolist()],
+                "matrix": [[float(x) for x in r] for r in M.tolist()],
+                "operation_type": "zero_column",
+                "description": f"Elementos de C{k+1} (excepto pivote) puestos a cero.",
+                "pivot_coords": [k, k], "prev_pivot_val": float(p_prev),
+                "zeroed_col_idx": k,
+                "num_coeffs": n_cols_original_A if not is_for_determinant_only else None,
+            })
+        else:
+            html_log_parts.append('<p style="font-size:0.8em; text-align:center;">(Columna del pivote ya estaba a ceros donde correspondía)</p>')
+
+
+        p_prev = pivot_val # El pivote actual se convierte en el anterior para la siguiente iteración
+
+    # Al final, M[n_rows-1, n_rows-1] es el determinante.
+    # O más bien, el último pivot_val usado, M[n_rows-1,n_rows-1] antes de ser modificado si k=n_rows-1 es la última iter.
+    # El determinante es el valor del último pivote M[n-1,n-1] en la diagonal transformada.
+    # Este será p_prev al salir del bucle si el bucle va hasta n-1
+    # O M[n_rows-1, n_rows-1] de la matriz final M.
+    
+    determinant_val = M[n_rows-1, n_rows-1] # This should be the determinant.
+    
+    final_desc = "Proceso de Montante completado."
+    if is_for_determinant_only:
+        final_desc += f" Determinante = {str(determinant_val)}"
+    
+    html_log_parts.append(f'<p style="color: green; text-align:center; font-weight:bold; margin-top:15px;">{final_desc}</p>')
+    html_log_parts.append(format_matrix_html(M, n_coeffs=n_cols_original_A if not is_for_determinant_only else None, use_fraction=True))
+    
+    solution_vector = None
+    if not is_for_determinant_only:
+        solution_vector = [Fraction(0)] * n_rows
+        html_log_parts.append('<p class="step-description" style="margin-top:15px;">Calculando Solución Final:</p>')
+        for i in range(n_rows):
+            if M[i, i] == 0:
+                # Esto implica infinitas soluciones o inconsistencia si M[i,n_cols_original_A] !=0
+                # Ya debería haber sido capturado por el chequeo de pivote cero.
+                # Si M[i,i] es 0 y M[i,n_cols_original_A] es no cero, sistema inconsistente.
+                if M[i, n_cols_original_A] != 0:
+                    raise ValueError(f"Sistema inconsistente detectado en la solución final (Fila {i+1}).")
+                else: # M[i,i]=0 y M[i,n_cols_original_A]=0
+                    # Esto indica una variable libre, infinitas soluciones.
+                    # Para simplificar, se podría asignar NaN o algún indicador.
+                    # Aquí, dejaremos la asignación de una forma que podría ser problemática si no se maneja.
+                    # O mejor, lanzar error si no hay solución única.
+                    raise ValueError(f"Infinitas soluciones (variable libre para x{i+1}). El método aquí busca solución única.")
+
+            solution_vector[i] = M[i, n_cols_original_A] / M[i, i]
+            html_log_parts.append(f"<p style='text-align:center;font-size:0.9em;'>x<sub>{i+1}</sub> = M[{i},{n_cols_original_A}] / M[{i},{i}] = {str(M[i,n_cols_original_A])} / {str(M[i,i])} = {str(solution_vector[i])}</p>")
+        
+        final_desc += " Soluciones calculadas."
+
+    visualization_steps.append({
+        "matrix": [[float(x) for x in r] for r in M.tolist()], "operation_type": "final_matrix",
+        "description": final_desc,
+        "determinant": float(determinant_val),
+        "solution": [float(s) for s in solution_vector] if solution_vector else None,
+        "num_coeffs": n_cols_original_A if not is_for_determinant_only else None,
+    })
+    
+    return solution_vector, determinant_val, "".join(html_log_parts), visualization_steps
+
+
+# --- Parámetros Ejemplo ---
+default_A_matrix_str_montante = "[[2, 1], [1, 1]]" # Ejemplo del HTML original
+default_b_vector_str_montante = "[5, 3]"
+# default_A_matrix_str_montante = "[[2, 1, -1], [1, -1, 1], [1, 2, -2]]" # Det = -1
+# default_b_vector_str_montante = "None" # Para determinante
+# default_A_matrix_str_montante = "[[1,1,1],[0,2,5],[2,5,-1]]" # Sol: [5,3,-2], Det: -21
+# default_b_vector_str_montante = "[6,-4,27]"
+default_use_pivoting_montante = "true"
+
+# --- Bloque principal para ejecución en Pyodide ---
+if __name__ == "__main__":
+    py_html_buffer_montante = []
+
+    A_str = globals().get("A_matrix_param_montante", default_A_matrix_str_montante)
+    b_str = globals().get("b_vector_param_montante", default_b_vector_str_montante)
+    pivoting_str = globals().get("use_pivoting_param_montante", default_use_pivoting_montante)
+
+    py_html_buffer_montante.append('<div style="text-align: center; font-weight: bold; margin-bottom:15px; font-size:1.1em; padding-top:10px;">MÉTODO DE MONTANTE (Salida de Texto - Fracciones)</div>')
+    try:
+        A_disp = np.array(eval(A_str))
+        py_html_buffer_montante.append(f'<div style="text-align: center; margin-bottom:5px; font-family:monospace;">Matriz A:<br>{str(A_disp).replace(" ", "&nbsp;")}</div>')
+        if b_str and b_str.strip() and b_str.lower() != 'none':
+            b_disp = np.array(eval(b_str))
+            py_html_buffer_montante.append(f'<div style="text-align: center; margin-bottom:5px; font-family:monospace;">Vector b:<br>{str(b_disp).replace(" ", "&nbsp;")}</div>')
+        else:
+            py_html_buffer_montante.append(f'<div style="text-align: center; margin-bottom:5px; font-family:monospace;">Calculando determinante (sin vector b).</div>')
+        py_html_buffer_montante.append(f'<div style="text-align: center; margin-bottom:15px;">Pivoteo: {pivoting_str}</div>')
+
+        solution_montante, determinant_montante, log_html_montante, d3_steps_montante = montante_solve_pyodide(A_str, b_str, pivoting_str)
+        py_html_buffer_montante.append(log_html_montante)
+
+        py_html_buffer_montante.append('<div style="text-align: center; font-weight: bold; margin-top: 20px; margin-bottom: 10px;">RESULTADOS FINALES (Texto - Fracciones)</div>')
+        if solution_montante is not None:
+            sol_str_montante = ", ".join([str(x) for x in solution_montante])
+            py_html_buffer_montante.append(f'<div style="text-align:center; padding:5px;">Solución (x): [{sol_str_montante}]</div>')
+            # Verificación
+            try:
+                A_val_list = eval(A_str)
+                b_val_list = eval(b_str) if (b_str and b_str.strip().lower() != 'none') else None
+                
+                A_np_frac = np.array([[Fraction(x) for x in r] for r in A_val_list])
+                sol_np_frac = np.array([Fraction(s) for s in solution_montante])
+                
+                Ax_frac = A_np_frac @ sol_np_frac
+                
+                if b_val_list:
+                    b_np_frac = np.array([Fraction(x) for x in b_val_list])
+                    error_vec_frac = Ax_frac - b_np_frac.flatten()
+                    error_norm_float = float(np.linalg.norm([float(e) for e in error_vec_frac]))
+                    py_html_buffer_montante.append(f'<div style="text-align:center; font-size:0.85em; padding:5px;">Verificación A*x (fracciones): {str(Ax_frac)}<br>(Original b = {str(b_np_frac if b_np_frac is not None else "N/A")})</div>')
+                    py_html_buffer_montante.append(f'<div style="text-align:center; font-size:0.85em; padding:5px;">Norma del error ||Ax - b|| (float): {error_norm_float:.2e}</div>')
+
+            except Exception as e_verify:
+                 py_html_buffer_montante.append(f'<p style="color:orange; text-align:center;">No se pudo verificar la solución: {e_verify}</p>')
+
+        if determinant_montante is not None:
+             py_html_buffer_montante.append(f'<div style="text-align:center; padding:5px;">Determinante: {str(determinant_montante)}</div>')
+        
+        if not solution_montante and not determinant_montante and not log_html_montante.strip().endswith("</p>"):
+             py_html_buffer_montante.append('<div style="text-align: center; color: orange; margin-top:10px; padding:5px;">No se encontró una solución o el método no convergió.</div>')
+
+    except ValueError as e_main: # Captura errores de Montante (inconsistente, singular)
+        py_html_buffer_montante.append(log_html_montante) # Agrega lo que se haya logueado hasta el error
+        py_html_buffer_montante.append(f'<p style="color:red; text-align:center; font-weight:bold; margin-top:15px;">Error en el método de Montante: {e_main}</p>')
+        # d3_steps_montante might be partially populated, or could be empty
+        if 'd3_steps_montante' not in locals(): d3_steps_montante = [] # Ensure it exists
+
+    except Exception as e_generic: # Otros errores
+        py_html_buffer_montante.append(f'<p style="color:red; text-align:center; font-weight:bold; margin-top:15px;">Error inesperado: {e_generic}</p>')
+        if 'd3_steps_montante' not in locals(): d3_steps_montante = []
+
+
+    chart_data_package_montante = {
+        "visualization_steps": d3_steps_montante,
+        "solution_vector": [float(s) for s in solution_montante] if solution_montante else None,
+        "determinant_value": float(determinant_montante) if determinant_montante is not None else None,
+    }
+
+    if "pyodide_js" in globals():
+        pyodide_globals_montante = globals()['pyodide_js'].globals
+        pyodide_globals_montante.set("pyodide_montante_html_output", "".join(py_html_buffer_montante))
+        
+        # Clear and set chart data package
+        chart_data_proxy_out = pyodide_globals_montante.get("pyodide_montante_chart_data_package")
+        if chart_data_proxy_out is not None and hasattr(chart_data_proxy_out, 'clear'):
+            chart_data_proxy_out.clear()
+            for key, value in chart_data_package_montante.items():
+                chart_data_proxy_out.set(key, value)
+        else:
+            from pyodide.ffi import to_js
+            pyodide_globals_montante.set("pyodide_montante_chart_data_package", to_js(chart_data_package_montante, dict_converter=js.Object.fromEntries))
+    else: # Fallback for local Python testing
+        global pyodide_montante_html_output, pyodide_montante_chart_data_package
+        pyodide_montante_html_output = "".join(py_html_buffer_montante)
+        pyodide_montante_chart_data_package = chart_data_package_montante
+
+                            </textarea>
+                            <button id="run-montante-code-button" class="run-button mt-4 px-5 py-2.5 bg-custom-red text-white rounded-md hover:bg-red-700">Ejecutar Código</button>
+                            <div class="relative mt-5">
+                                <h4 class="mb-2 text-lg font-semibold text-gray-700">Salida de Texto:</h4>
+                                <div id="montante-output-controls-container" class="absolute top-0 right-0 z-10 flex items-center space-x-1 transition-all duration-500 ease-out">
+                                    <button id="montante-decrease-font-button" title="Disminuir fuente" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs font-semibold flex items-center justify-center" style="min-width: 30px;">aa</button>
+                                    <button id="montante-increase-font-button" title="Aumentar fuente" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs font-semibold flex items-center justify-center" style="min-width: 30px;">AA</button>
+                                    <button id="montante-fullscreen-output-button" title="Ver en pantalla completa" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15" /></svg>
+                                    </button>
+                                </div>
+                                <pre id="montante-code-output" class="code-output bg-gray-900 text-white p-4 pt-8 rounded-md min-h-[100px] whitespace-pre-wrap text-xs leading-relaxed max-h-96 overflow-y-auto font-mono transition-all duration-500 ease-out">Presiona "Ejecutar Código" para ver la salida de texto detallada.</pre>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="graficas-montante" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Visualización Interactiva de Montante</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Observa el proceso del Método de Montante paso a paso. La matriz se transforma utilizando la regla de Montante para diagonalizarla.
+                            Usa los controles para navegar entre los pasos.
+                        </p>
+                        <div id="montante-d3-visualization" class="bg-gray-100 p-4 rounded-lg shadow-inner">
+                            <div class="flex justify-between items-center mb-2">
+                                <div id="montante-d3-controls" class="flex flex-wrap items-center justify-start gap-2">
+                                    <button id="montante-d3-prev" class="p-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Anterior"></button>
+                                    <button id="montante-d3-next" class="p-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Siguiente"></button>
+                                    <button id="montante-d3-play" class="p-2.5 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Play"></button>
+                                    <input type="range" id="montante-d3-slider" min="0" value="0" class="mx-2 flex-grow max-w-xs align-middle accent-custom-red disabled:opacity-50 disabled:cursor-not-allowed">
+                                </div>
+                                <div id="montante-d3-prev-pivot-info" class="text-sm">
+                                    Pivote Anterior (<span class="tex2jax_process">\(p_{prev}\)</span>): <span id="montante-d3-prev-pivot-display">N/A</span>
+                                </div>
+                                <div class="flex items-center text-sm">
+                                    <label for="montante-d3-speed" class="mr-1">Velocidad:</label>
+                                    <input type="range" id="montante-d3-speed" min="100" max="2500" value="1000" step="100" class="w-24 align-middle accent-custom-red">
+                                    <span id="montante-d3-speed-value" class="ml-1 w-12 text-right">1000ms</span>
+                                </div>
+                            </div>
+                            <div id="montante-d3-operation-description" class="mb-3 text-sm text-center font-mono h-auto min-h-[2em] p-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-md leading-tight">
+                                Ejecute el código para generar la visualización.
+                            </div>
+                            <div class="flex justify-center overflow-x-auto">
+                                <svg id="montante-d3-svg-container" class="border border-gray-300 bg-white rounded shadow-sm"></svg>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="videos-montante" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Videos Explicativos</h3>
+                         <div class="video-embed w-full h-96">
+                            <iframe class="w-full h-full rounded-lg shadow-lg" src="https://www.youtube.com/embed/bIZF4uXGd_8" title="YouTube video player - Método Montante" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+                        </div>
+                    </section>
+                    
+                    <section id="conclusion-montante" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Conclusión y Aplicaciones</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            El Método de Montante es un algoritmo elegante para el cálculo de determinantes y la solución de sistemas de ecuaciones lineales, especialmente útil cuando se trabaja con matrices de enteros y se desea evitar errores de redondeo de punto flotante (si se implementa con aritmética de precisión arbitraria para enteros o fracciones).
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Su principal ventaja es la propiedad de mantenerse libre de fracciones durante los cálculos intermedios si la entrada es entera. Sin embargo, los números intermedios pueden crecer bastante, lo que podría ser un problema de desbordamiento si no se usa aritmética de precisión arbitraria.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Para cálculos de punto flotante, métodos como la Eliminación Gaussiana con pivoteo parcial suelen ser más eficientes y numéricamente estables en la práctica general. El Método de Montante es menos común en la implementación numérica estándar pero tiene valor teórico y en sistemas de álgebra computacional.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-2 font-medium"><strong>Aplicaciones:</strong></p>
+                        <ul class="list-disc list-inside space-y-2 pl-4 text-gray-600 mb-4">
+                            <li>Cálculo exacto de determinantes de matrices con entradas enteras.</li>
+                            <li>Resolución exacta de sistemas de ecuaciones lineales con coeficientes enteros o racionales.</li>
+                            <li>Utilizado en sistemas de álgebra computacional (CAS).</li>
+                            <li>Interés pedagógico por su aproximación libre de fracciones.</li>
+                        </ul>
+                    </section>
+
+                    <section id="referencias-montante" class="mb-10 scroll-mt-24">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Referencias</h3>
+                        <ul class="list-disc list-inside space-y-2 text-gray-600 leading-relaxed pl-4">
+                             <li>Bareiss, E. H. (1968). Sylvester's identity and multistep integer-preserving Gaussian elimination. <em>Mathematics of Computation</em>, 22(103), 565-578.</li>
+                             <li>Wikipedia contributors. (2023). Bareiss algorithm. In <em>Wikipedia, The Free Encyclopedia</em>. Retrieved from <a href="https://en.wikipedia.org/wiki/Bareiss_algorithm" target="_blank" rel="noopener noreferrer" class="hover:text-custom-red hover:underline">https://en.wikipedia.org/wiki/Bareiss_algorithm</a></li>
+                        </ul>
+                    </section>
+
+                    <section id="cuestionario-montante" class="scroll-mt-24 mb-10">
+                        <h3 class="text-2xl font-semibold mb-4 text-gray-700">Cuestionario: Método de Montante</h3>
+                        <form id="quiz-metodo-montante" class="space-y-6 bg-gray-50 p-6 rounded-lg shadow-inner">
+                            <!-- Pregunta 1 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">1. ¿Cuál es una característica principal del Método de Montante cuando se aplica a matrices con entradas enteras?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 1</legend>
+                                    <div class="space-y-2">
+                                        <label for="q1-opt1-montante" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt1-montante" name="question-1-montante" type="radio" value="a" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Siempre utiliza números de punto flotante para mayor precisión.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt2-montante" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt2-montante" name="question-1-montante" type="radio" value="b" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Todas las operaciones intermedias (antes de la división por el pivote anterior) resultan en enteros.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt3-montante" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt3-montante" name="question-1-montante" type="radio" value="c" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Requiere el cálculo explícito de la matriz inversa.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                         <label for="q1-opt4-montante" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt4-montante" name="question-1-montante" type="radio" value="d" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Es un método iterativo que converge a la solución.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-1-montante-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <!-- Pregunta 2 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700 tex2jax_process">2. La transformación central en el Método de Montante para un elemento \(a'_{ij}\) es \((a_{kk} a_{ij} - a_{ik} a_{kj}) / p_{prev}\). ¿Qué representa \(p_{prev}\)?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 2</legend>
+                                    <div class="space-y-2">
+                                        <label for="q2-opt1-montante" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt1-montante" name="question-2-montante" type="radio" value="a" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">El determinante de la matriz completa.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt2-montante" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt2-montante" name="question-2-montante" type="radio" value="b" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700 tex2jax_process">El elemento pivote actual \(a_{kk}\).</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt3-montante" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt3-montante" name="question-2-montante" type="radio" value="c" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">El elemento pivote del paso anterior.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                         <label for="q2-opt4-montante" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt4-montante" name="question-2-montante" type="radio" value="d" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Siempre es 1.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-2-montante-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+                            
+                            <!-- Pregunta 3 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">3. En comparación con la Eliminación Gaussiana para resolver sistemas generales de punto flotante, el Método de Montante es:</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 3</legend>
+                                    <div class="space-y-2">
+                                        <label for="q3-opt1-montante" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt1-montante" name="question-3-montante" type="radio" value="a" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Generalmente más rápido y más estable.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt2-montante" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt2-montante" name="question-3-montante" type="radio" value="b" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Menos común y puede ser menos eficiente si no se busca aritmética exacta.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt3-montante" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt3-montante" name="question-3-montante" type="radio" value="c" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Incapaz de resolver sistemas, solo calcula determinantes.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt4-montante" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt4-montante" name="question-3-montante" type="radio" value="d" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Idéntico en sus pasos y resultados.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-3-montante-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                             <!-- Pregunta 4 -->
+                             <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700 tex2jax_process">4. Si el pivote actual \(M_{kk}\) se vuelve cero durante el Método de Montante y no se puede intercambiar con una fila inferior para obtener un pivote no nulo, esto implica que:</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 4</legend>
+                                    <div class="space-y-2">
+                                        <label for="q4-opt1-montante" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt1-montante" name="question-4-montante" type="radio" value="a" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Se cometió un error en el cálculo anterior.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q4-opt2-montante" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt2-montante" name="question-4-montante" type="radio" value="b" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">El determinante de la matriz es cero (la matriz es singular).</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q4-opt3-montante" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt3-montante" name="question-4-montante" type="radio" value="c" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Se debe reiniciar el algoritmo con un pivote anterior diferente.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q4-opt4-montante" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt4-montante" name="question-4-montante" type="radio" value="d" class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">La solución del sistema es trivial (todas las incógnitas son cero).</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-4-montante-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <button type="submit" class="mt-6 w-full px-6 py-3 bg-custom-red text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors duration-150">
+                                Enviar Respuestas
+                            </button>
+                        </form>
+                        <div id="quiz-feedback-metodo-montante" class="quiz-feedback-message mt-4 p-3 rounded-md text-sm" style="display: none;"></div>
+                    </section>
+                </article>
+            </main>
+
+            <aside class="w-full lg:w-1/4 bg-sidebar-bg shadow-xl rounded-lg p-6 self-start sticky top-8 order-3 space-y-6">
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-4">Perfil</h3>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex-shrink-0">
+                           <svg class="w-12 h-12 text-gray-400 bg-gray-100 rounded-full p-1 ring-1 ring-gray-200" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-800 text-md">Estudiante Exacto</p>
+                            <p class="text-sm text-gray-500">Analista de Fracciones</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pb-6 border-b border-gray-200 space-y-3">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide">Progreso en Montante</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li class="flex items-center">
+                            <span id="task-read-theory-status-montante" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Leer la teoría completa</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-run-code-status-montante" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Ejecutar el código Python</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-attempted-status-montante" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Intentar el cuestionario</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-passed-status-montante" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Aprobar el cuestionario</span>
+                        </li>
+                    </ul>
+                    <div class="flex items-center justify-between mb-1 mt-3">
+                       <span class="text-xs font-medium text-custom-red">Progreso General</span>
+                       <span id="right-sidebar-progress-text-montante" class="text-xs font-medium text-custom-red right-sidebar-progress-text">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div id="right-sidebar-progress-bar-montante" class="bg-custom-red h-3 rounded-full right-sidebar-progress-bar transition-width duration-500 ease-in-out" style="width: 0%"></div>
+                    </div>
+                    <button id="completion-metodo-montante-sidebar" class="mt-4 w-full completion-button px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Marcar Todo Completado</button>
+                </div>
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Recursos Adicionales</h3>
+                    <p class="text-sm text-gray-600"><a href="https://mathworld.wolfram.com/BareissAlgorithm.html" target="_blank" rel="noopener noreferrer" class="hover:text-custom-red hover:underline">MathWorld: Bareiss Algorithm</a></p>
+                </div>
+                <div>
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Siguiente Paso</h3>
+                    <a href="gauss-jordan.html" class="group flex items-center text-sm font-medium text-custom-red hover:text-red-700">
+                       <span>Explorar Gauss-Jordan</span>
+                       <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </a>
+                </div>
+            </aside>
+        </div>
+
+        <footer class="bg-custom-blue text-gray-300 text-center p-6 mt-12">
+            <p>&copy; 2024 Plataforma Educativa de Métodos Numéricos. <a href="../index.html" class="hover:text-white underline">Volver al inicio</a></p>
+        </footer>
+    </div>
+
+    <!-- MONTANTE SCRIPT (Logica JS General de la página, Pyodide, Quiz, D3) -->
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const PAGE_KEY_MONTANTE = 'metodo-montante';
+        const QUIZ_FORM_ID_MONTANTE = 'quiz-metodo-montante';
+        const QUIZ_FEEDBACK_ID_MONTANTE = 'quiz-feedback-metodo-montante';
+        const COMPLETION_BUTTON_ID_MONTANTE = 'completion-metodo-montante-sidebar';
+        const CODE_INPUT_ID_MONTANTE = 'montante-code-input';
+        const CODE_OUTPUT_ID_MONTANTE = 'montante-code-output';
+        const RUN_CODE_BUTTON_ID_MONTANTE = 'run-montante-code-button';
+        const outputControlsContainer_MONTANTE = document.getElementById('montante-output-controls-container');
+        const fullscreenButton_MONTANTE = document.getElementById('montante-fullscreen-output-button');
+        const increaseFontButton_MONTANTE = document.getElementById('montante-increase-font-button');
+        const decreaseFontButton_MONTANTE = document.getElementById('montante-decrease-font-button');
+        let originalOutputFontSize_MONTANTE = '';
+        const MIN_FONT_SIZE_PX_MONTANTE = 8;
+        const MAX_FONT_SIZE_PX_MONTANTE = 28;
+        const FONT_SIZE_STEP_PX_MONTANTE = 1;
+        let montanteCodeOutputInitialRect = null;
+
+        const TASKS_MONTANTE = {
+            READ_THEORY: 'read_theory_montante',
+            RUN_CODE: 'run_code_montante',
+            QUIZ_ATTEMPTED: 'quiz_attempted_montante',
+            QUIZ_PASSED: 'quiz_passed_montante'
+        };
+        const ALL_TASK_KEYS_MONTANTE = Object.values(TASKS_MONTANTE);
+        const TOTAL_TASKS_MONTANTE = ALL_TASK_KEYS_MONTANTE.length;
+
+        const ICON_PENDING_MONTANTE = '<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0-4.418-4.03-8-9-8S3 7.582 3 12c0 1.454.402 2.813 1.098 3.977L3 21l5.023-1.098A8.902 8.902 0 0012 21c4.97 0 9-3.582 9-9z"></path></svg>';
+        const ICON_COMPLETED_MONTANTE = '<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>';
+        const ICON_IN_PROGRESS_MONTANTE = '<svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V9.05a.75.75 0 011.307-.588l5.603 3.112z" clip-rule="evenodd"></path></svg>';
+        const ICON_CORRECT_ANSWER_MONTANTE = '✔️';
+        const ICON_INCORRECT_ANSWER_MONTANTE = '❌';
+        const ICON_THUMB_UP_MONTANTE = '👍';
+        
+        const quizDataMetodoMontante = {
+            "question-1-montante": {
+                correctAnswer: "b",
+                feedback: {
+                    "a": "Incorrecto. Montante se enfoca en aritmética exacta con enteros o fracciones, evitando errores de punto flotante.",
+                    "c": "Incorrecto. No requiere el cálculo explícito de la inversa para resolver sistemas, aunque puede usarse para ello.",
+                    "d": "Incorrecto. Es un método directo, no iterativo, que llega a la solución en un número finito de pasos."
+                }
+            },
+            "question-2-montante": {
+                correctAnswer: "c",
+                feedback: {
+                    "a": "Incorrecto. El determinante es un resultado final, no el divisor en cada paso intermedio.",
+                    "b": "Incorrecto. El pivote actual es parte del numerador, no el divisor \(p_{prev}\).",
+                    "d": "Incorrecto. \(p_{prev}\) es 1 solo para la primera iteración."
+                }
+            },
+            "question-3-montante": {
+                correctAnswer: "b",
+                feedback: {
+                    "a": "Incorrecto. Gaussiana con pivoteo suele ser más eficiente y estable para cálculos de punto flotante.",
+                    "c": "Incorrecto. El método de Montante puede resolver sistemas y calcular determinantes.",
+                    "d": "Incorrecto. Los pasos y la mecánica son diferentes, especialmente la división por el pivote anterior."
+                }
+            },
+            "question-4-montante": {
+                correctAnswer: "b",
+                feedback: {
+                    "a": "Incorrecto. Aunque un error podría llevar a esto, un pivote cero irreducible indica una propiedad de la matriz.",
+                    "c": "Incorrecto. Si no se puede intercambiar filas, el pivote anterior no cambia la situación de singularidad.",
+                    "d": "Incorrecto. Un determinante cero no implica necesariamente una solución trivial; puede haber infinitas soluciones o ninguna (si el sistema es inconsistente)."
+                }
+            }
+        };
+
+        let pyodide_MONTANTE = null;
+        const mainCompletionButton_MONTANTE = document.getElementById(COMPLETION_BUTTON_ID_MONTANTE);
+        const quizForm_MONTANTE = document.getElementById(QUIZ_FORM_ID_MONTANTE);
+        const generalQuizFeedbackDiv_MONTANTE = document.getElementById(QUIZ_FEEDBACK_ID_MONTANTE);
+        const codeInput_MONTANTE = document.getElementById(CODE_INPUT_ID_MONTANTE);
+        const codeOutput_MONTANTE = document.getElementById(CODE_OUTPUT_ID_MONTANTE);
+        const runCodeButton_MONTANTE = document.getElementById(RUN_CODE_BUTTON_ID_MONTANTE);
+
+        const taskStatusIcons_MONTANTE = {};
+        taskStatusIcons_MONTANTE[TASKS_MONTANTE.READ_THEORY] = document.getElementById('task-read-theory-status-montante');
+        taskStatusIcons_MONTANTE[TASKS_MONTANTE.RUN_CODE] = document.getElementById('task-run-code-status-montante');
+        taskStatusIcons_MONTANTE[TASKS_MONTANTE.QUIZ_ATTEMPTED] = document.getElementById('task-quiz-attempted-status-montante');
+        taskStatusIcons_MONTANTE[TASKS_MONTANTE.QUIZ_PASSED] = document.getElementById('task-quiz-passed-status-montante');
+        const overallProgressText_MONTANTE = document.getElementById('right-sidebar-progress-text-montante');
+        const overallProgressBar_MONTANTE = document.getElementById('right-sidebar-progress-bar-montante');
+
+
+        function getPageProgressFromStorage_MONTANTE(pKey) {
+            const defaults = ALL_TASK_KEYS_MONTANTE.reduce((obj, task) => ({ ...obj, [task]: false }), {});
+            defaults.overall_progress = 0;
+            defaults.user_quiz_answers = {};
+            defaults.quiz_current_score = 0;
+            defaults.quiz_feedback_active = false;
+            try {
+                const stored = localStorage.getItem(pKey);
+                if (stored) return { ...defaults, ...JSON.parse(stored) };
+            } catch (e) { console.error("Error al leer localStorage para MONTANTE:", e); }
+            return defaults;
+        }
+
+        function savePageProgressToStorage_MONTANTE(pKey, progress) {
+            try {
+                localStorage.setItem(pKey, JSON.stringify(progress));
+                window.dispatchEvent(new CustomEvent('montantePageProgressSaved', { detail: { pageKey: pKey, progress } }));
+            } catch (e) { console.error("Error al guardar en localStorage para MONTANTE:", e); }
+        }
+
+        function updateTaskStatusInStorage_MONTANTE(taskName, isCompleted) {
+            let currentProgress = getPageProgressFromStorage_MONTANTE(PAGE_KEY_MONTANTE);
+            if (currentProgress[taskName] !== isCompleted) {
+                currentProgress[taskName] = isCompleted;
+                if (taskName === TASKS_MONTANTE.QUIZ_ATTEMPTED && !isCompleted) {
+                    currentProgress[TASKS_MONTANTE.QUIZ_PASSED] = false;
+                    currentProgress.user_quiz_answers = {};
+                    currentProgress.quiz_current_score = 0;
+                    currentProgress.quiz_feedback_active = false;
+                }
+                if (taskName === TASKS_MONTANTE.QUIZ_PASSED && isCompleted) {
+                     currentProgress[TASKS_MONTANTE.QUIZ_ATTEMPTED] = true;
+                }
+                savePageProgressToStorage_MONTANTE(PAGE_KEY_MONTANTE, currentProgress);
+                calculateAndUpdateOverallProgress_MONTANTE();
+            }
+        }
+
+        function renderTaskStatus_MONTANTE() {
+            const progress = getPageProgressFromStorage_MONTANTE(PAGE_KEY_MONTANTE);
+            ALL_TASK_KEYS_MONTANTE.forEach(taskKey => {
+                const iconElement = taskStatusIcons_MONTANTE[taskKey];
+                if (iconElement) {
+                    let newIconHTML = ICON_PENDING_MONTANTE;
+                    if (progress[taskKey]) newIconHTML = ICON_COMPLETED_MONTANTE;
+                    else if (taskKey === TASKS_MONTANTE.QUIZ_PASSED && progress[TASKS_MONTANTE.QUIZ_ATTEMPTED]) newIconHTML = ICON_IN_PROGRESS_MONTANTE;
+                    iconElement.innerHTML = newIconHTML;
+                }
+            });
+        }
+
+        function calculateAndUpdateOverallProgress_MONTANTE() {
+            let progress = getPageProgressFromStorage_MONTANTE(PAGE_KEY_MONTANTE);
+            let completedTasks = ALL_TASK_KEYS_MONTANTE.filter(taskKey => progress[taskKey]).length;
+            const percentage = TOTAL_TASKS_MONTANTE > 0 ? (completedTasks / TOTAL_TASKS_MONTANTE) * 100 : 0;
+            progress.overall_progress = percentage;
+            savePageProgressToStorage_MONTANTE(PAGE_KEY_MONTANTE, progress);
+
+            const isHundredPercent = percentage.toFixed(0) === '100';
+            if (overallProgressBar_MONTANTE) {
+                overallProgressBar_MONTANTE.style.width = `${percentage.toFixed(0)}%`;
+                overallProgressBar_MONTANTE.classList.toggle('animate-rainbow-border', isHundredPercent);
+            }
+            if (overallProgressText_MONTANTE) overallProgressText_MONTANTE.textContent = `${percentage.toFixed(0)}%`;
+
+            renderTaskStatus_MONTANTE();
+            updateMainCompletionButtonState_MONTANTE();
+        }
+
+        function handleMarkAllMouseEnter_MONTANTE() {
+            if (mainCompletionButton_MONTANTE && mainCompletionButton_MONTANTE.dataset.isUndo === "true") {
+                mainCompletionButton_MONTANTE.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+                mainCompletionButton_MONTANTE.classList.add('bg-red-600', 'hover:bg-red-700');
+            }
+        }
+
+        function handleMarkAllMouseLeave_MONTANTE() {
+            if (mainCompletionButton_MONTANTE && mainCompletionButton_MONTANTE.dataset.isUndo === "true") {
+                mainCompletionButton_MONTANTE.classList.remove('bg-red-600', 'hover:bg-red-700');
+                mainCompletionButton_MONTANTE.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+            }
+        }
+
+        function updateMainCompletionButtonState_MONTANTE() {
+            if (!mainCompletionButton_MONTANTE) return;
+            const progress = getPageProgressFromStorage_MONTANTE(PAGE_KEY_MONTANTE);
+            let allTasksCompleted = ALL_TASK_KEYS_MONTANTE.every(task => progress[task]);
+
+            mainCompletionButton_MONTANTE.removeEventListener('mouseenter', handleMarkAllMouseEnter_MONTANTE);
+            mainCompletionButton_MONTANTE.removeEventListener('mouseleave', handleMarkAllMouseLeave_MONTANTE);
+            mainCompletionButton_MONTANTE.classList.remove('bg-green-600', 'hover:bg-green-700', 'bg-yellow-500', 'hover:bg-yellow-600', 'bg-red-600', 'hover:bg-red-700');
+
+            if (allTasksCompleted) {
+                mainCompletionButton_MONTANTE.textContent = 'Deshacer Completado';
+                mainCompletionButton_MONTANTE.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+                mainCompletionButton_MONTANTE.dataset.isUndo = "true";
+                mainCompletionButton_MONTANTE.addEventListener('mouseenter', handleMarkAllMouseEnter_MONTANTE);
+                mainCompletionButton_MONTANTE.addEventListener('mouseleave', handleMarkAllMouseLeave_MONTANTE);
+            } else {
+                mainCompletionButton_MONTANTE.textContent = 'Marcar Todo Completado';
+                mainCompletionButton_MONTANTE.classList.add('bg-green-600', 'hover:bg-green-700');
+                mainCompletionButton_MONTANTE.dataset.isUndo = "false";
+            }
+        }
+
+        function clearAllVisualFeedback_MONTANTE(clearGeneralMessage = false) {
+            if (!quizForm_MONTANTE) return;
+            quizForm_MONTANTE.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                wrapper.classList.remove('correct-answer-montante', 'incorrect-answer-montante', 'border-green-500', 'border-red-500', 'ring-1', 'ring-green-500', 'ring-red-500', 'bg-green-50', 'bg-red-50');
+                wrapper.classList.add('border-gray-300', 'hover:border-gray-400', 'has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                const iconPlaceholder = wrapper.querySelector('.feedback-icon-placeholder span');
+                if (iconPlaceholder) iconPlaceholder.innerHTML = '';
+            });
+            quizForm_MONTANTE.querySelectorAll('.specific-question-feedback').forEach(el => {
+                el.textContent = '';
+                el.style.display = 'none';
+            });
+            if (clearGeneralMessage && generalQuizFeedbackDiv_MONTANTE) {
+                generalQuizFeedbackDiv_MONTANTE.textContent = '';
+                generalQuizFeedbackDiv_MONTANTE.style.display = 'none';
+                generalQuizFeedbackDiv_MONTANTE.className = 'quiz-feedback-message mt-4 p-3 rounded-md text-sm';
+            }
+        }
+
+        function displayQuizFeedback_MONTANTE() {
+            if (!quizForm_MONTANTE || !generalQuizFeedbackDiv_MONTANTE) return false;
+            const progress = getPageProgressFromStorage_MONTANTE(PAGE_KEY_MONTANTE);
+            const userAnswers = progress.user_quiz_answers || {};
+            const submitButton = quizForm_MONTANTE.querySelector('button[type="submit"]');
+
+            clearAllVisualFeedback_MONTANTE(false);
+
+            if (!progress.quiz_feedback_active && Object.keys(userAnswers).length === 0) {
+                quizForm_MONTANTE.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                if (submitButton) {
+                    submitButton.textContent = 'Enviar Respuestas';
+                    submitButton.disabled = false;
+                }
+                return false;
+            }
+
+            let allCorrect = true;
+            let score = 0;
+
+            for (const questionName in quizDataMetodoMontante) {
+                const userAnswer = userAnswers[questionName];
+                const questionData = quizDataMetodoMontante[questionName];
+                const correctAnswer = questionData.correctAnswer;
+                const specificFeedbackDiv = document.getElementById(`${questionName}-specific-feedback`);
+
+                const radioInputs = quizForm_MONTANTE.querySelectorAll(`input[name="${questionName}"]`);
+                radioInputs.forEach(input => {
+                    const wrapper = input.closest('.quiz-option-wrapper');
+                    const iconPlaceholder = wrapper.querySelector('.feedback-icon-placeholder span');
+                    input.disabled = true;
+                    wrapper.classList.remove('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+
+                    if (input.value === userAnswer) {
+                        input.checked = true;
+                        if (userAnswer === correctAnswer) {
+                            wrapper.classList.add('correct-answer-montante', 'border-green-500', 'ring-1', 'ring-green-500', 'bg-green-50');
+                            if (iconPlaceholder) iconPlaceholder.textContent = ICON_CORRECT_ANSWER_MONTANTE;
+                            score++;
+                        } else {
+                            wrapper.classList.add('incorrect-answer-montante', 'border-red-500', 'ring-1', 'ring-red-500', 'bg-red-50');
+                            if (iconPlaceholder) iconPlaceholder.textContent = ICON_INCORRECT_ANSWER_MONTANTE;
+                            allCorrect = false;
+                            if (specificFeedbackDiv && questionData.feedback && questionData.feedback[userAnswer]) {
+                                specificFeedbackDiv.textContent = "Incorrecto. " + questionData.feedback[userAnswer];
+                                specificFeedbackDiv.style.display = 'block';
+                            } else if (specificFeedbackDiv) {
+                                specificFeedbackDiv.textContent = "Incorrecto. Respuesta incorrecta.";
+                                specificFeedbackDiv.style.display = 'block';
+                            }
+                        }
+                    } else if (input.value === correctAnswer) {
+                         wrapper.classList.add('correct-answer-montante', 'border-green-500', 'bg-green-50');
+                         if (userAnswer !== correctAnswer && iconPlaceholder) iconPlaceholder.textContent = ICON_THUMB_UP_MONTANTE;
+                    } else {
+                         wrapper.classList.add('border-gray-300');
+                    }
+                });
+            }
+
+            progress.quiz_current_score = score;
+            progress.quiz_passed = allCorrect;
+            savePageProgressToStorage_MONTANTE(PAGE_KEY_MONTANTE, progress);
+
+            generalQuizFeedbackDiv_MONTANTE.style.display = 'block';
+            if (allCorrect) {
+                generalQuizFeedbackDiv_MONTANTE.className = 'mt-4 p-3 rounded-md text-sm bg-green-100 text-green-700 border border-green-200';
+                generalQuizFeedbackDiv_MONTANTE.innerHTML = `<strong>¡Felicidades!</strong> Todas tus respuestas son correctas. (${score}/${Object.keys(quizDataMetodoMontante).length})`;
+                if (submitButton) {
+                    submitButton.textContent = 'Cuestionario Aprobado';
+                    submitButton.disabled = true;
+                }
+            } else {
+                generalQuizFeedbackDiv_MONTANTE.className = 'mt-4 p-3 rounded-md text-sm bg-red-100 text-red-700 border border-red-200';
+                generalQuizFeedbackDiv_MONTANTE.innerHTML = `Has respondido correctamente ${score} de ${Object.keys(quizDataMetodoMontante).length} preguntas. Revisa los comentarios e intenta de nuevo.`;
+                if (submitButton) {
+                    submitButton.textContent = 'Intentar de Nuevo';
+                    submitButton.disabled = false;
+                }
+            }
+             if (window.MathJax && window.MathJax.typesetPromise && quizForm_MONTANTE) {
+                 // Ensure MathJax processes any dynamically added content (like feedback) in the quiz
+                 window.MathJax.typesetPromise([quizForm_MONTANTE, generalQuizFeedbackDiv_MONTANTE]);
+             }
+            return allCorrect;
+        }
+
+        async function initializePyodide_MONTANTE() {
+            if (!window.pyodideInstance_MONTANTE_Global) {
+                if (codeOutput_MONTANTE) codeOutput_MONTANTE.innerHTML = "<p>Cargando Pyodide y entorno...</p>";
+                try {
+                    window.pyodideInstance_MONTANTE_Global = await window.loadPyodide();
+                    await window.pyodideInstance_MONTANTE_Global.loadPackage("numpy");
+
+                    window.pyodide_montante_globals = window.pyodideInstance_MONTANTE_Global.globals; 
+
+                    window.pyodide_montante_globals.set("pyodide_montante_html_output", "");
+                    window.pyodide_montante_globals.set("pyodide_montante_chart_data_package", window.pyodideInstance_MONTANTE_Global.toPy({}));
+
+                    if (codeOutput_MONTANTE) codeOutput_MONTANTE.innerHTML = "<p>Pyodide listo. Presiona 'Ejecutar Código'.</p>";
+                } catch (error) {
+                    console.error("Error al cargar Pyodide para Montante:", error);
+                    if (codeOutput_MONTANTE) codeOutput_MONTANTE.innerHTML = "<p>Error al cargar Pyodide. Revisa la consola.</p>";
+                    return null;
+                }
+            }
+            if (!window.pyodide_montante_globals && window.pyodideInstance_MONTANTE_Global) {
+                 window.pyodide_montante_globals = window.pyodideInstance_MONTANTE_Global.globals;
+            }
+            return window.pyodideInstance_MONTANTE_Global;
+        }
+
+        async function runCodeNow_MONTANTE() {
+            pyodide_MONTANTE = await initializePyodide_MONTANTE();
+            if (!pyodide_MONTANTE || !window.pyodide_montante_globals) {
+                if (codeOutput_MONTANTE) codeOutput_MONTANTE.innerHTML = "<p>Pyodide no está listo. Intenta recargar.</p>";
+                return;
+            }
+            if (!codeInput_MONTANTE || !codeOutput_MONTANTE) return;
+
+            const pythonCode = codeInput_MONTANTE.value;
+            if (codeOutput_MONTANTE) codeOutput_MONTANTE.innerHTML = "<p>Ejecutando código...</p>";
+            montante_d3_opDesc.html("Generando datos para la visualización...");
+            montante_d3_svg.selectAll("*").remove();
+            montante_d3_prevPivotDisplay.text("N/A");
+
+
+            try {
+                window.pyodide_montante_globals.set("pyodide_montante_html_output", "");
+                let chartPkgProxy = window.pyodide_montante_globals.get("pyodide_montante_chart_data_package");
+                if (chartPkgProxy && typeof chartPkgProxy.clear === 'function') chartPkgProxy.clear();
+                else window.pyodide_montante_globals.set("pyodide_montante_chart_data_package", pyodide_MONTANTE.toPy({}));
+
+                await pyodide_MONTANTE.loadPackagesFromImports(pythonCode);
+                await pyodide_MONTANTE.runPythonAsync(pythonCode);
+
+                const htmlResult = window.pyodide_montante_globals.get("pyodide_montante_html_output");
+                if (codeOutput_MONTANTE) {
+                    codeOutput_MONTANTE.innerHTML = htmlResult || "<p>Ejecución completada. No se generó salida HTML de texto.</p>";
+                    if (window.MathJax) MathJax.typesetPromise([codeOutput_MONTANTE]);
+                }
+                updateTaskStatusInStorage_MONTANTE(TASKS_MONTANTE.RUN_CODE, true);
+
+                const d3DataPackage = window.pyodide_montante_globals.get("pyodide_montante_chart_data_package").toJs({ dict_converter: Object.fromEntries });
+                initializeMontanteVisualization(d3DataPackage);
+
+            } catch (error) {
+                console.error("Error al ejecutar el código Python (Montante):", error);
+                if (codeOutput_MONTANTE) {
+                     let errorHtml = `<p style="color:red;">Error en la ejecución: ${error.toString().replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`;
+                    if (error.message && error.message.includes("Traceback")) { // Pyodide error
+                        errorHtml += `<pre>${error.message.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`;
+                    } else if (error.stack) {
+                         errorHtml += `<pre>${error.stack.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>`;
+                    }
+                    codeOutput_MONTANTE.innerHTML = errorHtml;
+                }
+                montante_d3_opDesc.html("Error al generar datos para la visualización.");
+            }
+        }
+
+        // --- D3.js Montante Visualization Logic ---
+        let montante_d3_currentStepIndex = 0;
+        let montante_d3_visualizationData = [];
+        let montante_d3_isPlaying = false;
+        let montante_d3_animationSpeed = 1000;
+        let montante_d3_playInterval = null;
+
+        const montante_d3_svg = d3.select("#montante-d3-svg-container");
+        const montante_d3_opDesc = d3.select("#montante-d3-operation-description");
+        const montante_d3_prevButton = d3.select("#montante-d3-prev");
+        const montante_d3_nextButton = d3.select("#montante-d3-next");
+        const montante_d3_playButton = d3.select("#montante-d3-play");
+        const montante_d3_slider = d3.select("#montante-d3-slider");
+        const montante_d3_speedSlider = d3.select("#montante-d3-speed");
+        const montante_d3_speedValueText = d3.select("#montante-d3-speed-value");
+        const montante_d3_prevPivotDisplay = d3.select("#montante-d3-prev-pivot-display");
+
+
+        const montante_d3_cellSize = { width: 80, height: 40 };
+        const montante_d3_padding = 5;
+        const montante_d3_numberFormat = d3.format(".3~f"); // For float display
+
+        const ICON_MONTANTE_PREVIOUS = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M15.225 15.077a.75.75 0 01-1.06 0L8.94 9.852a.75.75 0 010-1.06l5.224-5.224a.75.75 0 011.06 1.06L10.532 9.322l4.693 4.695a.75.75 0 010 1.06z"/></svg>';
+        const ICON_MONTANTE_NEXT = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M4.775 4.923a.75.75 0 011.06 0l5.224 5.224a.75.75 0 010 1.06l-5.224 5.224a.75.75 0 01-1.06-1.06L9.468 10.678 4.775 5.983a.75.75 0 010-1.06z"/></svg>';
+        const ICON_MONTANTE_PLAY = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"/></svg>';
+        const ICON_MONTANTE_PAUSE = '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" class="w-5 h-5"><path d="M5.75 4.5a.75.75 0 00-.75.75v10.5a.75.75 0 001.5 0V5.25a.75.75 0 00-.75-.75zm8.5 0a.75.75 0 00-.75.75v10.5a.75.75 0 001.5 0V5.25a.75.75 0 00-.75-.75z"/></svg>';
+
+        function initializeMontanteVisualization(data) {
+            montante_d3_svg.selectAll("*").remove();
+            montante_d3_prevPivotDisplay.text("N/A");
+            if (!data || !data.visualization_steps || data.visualization_steps.length === 0) {
+                montante_d3_opDesc.html("No hay datos de visualización. Ejecute el código.");
+                montante_d3_prevButton.property("disabled", true).html(ICON_MONTANTE_PREVIOUS).attr("aria-label", "Anterior");
+                montante_d3_nextButton.property("disabled", true).html(ICON_MONTANTE_NEXT).attr("aria-label", "Siguiente");
+                montante_d3_slider.property("disabled", true).attr("max",0).property("value",0);
+                montante_d3_playButton.property("disabled", true).html(ICON_MONTANTE_PLAY).attr("aria-label", "Play");
+                return;
+            }
+            montante_d3_visualizationData = data.visualization_steps;
+            montante_d3_currentStepIndex = 0;
+            montante_d3_isPlaying = false;
+            if (montante_d3_playInterval) clearInterval(montante_d3_playInterval);
+            
+            montante_d3_prevButton.html(ICON_MONTANTE_PREVIOUS).attr("aria-label", "Anterior").property("disabled", false);
+            montante_d3_nextButton.html(ICON_MONTANTE_NEXT).attr("aria-label", "Siguiente").property("disabled", false);
+            montante_d3_playButton.html(ICON_MONTANTE_PLAY).attr("aria-label", "Play").property("disabled", false);
+            montante_d3_slider.attr("max", montante_d3_visualizationData.length - 1).property("value", 0).property("disabled", false);
+
+            renderMontanteStep(montante_d3_currentStepIndex, false);
+            updateMontanteControls();
+        }
+
+        function formatNumberForDisplayD3(num) { // For D3 display, show floats
+            if (typeof num !== 'number') num = parseFloat(num); // Ensure it's a number
+            if (isNaN(num)) return "NaN";
+            if (Math.abs(num) < 1e-9) return "0"; // Handle small numbers as zero
+            
+            const rounded = parseFloat(num.toFixed(4)); // Round to 4 decimal places for display consistency
+            if (Math.abs(rounded - Math.round(rounded)) < 1e-9) return String(Math.round(rounded)); // If it's an integer
+            
+            let formatted = montante_d3_numberFormat(rounded);
+            if (formatted === "-0" || formatted === "-0.0" || formatted === "-0.00" || formatted === "-0.000") return "0";
+            return formatted;
+        }
+
+        function renderMontanteStep(stepIndex, animate = true) {
+            if (stepIndex < 0 || stepIndex >= montante_d3_visualizationData.length) return;
+
+            const stepData = montante_d3_visualizationData[stepIndex];
+            const matrixToDisplay = stepData.matrix_before_op ? stepData.matrix_before_op : stepData.matrix;
+            const matrixAfterOp = stepData.matrix_after_op ? stepData.matrix_after_op : stepData.matrix;
+
+            const numRows = matrixToDisplay.length;
+            const numCols = matrixToDisplay[0] ? matrixToDisplay[0].length : 0;
+            if (numRows === 0 || numCols === 0) {
+                 montante_d3_opDesc.html("Matriz vacía o inválida en el paso.");
+                 montante_d3_svg.selectAll("*").remove();
+                 return;
+            }
+            const numCoeffs = stepData.num_coeffs != null ? stepData.num_coeffs : (stepData.solution ? numCols -1 : numCols);
+
+
+            montante_d3_opDesc.html(stepData.description || `Paso ${stepIndex + 1}`);
+            montante_d3_slider.property("value", stepIndex);
+            montante_d3_prevPivotDisplay.text(stepData.prev_pivot_val !== undefined ? formatNumberForDisplayD3(stepData.prev_pivot_val) : "N/A");
+
+
+            const totalWidth = numCols * (montante_d3_cellSize.width + montante_d3_padding) - montante_d3_padding;
+            const totalHeight = numRows * (montante_d3_cellSize.height + montante_d3_padding) - montante_d3_padding;
+            montante_d3_svg.attr("width", Math.max(200, totalWidth)) 
+                       .attr("height", Math.max(50, totalHeight))
+                       .attr("viewBox", `0 0 ${totalWidth} ${totalHeight}`);
+
+            const transitionDuration = animate ? montante_d3_animationSpeed : 0;
+
+            const rowSelection = montante_d3_svg.selectAll("g.row-group")
+                .data(matrixToDisplay, (d, i) => `row-${i}`); 
+            
+            rowSelection.join(
+                enter => enter.append("g")
+                    .attr("class", (d, i) => `row-group row-${i}`)
+                    .attr("data-row-index", (d, i) => i)
+                    .attr("transform", (d, i) => `translate(0, ${i * (montante_d3_cellSize.height + montante_d3_padding)})`)
+                    .style("opacity", 0) 
+                    .call(enterRows => enterRows.transition().duration(transitionDuration / 2).style("opacity", 1)),
+                update => update
+                    .call(updateRows => { 
+                        if (animate && stepData.operation_type === 'swap_rows' && stepData.swapped_rows_indices) {
+                            const [idx1, idx2] = stepData.swapped_rows_indices;
+                            updateRows.filter((d_row_data, i_original_row_index) => i_original_row_index === idx1 || i_original_row_index === idx2)
+                                .transition().duration(transitionDuration)
+                                .attr("transform", (d_row_data, i_filtered_sel, nodes) => {
+                                    const originalRowIndexStr = d3.select(nodes[i_filtered_sel]).attr("data-row-index");
+                                    const originalRowIndex = parseInt(originalRowIndexStr);
+                                    let targetY;
+                                    if (originalRowIndex === idx1) targetY = idx2 * (montante_d3_cellSize.height + montante_d3_padding);
+                                    else if (originalRowIndex === idx2) targetY = idx1 * (montante_d3_cellSize.height + montante_d3_padding);
+                                    else targetY = originalRowIndex * (montante_d3_cellSize.height + montante_d3_padding); // Should not happen for filtered
+                                    return `translate(0, ${targetY})`;
+                                });
+                        } else { 
+                            updateRows.transition().duration(transitionDuration / 2)
+                                .attr("transform", (d, i) => `translate(0, ${i * (montante_d3_cellSize.height + montante_d3_padding)})`);
+                        }
+                    }),
+                exit => exit.transition().duration(transitionDuration / 2).style("opacity", 0).remove()
+            );
+
+            montante_d3_svg.selectAll("g.row-group") 
+                .each(function(rowDataFromMatrixToDisplay, rowIndex) { 
+                    const currentRowGroup = d3.select(this);
+
+                    const cellDataForRow = rowDataFromMatrixToDisplay.map((cellVal, colIndex) => ({
+                        initialValue: cellVal,
+                        finalValue: matrixAfterOp[rowIndex][colIndex], 
+                        rowIndex: rowIndex,
+                        colIndex: colIndex
+                    }));
+
+                    const cellSelection = currentRowGroup.selectAll("g.cell-group")
+                        .data(cellDataForRow, d_cell => `cell-${d_cell.rowIndex}-${d_cell.colIndex}`);
+
+                    cellSelection.join(
+                        enter => enter.append("g")
+                            .attr("class", d_cell => `cell-group cell-${d_cell.rowIndex}-${d_cell.colIndex}`)
+                            .attr("data-row-index", d_cell => d_cell.rowIndex)
+                            .attr("data-col-index", d_cell => d_cell.colIndex)
+                            .attr("transform", d_cell => `translate(${d_cell.colIndex * (montante_d3_cellSize.width + montante_d3_padding)}, 0)`)
+                            .call(cellEnter => {
+                                cellEnter.append("rect")
+                                    .attr("width", montante_d3_cellSize.width)
+                                    .attr("height", montante_d3_cellSize.height)
+                                    .style("fill", "white");
+                                cellEnter.append("text")
+                                    .attr("x", montante_d3_cellSize.width / 2)
+                                    .attr("y", montante_d3_cellSize.height / 2)
+                                    .text(d_cell => formatNumberForDisplayD3(d_cell.initialValue)); 
+                            }),
+                        update => update, 
+                        exit => exit.remove()
+                    )
+                    .call(allCellsInRow => { 
+                        allCellsInRow.select("rect")
+                            .transition().duration(transitionDuration * 0.4) 
+                            .style("fill", "white") 
+                            .attr("class","") 
+                            .end().then(() => { 
+                                allCellsInRow.select("rect")
+                                    .transition().duration(transitionDuration * 0.6)
+                                    .attr("class", (d_cell) => { // Use attr for classes for easier combination
+                                        let classes = "";
+                                        if (stepData.pivot_coords && d_cell.rowIndex === stepData.pivot_coords[0] && d_cell.colIndex === stepData.pivot_coords[1]) {
+                                            classes += " pivot-highlight";
+                                        }
+                                        if (stepData.operation_type === "calculate_element") {
+                                            if (stepData.involved_elements_coords && stepData.involved_elements_coords.some(c => c[0] === d_cell.rowIndex && c[1] === d_cell.colIndex)) {
+                                                 classes += " calc-element-highlight";
+                                            }
+                                            if (stepData.updated_element_coords && d_cell.rowIndex === stepData.updated_element_coords[0] && d_cell.colIndex === stepData.updated_element_coords[1]) {
+                                                 classes += " updated-element-highlight";
+                                            }
+                                        }
+                                        if (stepData.operation_type === "zero_column" && d_cell.colIndex === stepData.zeroed_col_idx && d_cell.rowIndex !== stepData.pivot_coords[0]) {
+                                             classes += " zeroed-element-highlight";
+                                        }
+                                        if ((stepData.operation_type === 'singular_matrix' || stepData.operation_type === 'error') && stepData.pivot_coords && d_cell.rowIndex === stepData.pivot_coords[0]) {
+                                            classes += " problem-row-highlight";
+                                        }
+                                        return classes.trim();
+                                    });
+                            });
+
+                        allCellsInRow.select("text")
+                            .transition().duration(transitionDuration)
+                            .textTween(function(d_cell) {
+                                const currentValue = parseFloat(this.textContent.replace(/[^0-9.-]+/g,"")) || d_cell.initialValue; // Use initialValue if text is not number
+                                const i = d3.interpolateNumber(currentValue, d_cell.finalValue);
+                                return function(t) { return formatNumberForDisplayD3(i(t)); };
+                            });
+                    });
+                }); 
+
+            montante_d3_svg.selectAll(".matrix-column-separator").remove();
+            if (numCoeffs && numCoeffs < numCols && numCoeffs > 0) {
+                 const xSeparator = numCoeffs * (montante_d3_cellSize.width + montante_d3_padding) - (montante_d3_padding / 2);
+                 montante_d3_svg.append("line")
+                    .attr("class", "matrix-column-separator")
+                    .attr("x1", xSeparator).attr("x2", xSeparator)
+                    .attr("y1", -montante_d3_padding / 2).attr("y2", totalHeight - montante_d3_padding /2);
+            }
+            updateMontanteControls();
+             if (window.MathJax && window.MathJax.typesetPromise) {
+                window.MathJax.typesetPromise([montante_d3_opDesc.node(), montante_d3_prevPivotDisplay.node().parentElement]);
+            }
+        }
+
+        function updateMontanteControls() {
+            montante_d3_prevButton.property("disabled", montante_d3_currentStepIndex <= 0);
+            montante_d3_nextButton.property("disabled", montante_d3_currentStepIndex >= montante_d3_visualizationData.length - 1);
+            montante_d3_slider.property("value", montante_d3_currentStepIndex);
+            montante_d3_playButton.property("disabled", montante_d3_visualizationData.length === 0);
+        }
+        function stopMontantePlayback() {
+            montante_d3_isPlaying = false;
+            clearInterval(montante_d3_playInterval);
+            montante_d3_playButton.html(ICON_MONTANTE_PLAY).attr("aria-label", "Play");
+        }
+
+        montante_d3_prevButton.on("click", () => {
+            if (montante_d3_isPlaying) stopMontantePlayback();
+            if (montante_d3_currentStepIndex > 0) {
+                montante_d3_currentStepIndex--;
+                renderMontanteStep(montante_d3_currentStepIndex, true);
+            }
+        });
+
+        montante_d3_nextButton.on("click", () => {
+            if (montante_d3_isPlaying) stopMontantePlayback();
+            if (montante_d3_currentStepIndex < montante_d3_visualizationData.length - 1) {
+                montante_d3_currentStepIndex++;
+                renderMontanteStep(montante_d3_currentStepIndex, true);
+            }
+        });
+        montante_d3_playButton.on("click", () => {
+            if (montante_d3_visualizationData.length === 0) return;
+            montante_d3_isPlaying = !montante_d3_isPlaying;
+            if (montante_d3_isPlaying) {
+                montante_d3_playButton.html(ICON_MONTANTE_PAUSE).attr("aria-label", "Pause");
+                if (montante_d3_currentStepIndex >= montante_d3_visualizationData.length - 1) {
+                    montante_d3_currentStepIndex = -1; 
+                }
+                montante_d3_playInterval = setInterval(() => {
+                    if (montante_d3_currentStepIndex < montante_d3_visualizationData.length - 1) {
+                        montante_d3_currentStepIndex++;
+                        renderMontanteStep(montante_d3_currentStepIndex, true);
+                    } else {
+                        stopMontantePlayback();
+                    }
+                }, montante_d3_animationSpeed + 150);
+            } else {
+                stopMontantePlayback(); 
+            }
+        });
+
+        montante_d3_slider.on("input", function() {
+            if (montante_d3_isPlaying) stopMontantePlayback();
+            montante_d3_currentStepIndex = +this.value;
+            renderMontanteStep(montante_d3_currentStepIndex, true);
+        });
+
+        montante_d3_speedSlider.on("input", function() {
+            montante_d3_animationSpeed = +this.value;
+            montante_d3_speedValueText.text(`${montante_d3_animationSpeed}ms`);
+            if (montante_d3_isPlaying) {
+                stopMontantePlayback();
+                montante_d3_playButton.dispatch("click");
+            }
+        });
+        montante_d3_speedValueText.text(`${montante_d3_speedSlider.property("value")}ms`);
+
+
+        if (runCodeButton_MONTANTE) runCodeButton_MONTANTE.addEventListener('click', runCodeNow_MONTANTE);
+
+        if (quizForm_MONTANTE) {
+            quizForm_MONTANTE.addEventListener('submit', function(event) {
+                event.preventDefault();
+                const currentLocalProgress = getPageProgressFromStorage_MONTANTE(PAGE_KEY_MONTANTE);
+                const submitButton = quizForm_MONTANTE.querySelector('button[type="submit"]');
+
+                if (currentLocalProgress[TASKS_MONTANTE.QUIZ_PASSED] && submitButton.textContent !== 'Intentar de Nuevo') return;
+
+                if (submitButton && submitButton.textContent === 'Intentar de Nuevo') {
+                    quizForm_MONTANTE.reset();
+                    clearAllVisualFeedback_MONTANTE(true);
+                    if(generalQuizFeedbackDiv_MONTANTE) generalQuizFeedbackDiv_MONTANTE.style.display = 'none';
+
+                    let progressToSave = getPageProgressFromStorage_MONTANTE(PAGE_KEY_MONTANTE);
+                    progressToSave.user_quiz_answers = {};
+                    progressToSave.quiz_current_score = 0;
+                    progressToSave.quiz_feedback_active = false;
+                    savePageProgressToStorage_MONTANTE(PAGE_KEY_MONTANTE, progressToSave);
+                    updateTaskStatusInStorage_MONTANTE(TASKS_MONTANTE.QUIZ_PASSED, false);
+
+                    quizForm_MONTANTE.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+                     quizForm_MONTANTE.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => {
+                         wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                    });
+                    submitButton.textContent = 'Enviar Respuestas';
+                    return;
+                }
+
+                const formData = new FormData(quizForm_MONTANTE);
+                let allAnswered = true;
+                for (const qName of Object.keys(quizDataMetodoMontante)) { if (!formData.has(qName)) { allAnswered = false; break; } }
+
+                if (!allAnswered) {
+                    if (generalQuizFeedbackDiv_MONTANTE) {
+                        generalQuizFeedbackDiv_MONTANTE.textContent = "Por favor, responde todas las preguntas.";
+                        generalQuizFeedbackDiv_MONTANTE.className = 'mt-4 p-3 rounded-md text-sm bg-yellow-100 text-yellow-700 border border-yellow-200';
+                        generalQuizFeedbackDiv_MONTANTE.style.display = 'block';
+                    } return;
+                }
+
+                updateTaskStatusInStorage_MONTANTE(TASKS_MONTANTE.QUIZ_ATTEMPTED, true);
+
+                let progress = getPageProgressFromStorage_MONTANTE(PAGE_KEY_MONTANTE);
+                progress.user_quiz_answers = {};
+                for (const qName of Object.keys(quizDataMetodoMontante)) { progress.user_quiz_answers[qName] = formData.get(qName); }
+                progress.quiz_feedback_active = true;
+                savePageProgressToStorage_MONTANTE(PAGE_KEY_MONTANTE, progress);
+
+                const quizWasPassed = displayQuizFeedback_MONTANTE();
+                updateTaskStatusInStorage_MONTANTE(TASKS_MONTANTE.QUIZ_PASSED, quizWasPassed);
+                calculateAndUpdateOverallProgress_MONTANTE();
+            });
+        }
+
+        if (mainCompletionButton_MONTANTE) {
+             mainCompletionButton_MONTANTE.addEventListener('click', () => {
+                const progress = getPageProgressFromStorage_MONTANTE(PAGE_KEY_MONTANTE);
+                let allCurrentlyCompleted = ALL_TASK_KEYS_MONTANTE.every(taskKey => progress[taskKey]);
+                let markAllAs = !allCurrentlyCompleted;
+
+                ALL_TASK_KEYS_MONTANTE.forEach(taskName => updateTaskStatusInStorage_MONTANTE(taskName, markAllAs));
+
+                let updatedProgress = getPageProgressFromStorage_MONTANTE(PAGE_KEY_MONTANTE);
+                if (!markAllAs) {
+                    updatedProgress.user_quiz_answers = {};
+                    updatedProgress.quiz_current_score = 0;
+                    updatedProgress.quiz_feedback_active = false;
+                    if (quizForm_MONTANTE) {
+                        quizForm_MONTANTE.reset();
+                        quizForm_MONTANTE.querySelectorAll('input[type="radio"]').forEach(r => r.disabled = false);
+                        const sb = quizForm_MONTANTE.querySelector('button[type="submit"]');
+                        if(sb) sb.textContent = 'Enviar Respuestas';
+                        quizForm_MONTANTE.querySelectorAll('.quiz-option-wrapper').forEach(w => w.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red'));
+                    }
+                    clearAllVisualFeedback_MONTANTE(true);
+                } else {
+                     updatedProgress[TASKS_MONTANTE.QUIZ_ATTEMPTED] = true;
+                     updatedProgress[TASKS_MONTANTE.QUIZ_PASSED] = true;
+                    if (Object.keys(updatedProgress.user_quiz_answers).length === 0) {
+                        for (const qName in quizDataMetodoMontante) updatedProgress.user_quiz_answers[qName] = quizDataMetodoMontante[qName].correctAnswer;
+                        updatedProgress.quiz_current_score = Object.keys(quizDataMetodoMontante).length;
+                    }
+                    updatedProgress.quiz_feedback_active = true;
+                }
+                savePageProgressToStorage_MONTANTE(PAGE_KEY_MONTANTE, updatedProgress);
+
+                if (quizForm_MONTANTE) displayQuizFeedback_MONTANTE();
+                calculateAndUpdateOverallProgress_MONTANTE();
+
+                if (generalQuizFeedbackDiv_MONTANTE && !markAllAs) generalQuizFeedbackDiv_MONTANTE.style.display = 'none';
+                alert(markAllAs ? 'Todas las tareas marcadas como completadas.' : 'Se ha deshecho el completado.');
+            });
+        }
+
+        const theorySectionObserverTargetNodeMONTANTE = document.getElementById('conclusion-montante') || document.getElementById('teoria-montante');
+        if (theorySectionObserverTargetNodeMONTANTE) {
+            const observerOptionsMONTANTE = { root: null, rootMargin: '0px', threshold: 0.1 };
+            const observerCallbackMONTANTE = (entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) updateTaskStatusInStorage_MONTANTE(TASKS_MONTANTE.READ_THEORY, true);
+                });
+            };
+            const theoryObserver_MONTANTE = new IntersectionObserver(observerCallbackMONTANTE, observerOptionsMONTANTE);
+            theoryObserver_MONTANTE.observe(theorySectionObserverTargetNodeMONTANTE);
+        }
+
+        if (window.location.hash) history.replaceState(null, '', window.location.pathname + window.location.search);
+
+        (async () => {
+            pyodide_MONTANTE = await initializePyodide_MONTANTE();
+            initializeMontanteVisualization(null);
+        })();
+
+        const initialProgress_MONTANTE = getPageProgressFromStorage_MONTANTE(PAGE_KEY_MONTANTE);
+        if (initialProgress_MONTANTE.quiz_feedback_active || (initialProgress_MONTANTE[TASKS_MONTANTE.QUIZ_ATTEMPTED] && Object.keys(initialProgress_MONTANTE.user_quiz_answers).length > 0) ) {
+            if (quizForm_MONTANTE && initialProgress_MONTANTE.user_quiz_answers) {
+                 for (const qName in initialProgress_MONTANTE.user_quiz_answers) {
+                    const userAnswer = initialProgress_MONTANTE.user_quiz_answers[qName];
+                    const escapedUserAnswer = userAnswer.replace(/([\\()\[\]"'])/g, '\\$1'); // Basic escape for querySelector
+                    try {
+                        const radioToSelect = quizForm_MONTANTE.querySelector(`input[name="${qName}"][value="${escapedUserAnswer}"]`);
+                        if (radioToSelect) radioToSelect.checked = true;
+                    } catch (e) { console.warn(`Error seleccionando radio MONTANTE para ${qName}`, e); }
+                }
+            }
+            displayQuizFeedback_MONTANTE();
+        } else if (quizForm_MONTANTE) {
+            const submitButton = quizForm_MONTANTE.querySelector('button[type="submit"]');
+            if (submitButton) { submitButton.textContent = 'Enviar Respuestas'; submitButton.disabled = false; }
+            quizForm_MONTANTE.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false);
+             quizForm_MONTANTE.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red'));
+        }
+        if (window.MathJax && window.MathJax.typesetPromise) { // Initial MathJax typesetting
+            window.MathJax.typesetPromise();
+        }
+        calculateAndUpdateOverallProgress_MONTANTE();
+
+        // Output Area Controls
+        if (fullscreenButton_MONTANTE && codeOutput_MONTANTE && outputControlsContainer_MONTANTE) {
+             fullscreenButton_MONTANTE.addEventListener('click', () => {
+                const isFullscreen = codeOutput_MONTANTE.classList.contains('montante-output-fullscreen');
+                if (isFullscreen) {
+                    outputControlsContainer_MONTANTE.style.opacity = '0';
+                    if(increaseFontButton_MONTANTE) increaseFontButton_MONTANTE.style.display = 'none';
+                    if(decreaseFontButton_MONTANTE) decreaseFontButton_MONTANTE.style.display = 'none';
+                    if (montanteCodeOutputInitialRect) {
+                        const finalRect = codeOutput_MONTANTE.getBoundingClientRect();
+                        const scaleX = montanteCodeOutputInitialRect.width / finalRect.width;
+                        const scaleY = montanteCodeOutputInitialRect.height / finalRect.height;
+                        const deltaX = (montanteCodeOutputInitialRect.left + montanteCodeOutputInitialRect.width / 2) - (finalRect.left + finalRect.width / 2);
+                        const deltaY = (montanteCodeOutputInitialRect.top + montanteCodeOutputInitialRect.height / 2) - (finalRect.top + finalRect.height / 2);
+                        codeOutput_MONTANTE.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+                     }
+                    setTimeout(() => {
+                        codeOutput_MONTANTE.style.transition = 'none';
+                        codeOutput_MONTANTE.classList.remove('montante-output-fullscreen');
+                        document.body.classList.remove('montante-body-fullscreen-active');
+                        outputControlsContainer_MONTANTE.classList.remove('montante-output-controls-container-fixed');
+                        outputControlsContainer_MONTANTE.style.transition = 'none'; outputControlsContainer_MONTANTE.style.opacity = '1';
+                        outputControlsContainer_MONTANTE.offsetHeight; outputControlsContainer_MONTANTE.style.transition = '';
+                        codeOutput_MONTANTE.style.transform = '';
+                        if (originalOutputFontSize_MONTANTE) codeOutput_MONTANTE.style.fontSize = originalOutputFontSize_MONTANTE;
+                        codeOutput_MONTANTE.offsetHeight; codeOutput_MONTANTE.style.transition = '';
+                        fullscreenButton_MONTANTE.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15" /></svg>`;
+                        fullscreenButton_MONTANTE.title = "Ver en pantalla completa"; montanteCodeOutputInitialRect = null;
+                    }, 500);
+                } else {
+                    originalOutputFontSize_MONTANTE = window.getComputedStyle(codeOutput_MONTANTE).fontSize;
+                    montanteCodeOutputInitialRect = codeOutput_MONTANTE.getBoundingClientRect();
+                    outputControlsContainer_MONTANTE.style.transition = 'none'; outputControlsContainer_MONTANTE.style.opacity = '0';
+                    outputControlsContainer_MONTANTE.offsetHeight; outputControlsContainer_MONTANTE.style.transition = '';
+                    codeOutput_MONTANTE.style.transition = 'none';
+                    codeOutput_MONTANTE.classList.add('montante-output-fullscreen');
+                    document.body.classList.add('montante-body-fullscreen-active');
+                    outputControlsContainer_MONTANTE.classList.add('montante-output-controls-container-fixed');
+                    const finalRect = codeOutput_MONTANTE.getBoundingClientRect();
+                    const scaleX = montanteCodeOutputInitialRect.width / finalRect.width;
+                    const scaleY = montanteCodeOutputInitialRect.height / finalRect.height;
+                    const deltaX = (montanteCodeOutputInitialRect.left + montanteCodeOutputInitialRect.width / 2) - (finalRect.left + finalRect.width / 2);
+                    const deltaY = (montanteCodeOutputInitialRect.top + montanteCodeOutputInitialRect.height / 2) - (finalRect.top + finalRect.height / 2);
+                    codeOutput_MONTANTE.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`;
+                    codeOutput_MONTANTE.offsetHeight; codeOutput_MONTANTE.style.transition = '';
+                    codeOutput_MONTANTE.style.transform = 'translate(0px, 0px) scale(1)';
+                    fullscreenButton_MONTANTE.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9V4.5M15 9h4.5M15 9l5.25-5.25M15 15v4.5M15 15h4.5M15 15l5.25 5.25" /></svg>`;
+                    fullscreenButton_MONTANTE.title = "Salir de pantalla completa";
+                    setTimeout(() => {
+                        outputControlsContainer_MONTANTE.style.opacity = '1';
+                        if(increaseFontButton_MONTANTE) increaseFontButton_MONTANTE.style.display = 'inline-flex';
+                        if(decreaseFontButton_MONTANTE) decreaseFontButton_MONTANTE.style.display = 'inline-flex';
+                    }, 500);
+                }
+            });
+        }
+        if (increaseFontButton_MONTANTE && codeOutput_MONTANTE) {
+            increaseFontButton_MONTANTE.addEventListener('click', () => {
+                if (codeOutput_MONTANTE.classList.contains('montante-output-fullscreen')) {
+                    let currentSize = parseFloat(window.getComputedStyle(codeOutput_MONTANTE).fontSize);
+                    if (currentSize < MAX_FONT_SIZE_PX_MONTANTE) {
+                        codeOutput_MONTANTE.style.fontSize = (currentSize + FONT_SIZE_STEP_PX_MONTANTE) + 'px';
+                        increaseFontButton_MONTANTE.classList.add('montante-font-button-flash-blue');
+                        setTimeout(() => { increaseFontButton_MONTANTE.classList.remove('montante-font-button-flash-blue'); }, 400);
+                    }
+                }
+            });
+        }
+        if (decreaseFontButton_MONTANTE && codeOutput_MONTANTE) {
+             decreaseFontButton_MONTANTE.addEventListener('click', () => {
+                if (codeOutput_MONTANTE.classList.contains('montante-output-fullscreen')) {
+                    let currentSize = parseFloat(window.getComputedStyle(codeOutput_MONTANTE).fontSize);
+                    if (currentSize > MIN_FONT_SIZE_PX_MONTANTE) {
+                        codeOutput_MONTANTE.style.fontSize = (currentSize - FONT_SIZE_STEP_PX_MONTANTE) + 'px';
+                        decreaseFontButton_MONTANTE.classList.add('montante-font-button-flash-red');
+                        setTimeout(() => { decreaseFontButton_MONTANTE.classList.remove('montante-font-button-flash-red'); }, 400);
+                    }
+                }
+            });
+        }
+        if(increaseFontButton_MONTANTE) increaseFontButton_MONTANTE.style.display = 'none';
+        if(decreaseFontButton_MONTANTE) decreaseFontButton_MONTANTE.style.display = 'none';
+
+    });
+    </script>
+
+    <!-- Vue App Initialization Script -->
+    <script type="module">
+        const { createApp, ref, onMounted, onUnmounted, watch, nextTick } = Vue;
+        const LeftSidebarMontante = {
+            template: `{% raw %}
+                <aside :class="[
+                    'bg-gradient-to-b from-red-500 to-red-700', 'shadow-xl', 'rounded-lg', 'p-4',
+                    'flex', 'flex-col',
+                    'transition-all', 'duration-300', 'ease-in-out',
+                    'order-1',
+                    isCollapsed ? 'w-full lg:w-20' : 'w-full lg:w-64',
+                    'self-start',
+                    'lg:sticky', 'lg:top-8',
+                    'lg:max-h-[calc(100vh-4rem)]',
+                    'overflow-y-auto'
+                ]">
+                    <div class="flex justify-between items-center mb-4 border-b border-red-400 pb-3">
+                        <h3 v-show="!isCollapsed" class="text-lg font-semibold text-white select-none">Contenido</h3>
+                        <button @click="toggleCollapse" class="p-1.5 ml-2 text-white hover:bg-red-700 rounded focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-75" :aria-label="isCollapsed ? 'Expandir menú' : 'Colapsar menú'">
+                            <svg v-if="!isCollapsed" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5" /></svg>
+                            <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5m-6-15l7.5 7.5-7.5 7.5" /></svg>
+                        </button>
+                    </div>
+                    <nav v-show="!isCollapsed">
+                        <ul class="space-y-1">
+                            <li v-for="item in navItems" :key="item.id">
+                                <a :href="item.href" @click.prevent="smoothScroll(item.href)"
+                                   :class="['nav-link block px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 flex items-center', isActive(item.id) ? 'bg-white text-custom-blue font-semibold shadow-sm' : 'text-red-100 hover:bg-red-700 hover:text-white']">
+                                    <span v-html="item.iconSVG" class="mr-3 translate-y-px"></span>
+                                    <span>{{ item.text }}</span>
+                                </a></li></ul></nav>
+                    <nav v-show="isCollapsed" class="mt-4">
+                         <ul class="space-y-1">
+                            <li v-for="item in navItems" :key="item.id + '-collapsed'">
+                                <a :href="item.href" @click.prevent="smoothScroll(item.href)" :title="item.text" :aria-label="item.text"
+                                   :class="['nav-link-collapsed block py-2 pl-2.5 pr-1.5 rounded-md transition-colors duration-150 flex justify-center items-center', isActive(item.id) ? 'bg-white text-custom-blue shadow-sm' : 'text-red-100 hover:bg-red-700 hover:text-white']">
+                                    <span v-html="item.iconSVG" class="w-6 h-6 translate-y-px"></span>
+                                </a></li></ul></nav></aside>{% endraw %}`,
+            setup() {
+                const isCollapsed = ref(false);
+                const activeSectionId = ref('teoria-montante');
+                const navItems = ref([
+                    { id: 'teoria-montante', text: 'Fundamento Teórico', href: '#teoria-montante', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>' },
+                    { id: 'algoritmo-montante', text: 'Pasos del Algoritmo', href: '#algoritmo-montante', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" /></svg>' },
+                    { id: 'ejemplo-montante', text: 'Ejemplo Detallado', href: '#ejemplo-montante', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>' },
+                    { id: 'codigo-montante', text: 'Implementación (Python)', href: '#codigo-montante', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" /></svg>' },
+                    { id: 'graficas-montante', text: 'Visualización Interactiva', href: '#graficas-montante', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h12A2.25 2.25 0 0120.25 6v12A2.25 2.25 0 0118 20.25H6A2.25 2.25 0 013.75 18V6zM3.75 12h16.5M12 3.75v16.5" /></svg>' },
+                    { id: 'videos-montante', text: 'Videos Explicativos', href: '#videos-montante', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.75.75 0 010 1.656l-5.603 3.113A.75.75 0 019 15.95V9.05a.75.75 0 011.307-.588l5.603 3.112z" /></svg>' },
+                    { id: 'conclusion-montante', text: 'Conclusión', href: '#conclusion-montante', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' },
+                    { id: 'referencias-montante', text: 'Referencias', href: '#referencias-montante', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 3.75V16.5L12 14.25L7.5 16.5V3.75m9 0H18A2.25 2.25 0 0120.25 6v12A2.25 2.25 0 0118 20.25H6A2.25 2.25 0 013.75 18V6A2.25 2.25 0 016 3.75h1.5m9 0h-9" /></svg>' },
+                    { id: 'cuestionario-montante', text: 'Cuestionario', href: '#cuestionario-montante', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' }
+                ]);
+                let sections = [];
+                const toggleCollapse = () => isCollapsed.value = !isCollapsed.value;
+                const isActive = (id) => activeSectionId.value === id;
+                const smoothScroll = (targetHref) => {
+                    const targetId = targetHref.substring(1);
+                    const targetElement = document.getElementById(targetId);
+                    if (targetElement) {
+                        targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+                        history.pushState(null, null, targetHref); // Update URL without page reload
+                    }
+                };
+                const handleScroll = () => {
+                    if (!sections.length) return;
+                    const scrollMarginTopValue = parseInt(getComputedStyle(sections[0]).scrollMarginTop) || 96; // Approx header height
+                    let newActiveSectionId = null;
+                    // Find current section
+                    for (let i = 0; i < sections.length; i++) {
+                        const section = sections[i];
+                        const sectionTopBoundary = section.offsetTop - scrollMarginTopValue;
+                        const sectionBottomBoundary = sectionTopBoundary + section.offsetHeight;
+                        if (window.scrollY >= sectionTopBoundary && window.scrollY < sectionBottomBoundary) {
+                            newActiveSectionId = section.id; break;
+                        }
+                    }
+                    // If no section is "current" (e.g. scrolling past the last one), keep last one active
+                    if (newActiveSectionId === null) {
+                        for (let i = sections.length - 1; i >= 0; i--) { // Check from bottom up
+                            if ((sections[i].offsetTop - scrollMarginTopValue) <= window.scrollY + 5) { // Add a small buffer
+                                newActiveSectionId = sections[i].id; break;
+                            }
+                        }
+                    }
+                     // If scrolled to the very top before the first section
+                    if (newActiveSectionId === null && sections.length > 0 && window.scrollY < (sections[0].offsetTop - scrollMarginTopValue)) {
+                       newActiveSectionId = sections[0].id;
+                    }
+
+                    if (activeSectionId.value !== newActiveSectionId) activeSectionId.value = newActiveSectionId;
+                };
+                onMounted(() => {
+                    nextTick(() => { // Ensure DOM is fully rendered
+                        sections = Array.from(document.querySelectorAll('main article section[id]'));
+                        handleScroll(); // Initial check
+                        window.addEventListener('scroll', handleScroll, { passive: true });
+                    });
+                });
+                onUnmounted(() => window.removeEventListener('scroll', handleScroll));
+                return { isCollapsed, toggleCollapse, navItems, isActive, smoothScroll, activeSectionId };
+            }
+        };
+        const appMontante = createApp({
+            setup() {
+                const METHOD_KEY_MONTANTE_VUE = "metodo-montante";
+                const METHOD_NAME_TITLE_CASE_MONTANTE_VUE = "Método de Montante";
+                return { METHOD_KEY_MONTANTE_VUE, METHOD_NAME_TITLE_CASE_MONTANTE_VUE };
+            }
+        });
+        appMontante.component('left-sidebar-montante', LeftSidebarMontante);
+        appMontante.config.compilerOptions.isCustomElement = tag => tag.startsWith('mjx-'); // For MathJax
+        appMontante.mount('#app-montante');
+    </script>
+</body>
+</html>
