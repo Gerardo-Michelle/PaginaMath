@@ -5,6 +5,7 @@ import os
 import functools # Importar functools
 from jinja2.exceptions import TemplateNotFound # Importar TemplateNotFound
 import json # Importar json
+from whitenoise import WhiteNoise
 
 app = Flask(__name__)
 
@@ -26,6 +27,16 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False # Desactiva el seguimiento 
 
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
+
+# Configurar WhiteNoise para servir archivos estáticos en producción
+# Asume que tus archivos estáticos están en una carpeta llamada 'static' en la raíz del proyecto.
+# Si se llama diferente (ej. 'public'), cambia 'static/' por 'public/'.
+# WhiteNoise buscará automáticamente una carpeta 'static' si no se especifica root.
+# app.wsgi_app = WhiteNoise(app.wsgi_app, root='static/') 
+# De forma más simple, si la carpeta es 'static' y está en la raíz, puedes hacer:
+app.wsgi_app = WhiteNoise(app.wsgi_app)
+app.wsgi_app.add_files(os.path.join(os.path.dirname(__file__), 'static'), prefix='static/')
+
 
 # Definición del modelo de Usuario
 class User(db.Model):
