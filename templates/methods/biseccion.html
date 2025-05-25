@@ -1903,8 +1903,18 @@ console.log("[DEBUG] isAuthenticatedJinjaString:", isAuthenticatedJinjaString);
                 
                 // Para actualizar el LeftSidebar basado en el progreso del RightSidebar (BIS_SCRIPT)
                 updateCompletedSectionsForSidebar();
+                // Ensure Vue has processed DOM updates and is fully ready for fade-in
+                nextTick(() => {
+                    document.body.classList.add('loaded');
+                    const preloader = document.getElementById('sidebar-preloader');
+                    if (preloader) {
+                        preloader.classList.add('hidden');
+                    }
+                    console.log('Bisection: Vue app fully mounted. Body "loaded", preloader hidden.');
+                });
+
                 window.addEventListener('storage', (event) => { // Escuchar cambios en localStorage
-                    if (event.key === METHOD_KEY) {
+                    if (event.key === METHOD_KEY) { 
                         updateCompletedSectionsForSidebar();
                     }
                 });
@@ -1978,15 +1988,8 @@ console.log("[DEBUG] isAuthenticatedJinjaString:", isAuthenticatedJinjaString);
                 setTimeout(function() {
                     // Primero hacer visible pero con opacidad 0
                     document.body.classList.add('content-ready');
-                    
-                    // Luego de un breve momento, hacer la transición de opacidad
-                    setTimeout(function() {
-                        document.body.classList.add('loaded');
-                        const preloader = document.getElementById('sidebar-preloader');
-                        if (preloader) {
-                            preloader.classList.add('hidden');
-                        }
-                    }, 100);
+                    // Vue app's onMounted will handle 'loaded' class and preloader hiding.
+                    // This function (revealContent) now only ensures 'content-ready' is set.
                 }, additionalWait);
             };
             
@@ -2006,18 +2009,11 @@ console.log("[DEBUG] isAuthenticatedJinjaString:", isAuthenticatedJinjaString);
             
             // Como respaldo, si la carga tarda demasiado, mostrar el contenido
             setTimeout(function() {
-                if (!document.body.classList.contains('loaded')) {
+                if (!document.body.classList.contains('content-ready')) {
                     console.log('Activando temporizador de respaldo');
-                    window.vueReady = true; // Forzar que Vue se considere listo
+                    window.vueReady = true; // Forzar que Vue se considere listo (for revealContent if it runs late)
                     document.body.classList.add('content-ready');
-                    setTimeout(function() {
-                        document.body.classList.add('loaded');
-                        const preloader = document.getElementById('sidebar-preloader');
-                        if (preloader) {
-                            preloader.classList.add('hidden');
-                        }
-                        console.log('Fallback timer triggered for page load');
-                    }, 100);
+                    console.log('Fallback timer triggered to set content-ready if not already set.');
                 }
             }, 3000); // Aumentado a 3 segundos para dar más tiempo
         });
