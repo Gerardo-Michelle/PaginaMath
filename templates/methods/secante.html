@@ -113,7 +113,7 @@
     <div id="app">
         <header class="bg-custom-blue text-white shadow-md">
             <div class="container mx-auto px-4 py-3 flex justify-between items-center">
-                <h1 class="text-xl font-semibold"><a href="/" class="hover:text-gray-300">Métodos Numéricos</a></h1>
+                <h1 class="text-xl font-semibold"><a href="{{ url_for('index_page') }}" class="hover:text-gray-300">Métodos Numéricos</a></h1>
                 <nav><a href="../index.html#method-cards-container" class="text-sm px-4 py-2 rounded-md hover:bg-gray-700 transition-colors duration-150">Volver a Métodos</a></nav>
             </div>
         </header>
@@ -393,7 +393,7 @@ if __name__ == "__main__":
                             <button id="run-secante-code-button" class="run-button mt-4 px-5 py-2.5 bg-custom-red text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 font-medium text-sm transition-colors duration-150">Ejecutar Código</button>
                             
                             <div class="relative">
-                                <div id="sec-output-controls-container" class="absolute top-0 right-0 z-10 flex items-center space-x-1 transition-all duration-500 ease-out" style="">
+                                <div id="sec-output-controls-container" class="absolute top-0 right-0 z-10 flex items-center space-x-1 transition-all duration-500 ease-out">
                                     <button id="sec-decrease-font-button" title="Disminuir fuente" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs font-semibold flex items-center justify-center" style="min-width: 30px; display: none;">
                                         aa
                                     </button>

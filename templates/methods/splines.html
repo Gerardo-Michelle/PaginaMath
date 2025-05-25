@@ -4,395 +4,1792 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Splines de Interpolación - Métodos Numéricos</title>
-    <link rel="stylesheet" href="../style.css">
-</head>
-<body>
-    <header>
-        <h1><a href="../index.html" style="color: inherit; text-decoration: none;">Métodos Numéricos</a></h1>
-        <nav>
-            <ul>
-                <!-- Generado por script.js -->
-            </ul>
-        </nav>
-    </header>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'custom-blue': '#242A38',
+                        'custom-red': '#E94560',
+                        'custom-gray-bg': '#F3F4F6',
+                        'sidebar-bg': '#FFFFFF',
+                        'sidebar-text': '#4B5563',
+                        'sidebar-hover-bg': '#FEF2F2',
+                    }
+                }
+            }
+        }
+    </script>
+    <script>
+        window.MathJax = {
+            tex: {
+                packages: {'[+]': ['input/mml', 'output/chtml']}
+            },
+            chtml: {
+                matchFontHeight: false
+            },
+            options: {
+                ignoreHtmlClass: 'tex2jax_ignore',
+                processHtmlClass: 'tex2jax_process'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        @keyframes animatedRainbowBorder { 0% { background-position: 0% center; } 100% { background-position: 200% center; } }
+        .animate-rainbow-border::before {
+            content: ''; position: absolute; z-index: -1; top: -2px; left: -2px; right: -2px; bottom: -2px;
+            border-radius: 9999px;
+            background: linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #007bff, #8a2be2, #ff00ff, #ff0000);
+            background-size: 200% 100%;
+            animation: animatedRainbowBorder 3s linear infinite;
+        }
+        .animate-rainbow-border { position: relative; z-index: 0; }
+        /* Additional styles for quiz feedback consistency if needed */
+        .correct-answer-splines { border-color: #10B981; background-color: #D1FAE5; } /* green-500, green-100 */
+        .incorrect-answer-splines { border-color: #EF4444; background-color: #FEE2E2; } /* red-500, red-100 */
 
-    <main>
-        <article class="method-content">
-            <h2>Splines de Interpolación</h2>
+        /* Estilos para prevenir estiramiento de la barra lateral */
+        body.content-ready .container-with-sidebar,
+        body.content-ready aside,
+        body.content-ready main,
+        body.content-ready .right-sidebar-fixed {
+            opacity: 0;
+            visibility: visible;
+        }
+        
+        body.loaded .container-with-sidebar,
+        body.loaded aside,
+        body.loaded main,
+        body.loaded .right-sidebar-fixed {
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.4s ease-in;
+        }
+        
+        .container-with-sidebar,
+        aside,
+        main,
+        .right-sidebar-fixed {
+            opacity: 0;
+            visibility: hidden;
+        }
+        
+        @media (min-width: 1024px) {
+            .right-sidebar-fixed {
+                width: 300px !important;
+                flex: 0 0 300px !important;
+                min-width: 300px !important;
+                max-width: 300px !important;
+                box-sizing: border-box !important;
+            }
             
-            <section id="teoria">
-                <h3>Fundamento Teórico</h3>
-                <p>
-                    La interpolación polinómica global, usando un único polinomio de alto grado para ajustar todos los puntos de datos, puede llevar a oscilaciones indeseadas (fenómeno de Runge) y ser sensible a pequeños cambios en los datos. Los <strong>splines de interpolación</strong> ofrecen una alternativa más robusta y suave al ajustar los datos por tramos utilizando polinomios de bajo grado.
-                </p>
-                <p>
-                    Un spline es una función definida a trozos por polinomios, donde cada "trozo" interpola un subconjunto de los puntos de datos. Para asegurar la suavidad de la curva resultante, se imponen condiciones de continuidad en los puntos de conexión entre los polinomios (llamados "nudos", que en el caso de la interpolación suelen ser los propios puntos de datos). Estas condiciones usualmente se refieren a la igualdad de la función y sus derivadas en los nudos.
-                </p>
-                <p>
-                    Los tipos más comunes de splines son los lineales, cuadráticos y cúbicos.
-                </p>
-            </section>
+            /* Estilos para la barra lateral izquierda - controlando ambos estados */
+            /* Cuando está expandida */
+            aside[class*="lg:w-64"] {
+                width: 300px !important;
+                flex: 0 0 300px !important;
+                min-width: 300px !important;
+                max-width: 300px !important;
+                box-sizing: border-box !important;
+                transition: all 0.3s ease-in-out !important;
+            }
+            
+            /* Cuando está contraída */
+            aside[class*="lg:w-20"] {
+                width: 80px !important;
+                flex: 0 0 80px !important;
+                min-width: 80px !important;
+                max-width: 80px !important;
+                box-sizing: border-box !important;
+                transition: all 0.3s ease-in-out !important;
+            }
+            
+            .main-content-fixed {
+                flex: 1 1 auto !important;
+            }
+            
+            .sidebar-preloader {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: #F3F4F6;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 9999;
+            }
+            
+            .sidebar-preloader.hidden {
+                display: none;
+            }
+            
+            .loading-spinner {
+                border: 4px solid rgba(0, 0, 0, 0.1);
+                border-left-color: #E94560;
+                border-radius: 50%;
+                width: 40px;
+                height: 40px;
+                animation: spin 1s linear infinite;
+            }
+            
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        }
 
-            <section id="algoritmo">
-                <h3>Tipos de Splines</h3>
-                <h4>1. Splines Lineales</h4>
-                <p>
-                    El spline lineal es el más simple. Consiste en conectar pares consecutivos de puntos de datos \\((x_i, y_i)\\) y \\((x_{i+1}, y_{i+1})\\) mediante segmentos de recta.
-                    Para cada intervalo \\([x_i, x_{i+1}]\\), el spline \\(S_i(x)\\) se define como:
-                </p>
-                <p style="text-align:center;"><em>\\[ S_i(x) = y_i + \\frac{y_{i+1} - y_i}{x_{i+1} - x_i} (x - x_i) \\]</em></p>
-                <p>
-                    Los splines lineales son continuos (\\(C^0\\)), pero sus derivadas (pendientes) son discontinuas en los nudos, lo que resulta en una curva con "esquinas".
-                </p>
+        /* Styles for fullscreen code output */
+        .splines-output-fullscreen {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 9990 !important; /* Alto, pero debajo del botón de fullscreen */
+            background-color: #111827 !important; /* bg-gray-900 */
+            padding: 20px !important;
+            margin: 0 !important;
+            border-radius: 0 !important;
+            overflow-y: auto !important;
+            max-height: 100vh !important;
+        }
+        .splines-body-fullscreen-active {
+            overflow: hidden !important;
+        }
+        /* Contenedor de controles de salida (fullscreen, +/- fuente) en modo pantalla completa */
+        .splines-output-controls-container-fixed {
+            position: fixed !important;
+            top: 15px !important;
+            right: 15px !important;
+            z-index: 9999 !important; /* Encima del <pre> fullscreen */
+            /* Asegurarse de que los botones dentro del flex container no se vean afectados por estilos globales si los hubiera */
+            display: flex !important;
+            align-items: center !important;
+            gap: 0.25rem !important; /* space-x-1 */
+        }
 
-                <h4>2. Splines Cuadráticos</h4>
-                <p>
-                    Los splines cuadráticos utilizan polinomios de segundo grado para cada intervalo \\([x_i, x_{i+1}]\\).
-                    \\(S_i(x) = a_i x^2 + b_i x + c_i\\).
-                    Para determinar los coeficientes, se imponen las siguientes condiciones:
-                </p>
-                <ul>
-                    <li>Cada spline debe pasar por los puntos de datos en sus extremos.</li>
-                    <li>Las primeras derivadas de los splines adyacentes deben ser iguales en los nudos interiores (continuidad \\(C^1\\)).</li>
-                </ul>
-                <p>
-                    Esto genera un sistema de ecuaciones. Generalmente, se necesita una condición adicional para determinar todos los coeficientes (por ejemplo, especificar la derivada en el primer punto).
-                </p>
+        /* Animaciones de destello para botones de fuente */
+        .splines-font-button-flash-red {
+            animation: splines-flash-red 0.4s ease-out;
+        }
+        @keyframes splines-flash-red {
+            0% { background-color: #EF4444; } /* red-500 */
+            100% { background-color: #374151; } /* gray-700, el color original del botón */
+        }
+        .splines-font-button-flash-blue {
+            animation: splines-flash-blue 0.4s ease-out;
+        }
+        @keyframes splines-flash-blue {
+            0% { background-color: #3B82F6; } /* blue-500 */
+            100% { background-color: #374151; } /* gray-700, el color original del botón */
+        }
+    </style>
+</head>
+<body class="bg-custom-gray-bg text-gray-700 font-sans antialiased">
+    <div id="app-splines"> <!-- Unique ID for Vue app -->
+        <header class="bg-custom-blue text-white shadow-md">
+            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                <h1 class="text-xl font-semibold"><a href="../index.html" class="hover:text-gray-300">Métodos Numéricos</a></h1>
+                <nav><a href="../index.html#method-cards-container" class="text-sm px-4 py-2 rounded-md hover:bg-gray-700 transition-colors duration-150">Volver a Métodos</a></nav>
+            </div>
+        </header>
 
-                <h4>3. Splines Cúbicos</h4>
-                <p>
-                    Los splines cúbicos son los más utilizados debido a su suavidad. Utilizan polinomios de tercer grado para cada intervalo:
-                    \\(S_i(x) = a_i x^3 + b_i x^2 + c_i x + d_i\\).
-                    Se imponen las siguientes condiciones:
-                </p>
-                <ul>
-                    <li>Cada spline debe pasar por los puntos de datos en sus extremos: \\(S_i(x_i) = y_i\\) y \\(S_i(x_{i+1}) = y_{i+1}\\).</li>
-                    <li>Las primeras derivadas de los splines adyacentes deben ser iguales en los nudos interiores: \\(S\'_{i-1}(x_i) = S\'_i(x_i)\\).</li>
-                    <li>Las segundas derivadas de los splines adyacentes deben ser iguales en los nudos interiores: \\(S\'\'_{i-1}(x_i) = S\'\'_i(x_i)\\) (continuidad \\(C^2\\)).</li>
-                </ul>
-                <p>
-                    Estas condiciones generan un sistema de ecuaciones para los coeficientes. Se necesitan dos condiciones adicionales, que usualmente se especifican en los extremos de la curva. Algunas opciones comunes son:
-                </p>
-                <ul>
-                    <li><strong>Spline Cúbico Natural:</strong> Las segundas derivadas en los puntos extremos son cero (\\(S\'\'_0(x_0) = 0\\) y \\(S\'\'_{n-1}(x_n) = 0\\)). Esto implica que la curva se aplana en los extremos.</li>
-                    <li><strong>Spline Sujeto (Clamped):</strong> Se especifican las primeras derivadas en los puntos extremos.</li>
-                </ul>
-                <p>
-                    Para un spline cúbico natural con \\(n+1\\) puntos \\((x_0, y_0), \ldots, (x_n, y_n)\\), se forma un sistema de ecuaciones tridiagonal para las segundas derivadas \\(M_i = S\'\'_i(x_i)\\) en los nudos, que luego se usa para encontrar los coeficientes de los polinomios cúbicos.
-                </p>
-            </section>
+        <!-- Preloader mientras se inicializa la interfaz -->
+        <div id="sidebar-preloader" class="sidebar-preloader">
+            <div class="loading-spinner"></div>
+        </div>
 
-            <section id="ejemplo">
-                <h3>Ejemplo: Spline Cúbico Natural</h3>
-                <p>
-                    Supongamos que tenemos los siguientes puntos: \\((0,0), (1,1), (2,0)\\).
-                    Buscamos dos polinomios cúbicos:
-                    \\(S_0(x) = a_0 x^3 + b_0 x^2 + c_0 x + d_0\\) para \\(x \in [0,1]\\)
-                    \\(S_1(x) = a_1 (x-1)^3 + b_1 (x-1)^2 + c_1 (x-1) + d_1\\) para \\(x \in [1,2]\\) (forma desplazada para simplificar)
-                </p>
-                <p>
-                    Condiciones:
-                    <ol>
-                        <li>\\(S_0(0) = 0 \Rightarrow d_0 = 0\\)</li>
-                        <li>\\(S_0(1) = 1 \Rightarrow a_0 + b_0 + c_0 + d_0 = 1\\)</li>
-                        <li>\\(S_1(1) = 1 \Rightarrow d_1 = 1\\) (en forma desplazada, esto es y_1)</li>
-                        <li>\\(S_1(2) = 0 \Rightarrow a_1(1)^3 + b_1(1)^2 + c_1(1) + d_1 = 0 \Rightarrow a_1+b_1+c_1+d_1 = 0\\)</li>
-                        <li>Continuidad de primeras derivadas en \\(x=1\\): \\(S\'_0(1) = S\'_1(1)\\)
-                            \\(S\'_0(x) = 3a_0 x^2 + 2b_0 x + c_0 \Rightarrow S\'_0(1) = 3a_0 + 2b_0 + c_0\\)
-                            \\(S\'_1(x) = 3a_1 (x-1)^2 + 2b_1 (x-1) + c_1 \Rightarrow S\'_1(1) = c_1\\)
-                            Así, \\(3a_0 + 2b_0 + c_0 = c_1\\)
-                        </li>
-                        <li>Continuidad de segundas derivadas en \\(x=1\\): \\(S\'\'_0(1) = S\'\'_1(1)\\)
-                            \\(S\'\'_0(x) = 6a_0 x + 2b_0 \Rightarrow S\'\'_0(1) = 6a_0 + 2b_0\\)
-                            \\(S\'\'_1(x) = 6a_1 (x-1) + 2b_1 \Rightarrow S\'\'_1(1) = 2b_1\\)
-                            Así, \\(6a_0 + 2b_0 = 2b_1 \Rightarrow 3a_0 + b_0 = b_1\\)
-                        </li>
-                        <li>Condiciones de spline natural: \\(S\'\'_0(0) = 0\\) y \\(S\'\'_1(2) = 0\\)
-                            \\(S\'\'_0(0) = 2b_0 = 0 \Rightarrow b_0 = 0\\)
-                            \\(S\'\'_1(2) = 6a_1(1) + 2b_1 = 0 \Rightarrow 6a_1 + 2b_1 = 0 \Rightarrow 3a_1 + b_1 = 0\\)
-                        </li>
-                    </ol>
-                </p>
-                <p>
-                    Sustituyendo \\(d_0=0, b_0=0\):
-                    <ol>
-                        <li>De (2): \\(a_0 + c_0 = 1 \Rightarrow c_0 = 1 - a_0\\)</li>
-                        <li>De (6) con \\(b_0=0\): \\(3a_0 = b_1\\)</li>
-                        <li>De (8) con \\(b_1=3a_0\): \\(3a_1 + 3a_0 = 0 \Rightarrow a_1 = -a_0\\)</li>
-                        <li>De (5) con \\(b_0=0, c_0=1-a_0, c_1=3a_0+2b_0+c_0\): \\(c_1 = 3a_0 + 1 - a_0 = 2a_0+1\\)</li>
-                        <li>De (4) con \\(d_1=1, a_1=-a_0, b_1=3a_0, c_1=2a_0+1\):<br>
-                            \\(-a_0 + 3a_0 + (2a_0+1) + 1 = 0\\)<br>
-                            \\(4a_0 + 2 = 0 \Rightarrow a_0 = -1/2\\)
-                        </li>
-                    </ol>
-                    Entonces:
-                    \\(a_0 = -1/2\\) <br>
-                    \\(b_0 = 0\\) <br>
-                    \\(c_0 = 1 - (-1/2) = 3/2\\) <br>
-                    \\(d_0 = 0\\) <br>
-                    \\(a_1 = -a_0 = 1/2\\) <br>
-                    \\(b_1 = 3a_0 = -3/2\\) <br>
-                    \\(c_1 = 2a_0+1 = 2(-1/2)+1 = 0\\) <br>
-                    \\(d_1 = 1\\)
-                </p>
-                <p>
-                    Polinomios:
-                    \\(S_0(x) = -\frac{1}{2} x^3 + \frac{3}{2} x\\) para \\(x \in [0,1]\\) <br>
-                    \\(S_1(x) = \frac{1}{2} (x-1)^3 - \frac{3}{2} (x-1)^2 + 1\\) para \\(x \in [1,2]\\)
-                </p>
-            </section>
+        <div class="container mx-auto mt-8 mb-8 flex flex-col lg:flex-row lg:space-x-8 px-4 container-with-sidebar">
+            <left-sidebar-splines></left-sidebar-splines> <!-- Unique component name -->
+            <main class="w-full flex-1 min-w-0 bg-white shadow-xl rounded-lg p-6 md:p-8 order-2 mb-6 lg:mb-0 main-content-fixed">
+                <article class="method-content">
+                    <h2 class="text-3xl font-bold mb-6 text-gray-800 border-b border-gray-200 pb-4">Splines de Interpolación</h2>
 
-            <section id="codigo">
-                <h3>Código de Implementación (Python con SciPy)</h3>
-                <p>La implementación de splines cúbicos desde cero implica resolver un sistema tridiagonal. La biblioteca SciPy ofrece una función conveniente.</p>
-                <div class="code-block">
-                    <pre>
-<code>
+                    <section id="teoria-splines" class="mb-10 scroll-mt-24">
+                        <h3>Fundamento Teórico</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            La interpolación polinómica global, usando un único polinomio de alto grado para ajustar todos los puntos de datos, puede llevar a oscilaciones indeseadas (fenómeno de Runge) y ser sensible a pequeños cambios en los datos. Los <strong>splines de interpolación</strong> ofrecen una alternativa más robusta y suave al ajustar los datos por tramos utilizando polinomios de bajo grado.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Un spline es una función definida a trozos por polinomios, donde cada "trozo" interpola un subconjunto de los puntos de datos. Para asegurar la suavidad de la curva resultante, se imponen condiciones de continuidad en los puntos de conexión entre los polinomios (llamados "nudos", que en el caso de la interpolación suelen ser los propios puntos de datos). Estas condiciones usualmente se refieren a la igualdad de la función y sus derivadas en los nudos.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed">
+                            Los tipos más comunes de splines son los lineales, cuadráticos y cúbicos.
+                        </p>
+                    </section>
+
+                    <section id="algoritmo-splines" class="mb-10 scroll-mt-24">
+                        <h3>Tipos de Splines</h3>
+                        <h4>1. Splines Lineales</h4>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            El spline lineal es el más simple. Consiste en conectar pares consecutivos de puntos de datos \((x_i, y_i)\) y \((x_{i+1}, y_{i+1})\) mediante segmentos de recta.
+                            Para cada intervalo \([x_i, x_{i+1}]\), el spline \(S_i(x)\) se define como:
+                        </p>
+                        <p style="text-align:center;"><em>\[ S_i(x) = y_i + \frac{y_{i+1} - y_i}{x_{i+1} - x_i} (x - x_i) \]</em></p>
+                        <p class="text-gray-600 leading-relaxed">
+                            Los splines lineales son continuos (\(C^0\)), pero sus derivadas (pendientes) son discontinuas en los nudos, lo que resulta en una curva con "esquinas".
+                        </p>
+
+                        <h4>2. Splines Cuadráticos</h4>
+                        <p class="text-gray-600 leading-relaxed">
+                            Los splines cuadráticos utilizan polinomios de segundo grado para cada intervalo \([x_i, x_{i+1}]\).
+                            \(S_i(x) = a_i x^2 + b_i x + c_i\).
+                            Para determinar los coeficientes, se imponen las siguientes condiciones:
+                        </p>
+                        <ul class="list-disc list-inside space-y-1 pl-4 text-gray-600 mb-4">
+                            <li>Cada spline debe pasar por los puntos de datos en sus extremos.</li>
+                            <li>Las primeras derivadas de los splines adyacentes deben ser iguales en los nudos interiores (continuidad \(C^1\)).</li>
+                        </ul>
+                        <p class="text-gray-600 leading-relaxed">
+                            Esto genera un sistema de ecuaciones. Generalmente, se necesita una condición adicional para determinar todos los coeficientes (por ejemplo, especificar la derivada en el primer punto).
+                        </p>
+
+                        <h4>3. Splines Cúbicos</h4>
+                        <p class="text-gray-600 leading-relaxed">
+                            Los splines cúbicos son los más utilizados debido a su suavidad. Utilizan polinomios de tercer grado para cada intervalo:
+                            \(S_i(x) = a_i x^3 + b_i x^2 + c_i x + d_i\).
+                            Se imponen las siguientes condiciones:
+                        </p>
+                        <ul class="list-disc list-inside space-y-1 pl-4 text-gray-600 mb-4">
+                            <li>Cada spline debe pasar por los puntos de datos en sus extremos: \(S_i(x_i) = y_i\) y \(S_i(x_{i+1}) = y_{i+1}\).</li>
+                            <li>Las primeras derivadas de los splines adyacentes deben ser iguales en los nudos interiores: \(S'_{i-1}(x_i) = S'_i(x_i)\).</li>
+                            <li>Las segundas derivadas de los splines adyacentes deben ser iguales en los nudos interiores: \(S''_{i-1}(x_i) = S''_i(x_i)\) (continuidad \(C^2\)).</li>
+                        </ul>
+                        <p class="text-gray-600 leading-relaxed">
+                            Estas condiciones generan un sistema de ecuaciones para los coeficientes. Se necesitan dos condiciones adicionales, que usualmente se especifican en los extremos de la curva. Algunas opciones comunes son:
+                        </p>
+                        <ul class="list-disc list-inside space-y-1 pl-4 text-gray-600 mb-4">
+                            <li><strong>Spline Cúbico Natural:</strong> Las segundas derivadas en los puntos extremos son cero (\(S''_0(x_0) = 0\) y \(S''_{n-1}(x_n) = 0\)). Esto implica que la curva se aplana en los extremos.</li>
+                            <li><strong>Spline Sujeto (Clamped):</strong> Se especifican las primeras derivadas en los puntos extremos.</li>
+                        </ul>
+                        <p class="text-gray-600 leading-relaxed">
+                            Para un spline cúbico natural con \(n+1\) puntos \((x_0, y_0), \ldots, (x_n, y_n)\), se forma un sistema de ecuaciones tridiagonal para las segundas derivadas \(M_i = S''_i(x_i)\) en los nudos, que luego se usa para encontrar los coeficientes de los polinomios cúbicos.
+                        </p>
+                    </section>
+
+                    <section id="ejemplo-splines" class="mb-10 scroll-mt-24">
+                        <h3>Ejemplo: Spline Cúbico Natural</h3>
+                        <p class="text-gray-600 leading-relaxed">
+                            Supongamos que tenemos los siguientes puntos: \((0,0), (1,1), (2,0)\).
+                            Buscamos dos polinomios cúbicos:
+                            \(S_0(x) = a_0 x^3 + b_0 x^2 + c_0 x + d_0\) para \(x \in [0,1]\)
+                            \(S_1(x) = a_1 (x-1)^3 + b_1 (x-1)^2 + c_1 (x-1) + d_1\) para \(x \in [1,2]\) (forma desplazada para simplificar)
+                        </p>
+                        <p class="text-gray-600 leading-relaxed">
+                            Condiciones:
+                            <ol class="list-decimal list-inside space-y-1 pl-4 text-gray-600">
+                                <li>\(S_0(0) = 0 \Rightarrow d_0 = 0\)</li>
+                                <li>\(S_0(1) = 1 \Rightarrow a_0 + b_0 + c_0 + d_0 = 1\)</li>
+                                <li>\(S_1(1) = 1 \Rightarrow d_1 = 1\) (en forma desplazada, esto es y_1)</li>
+                                <li>\(S_1(2) = 0 \Rightarrow a_1(1)^3 + b_1(1)^2 + c_1(1) + d_1 = 0 \Rightarrow a_1+b_1+c_1+d_1 = 0\)</li>
+                                <li>Continuidad de primeras derivadas en \(x=1\): \(S'_0(1) = S'_1(1)\)
+                                    \(S'_0(x) = 3a_0 x^2 + 2b_0 x + c_0 \Rightarrow S'_0(1) = 3a_0 + 2b_0 + c_0\)
+                                    \(S'_1(x) = 3a_1 (x-1)^2 + 2b_1 (x-1) + c_1 \Rightarrow S'_1(1) = c_1\)
+                                    Así, \(3a_0 + 2b_0 + c_0 = c_1\)
+                                </li>
+                                <li>Continuidad de segundas derivadas en \(x=1\): \(S''_0(1) = S''_1(1)\)
+                                    \(S''_0(x) = 6a_0 x + 2b_0 \Rightarrow S''_0(1) = 6a_0 + 2b_0\)
+                                    \(S''_1(x) = 6a_1 (x-1) + 2b_1 \Rightarrow S''_1(1) = 2b_1\)
+                                    Así, \(6a_0 + 2b_0 = 2b_1 \Rightarrow 3a_0 + b_0 = b_1\)
+                                </li>
+                                <li>Condiciones de spline natural: \(S''_0(0) = 0\) y \(S''_1(2) = 0\)
+                                    \(S''_0(0) = 2b_0 = 0 \Rightarrow b_0 = 0\)
+                                    \(S''_1(2) = 6a_1(1) + 2b_1 = 0 \Rightarrow 6a_1 + 2b_1 = 0 \Rightarrow 3a_1 + b_1 = 0\)
+                                </li>
+                            </ol>
+                        </p>
+                        <p class="text-gray-600 leading-relaxed">
+                            Sustituyendo \(d_0=0, b_0=0\):
+                            <ol class="list-decimal list-inside space-y-1 pl-4 text-gray-600">
+                                <li>De (2): \(a_0 + c_0 = 1 \Rightarrow c_0 = 1 - a_0\)</li>
+                                <li>De (6) con \(b_0=0\): \(3a_0 = b_1\)</li>
+                                <li>De (8) con \(b_1=3a_0\): \(3a_1 + 3a_0 = 0 \Rightarrow a_1 = -a_0\)</li>
+                                <li>De (5) con \(b_0=0, c_0=1-a_0, c_1=3a_0+2b_0+c_0\): \(c_1 = 3a_0 + 1 - a_0 = 2a_0+1\)</li>
+                                <li>De (4) con \(d_1=1, a_1=-a_0, b_1=3a_0, c_1=2a_0+1\):<br>
+                                    \(-a_0 + 3a_0 + (2a_0+1) + 1 = 0\)<br>
+                                    \(4a_0 + 2 = 0 \Rightarrow a_0 = -1/2\)
+                                </li>
+                            </ol>
+                            Entonces:
+                            \(a_0 = -1/2\) <br>
+                            \(b_0 = 0\) <br>
+                            \(c_0 = 1 - (-1/2) = 3/2\) <br>
+                            \(d_0 = 0\) <br>
+                            \(a_1 = -a_0 = 1/2\) <br>
+                            \(b_1 = 3a_0 = -3/2\) <br>
+                            \(c_1 = 2a_0+1 = 2(-1/2)+1 = 0\) <br>
+                            \(d_1 = 1\)
+                        </p>
+                        <p class="text-gray-600 leading-relaxed">
+                            Polinomios:
+                            \(S_0(x) = -\frac{1}{2} x^3 + \frac{3}{2} x\) para \(x \in [0,1]\) <br>
+                            \(S_1(x) = \frac{1}{2} (x-1)^3 - \frac{3}{2} (x-1)^2 + 1\) para \(x \in [1,2]\)
+                        </p>
+                    </section>
+
+                    <section id="codigo-splines" class="mb-10 scroll-mt-24">
+                        <h3>Código de Implementación (Python con SciPy)</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">La implementación de splines cúbicos desde cero implica resolver un sistema tridiagonal. La biblioteca SciPy ofrece una función conveniente.</p>
+                        <div class="code-editor-container bg-gray-50 p-4 rounded-lg shadow-inner">
+                            <textarea id="splines-code-input" class="code-input w-full h-[600px] p-3 border border-gray-300 rounded-md font-mono text-sm" style="resize: none;">
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.interpolate import CubicSpline
 
-# Puntos de datos del ejemplo
-x_points = np.array([0, 1, 2])
-y_points = np.array([0, 1, 0])
-
-# Crear el spline cúbico natural (bc_type='natural' es el predeterminado)
-cs = CubicSpline(x_points, y_points, bc_type='natural')
-
-# Puntos para graficar la curva del spline
-x_smooth = np.linspace(x_points.min(), x_points.max(), 200)
-y_smooth = cs(x_smooth)
-
-# Coeficientes de los polinomios S_i(x) = a_i(x-x_i)^3 + b_i(x-x_i)^2 + c_i(x-x_i) + d_i
-# Los coeficientes están en cs.c, donde cs.c[k,i] es el coeficiente de (x-x_i)^(3-k) para el i-ésimo polinomio
-# cs.c[0,i] es a_i, cs.c[1,i] es b_i, cs.c[2,i] es c_i, cs.c[3,i] es d_i
-# Para S_0(x) = a_0 x^3 + b_0 x^2 + c_0 x + d_0, con x_0=0:
-#   d_0 = cs.c[3,0]
-#   c_0 = cs.c[2,0]
-#   b_0 = cs.c[1,0]
-#   a_0 = cs.c[0,0]
-# Para S_1(x) = a_1 (x-1)^3 + b_1 (x-1)^2 + c_1 (x-1) + d_1, con x_1=1:
-#   d_1 = cs.c[3,1]
-#   c_1 = cs.c[2,1]
-#   b_1 = cs.c[1,1]
-#   a_1 = cs.c[0,1]
-
-print("Coeficientes (SciPy forma P_i(x) = c_0i (x-x_i)^3 + c_1i (x-x_i)^2 + ...):")
-# cs.c[k,i] es el coeficiente del término de grado (order-1-k) del i-ésimo polinomio.
-# Para un spline cúbico (order=3), order-1-k va de 3 a 0.
-# cs.c[0,i] -> (x-x_i)^3
-# cs.c[1,i] -> (x-x_i)^2
-# cs.c[2,i] -> (x-x_i)^1
-# cs.c[3,i] -> (x-x_i)^0
-print("Polinomio 0 (para [0,1]):")
-print(f"  a0 (x-0)^3 = {cs.c[0,0]:.4f}") # Corresponde a a0 = -0.5
-print(f"  b0 (x-0)^2 = {cs.c[1,0]:.4f}") # Corresponde a b0 = 0.0
-print(f"  c0 (x-0)^1 = {cs.c[2,0]:.4f}") # Corresponde a c0 = 1.5
-print(f"  d0 (x-0)^0 = {cs.c[3,0]:.4f}") # Corresponde a d0 = 0.0
-
-print("\\nPolinomio 1 (para [1,2]):")
-print(f"  a1 (x-1)^3 = {cs.c[0,1]:.4f}") # Corresponde a a1 = 0.5
-print(f"  b1 (x-1)^2 = {cs.c[1,1]:.4f}") # Corresponde a b1 = -1.5
-print(f"  c1 (x-1)^1 = {cs.c[2,1]:.4f}") # Corresponde a c1 = 0.0
-print(f"  d1 (x-1)^0 = {cs.c[3,1]:.4f}") # Corresponde a d1 = 1.0
-
-# Graficar
-plt.figure(figsize=(8, 5))
-plt.plot(x_smooth, y_smooth, label='Spline Cúbico Natural (SciPy)')
-plt.plot(x_points, y_points, 'o', label='Puntos de Datos')
-plt.xlabel('x')
-plt.ylabel('y')
-plt.title('Interpolación con Spline Cúbico Natural')
-plt.legend()
-plt.grid(True)
-plt.show()
-
-# Verificar valores en los puntos
-print(f"\\nValor del spline en x=0: {cs(0):.4f} (esperado: 0)")
-print(f"Valor del spline en x=1: {cs(1):.4f} (esperado: 1)")
-print(f"Valor del spline en x=2: {cs(2):.4f} (esperado: 0)")
-
-# Verificar segundas derivadas en los extremos (deben ser cercanas a cero para spline natural)
-# cs.derivative(nu=2)(x) calcula la segunda derivada
-print(f"Segunda derivada en x=0: {cs.derivative(nu=2)(0):.4f} (esperado: 0 para natural)")
-print(f"Segunda derivada en x=2: {cs.derivative(nu=2)(2):.4f} (esperado: 0 para natural)")
-
-</code>
-                    </pre>
-                </div>
-                 <div class="interactive-graphics" style="text-align:left; padding-left: 0;">
-                     <h4>Ejecución de Código en Línea (Placeholder)</h4>
-                     <p>Permitir al usuario ingresar puntos (x,y) y ver el spline resultante (lineal, cuadrático o cúbico).</p>
-                </div>
-            </section>
-
-            <section id="graficas">
-                <h3>Visualización del Spline</h3>
-                <div class="interactive-graphics" id="splines-graph-container">
-                    <p><em>(Placeholder: Aquí se podría mostrar una gráfica generada con el código anterior o una herramienta interactiva para explorar cómo cambian los splines con diferentes puntos o condiciones de contorno.)</em></p>
-                </div>
-            </section>
-
-            <section id="videos">
-                <h3>Videos Explicativos</h3>
-                <div class="video-embed">
-                    <p><em>(Placeholder para embed de YouTube sobre Splines de Interpolación.)</em></p>
-                </div>
-            </section>
-            
-            <section id="conclusion">
-                <h3>Conclusión y Aplicaciones</h3>
-                <p>
-                    Los splines de interpolación, especialmente los cúbicos, son una herramienta poderosa para obtener curvas suaves que pasan exactamente por un conjunto de puntos dados. Evitan las oscilaciones de los polinomios de alto grado y proporcionan una interpolación visualmente agradable y con buenas propiedades de continuidad.
-                </p>
-                <p>
-                    <strong>Ventajas:</strong>
-                    <ul>
-                        <li>Producen curvas suaves (especialmente los cúbicos con continuidad \\(C^2\\)).</li>
-                        <li>Evitan el fenómeno de Runge asociado a la interpolación polinómica global.</li>
-                        <li>Son computacionalmente eficientes una vez que se han determinado los coeficientes.</li>
-                        <li>Flexibles: se pueden ajustar las condiciones de contorno (natural, sujeto, etc.).</li>
-                    </ul>
-                </p>
-                <p>
-                    <strong>Desventajas:</strong>
-                    <ul>
-                        <li>La determinación de los coeficientes puede ser más compleja que un único polinomio (implica resolver sistemas de ecuaciones).</li>
-                        <li>La elección del tipo de spline y las condiciones de contorno pueden afectar el resultado.</li>
-                    </ul>
-                </p>
-                <p>
-                    <strong>Aplicaciones:</strong>
-                    <ul>
-                        <li>Diseño gráfico por computadora (CAD/CAM) para definir curvas y superficies suaves.</li>
-                        <li>Análisis de datos y visualización para interpolar entre mediciones discretas.</li>
-                        <li>Animación para crear trayectorias suaves.</li>
-                        <li>Robótica para la planificación de movimientos.</li>
-                        <li>Ingeniería para modelar formas y procesos.</li>
-                    </ul>
-                </p>
-            </section>
-
-            <section id="progreso-metodo">
-                <h3>Tu Progreso</h3>
-                <button id="completion-splines" class="completion-button" onclick="toggleMethodCompletion('splines', this)">Marcar como Completado</button>
-            </section>
-
-            <section id="cuestionario">
-                <h3>Cuestionario: Splines de Interpolación</h3>
-                <form id="quiz-splines">
-                    <div class="quiz-question">
-                        <p><strong>1. ¿Cuál es la principal ventaja de usar splines sobre un único polinomio de alto grado para la interpolación?</strong></p>
-                        <label><input type="radio" name="q1-splines" value="a"> Son más fáciles de calcular a mano.</label><br>
-                        <label><input type="radio" name="q1-splines" value="b"> Siempre producen un error de interpolación menor.</label><br>
-                        <label><input type="radio" name="q1-splines" value="c"> Evitan oscilaciones indeseadas (fenómeno de Runge) y son más estables.</label><br> <!-- Correcta -->
-                        <label><input type="radio" name="q1-splines" value="d"> Solo funcionan para datos equiespaciados.</label><br>
-                    </div>
-                     <div class="quiz-question">
-                        <p><strong>2. ¿Qué nivel de continuidad (\\(C^k\\)) se garantiza típicamente en los nudos interiores para un spline cúbico?</strong></p>
-                        <label><input type="radio" name="q2-splines" value="a"> \\(C^0\\) (continuidad de la función).</label><br>
-                        <label><input type="radio" name="q2-splines" value="b"> \\(C^1\\) (continuidad de la función y primera derivada).</label><br>
-                        <label><input type="radio" name="q2-splines" value="c"> \\(C^2\\) (continuidad de la función, primera y segunda derivada).</label><br> <!-- Correcta -->
-                        <label><input type="radio" name="q2-splines" value="d"> \\(C^3\\) (continuidad hasta la tercera derivada).</label><br>
-                    </div>
-                     <div class="quiz-question">
-                        <p><strong>3. Un spline cúbico "natural" impone qué condiciones en los puntos extremos de la curva?</strong></p>
-                        <label><input type="radio" name="q3-splines" value="a"> Las primeras derivadas son cero.</label><br>
-                        <label><input type="radio" name="q3-splines" value="b"> Las segundas derivadas son cero.</label><br> <!-- Correcta -->
-                        <label><input type="radio" name="q3-splines" value="c"> Los valores de la función son cero.</label><br>
-                        <label><input type="radio" name="q3-splines" value="d"> Las terceras derivadas son cero.</label><br>
-                    </div>
-                     <div class="quiz-question">
-                        <p><strong>4. ¿Qué tipo de spline se obtiene al simplemente conectar puntos de datos adyacentes con segmentos de recta?</strong></p>
-                        <label><input type="radio" name="q4-splines" value="a"> Spline cuadrático.</label><br>
-                        <label><input type="radio" name="q4-splines" value="b"> Spline cúbico.</label><br>
-                        <label><input type="radio" name="q4-splines" value="c"> Spline lineal.</label><br> <!-- Correcta -->
-                        <label><input type="radio" name="q4-splines" value="d"> Spline de Hermite.</label><br>
-                    </div>
-                    <button type="submit">Enviar Cuestionario</button>
-                </form>
-            </section>
-
-        </article>
-    </main>
-
-    <footer>
-        <p>&copy; 2024 Plataforma Educativa de Métodos Numéricos. <a href="../index.html" style="color: #ecf0f1;">Volver al inicio</a></p>
-    </footer>
+def calculate_spline(x_points_str, y_points_str):
+    '''
+    Calcula un spline cúbico natural para los puntos dados y retorna 
+    los coeficientes y puntos para graficar.
+    x_points_str: Cadena de texto con puntos x separados por comas (ej: "0, 1, 2")
+    y_points_str: Cadena de texto con puntos y separados por comas (ej: "0, 1, 0")
+    '''
     
-    <script src="../script.js"></script> 
+    html_output_parts = []
+    
+    try:
+        x_points = np.array([float(x.strip()) for x in x_points_str.split(',')])
+        y_points = np.array([float(y.strip()) for y in y_points_str.split(',')])
+    except ValueError:
+        html_output_parts.append('<p style="color: red; text-align:center; padding:10px;">Error: Los puntos deben ser números válidos separados por comas.</p>')
+        return None, None, "".join(html_output_parts)
+    
+    if len(x_points) != len(y_points) or len(x_points) < 2:
+        html_output_parts.append('<p style="color: red; text-align:center; padding:10px;">Error: Se requieren al menos 2 puntos y las listas de X e Y deben tener el mismo tamaño.</p>')
+        return None, None, "".join(html_output_parts)
+
+    try:
+        # Crear el spline cúbico natural (bc_type='natural' es el predeterminado)
+        cs = CubicSpline(x_points, y_points, bc_type='natural')
+        
+        # Puntos para graficar la curva del spline
+        x_smooth = np.linspace(x_points.min(), x_points.max(), 200)
+        y_smooth = cs(x_smooth)
+
+        html_output_parts.append('<div style="text-align: center; font-weight: bold; margin-bottom:15px; font-size:1.1em; padding-top:10px;">CÁLCULO DEL SPLINE CÚBICO NATURAL</div>')
+        html_output_parts.append(f'<div style="text-align: center; margin-bottom:5px;">Puntos de datos: X={x_points_str}, Y={y_points_str}</div>')
+        
+        html_output_parts.append('<h4 style="margin-top:20px; font-size:1.05em; font-weight:bold; color:white;">Coeficientes de los Polinomios:</h4>')
+        html_output_parts.append('<p style="font-size:0.9em; margin-bottom:10px; color:white;">(Forma: \\(S_i(x) = a_i (x-x_i)^3 + b_i (x-x_i)^2 + c_i (x-x_i) + d_i\\))</p>')
+        
+        html_output_parts.append('<table border="1" style="width:100%; border-collapse: collapse; margin-bottom:15px; font-size: 0.85em;">')
+        html_output_parts.append('<thead><tr>')
+        headers = ["Intervalo", "x_i", "a_i", "b_i", "c_i", "d_i"]
+        for h in headers:
+            html_output_parts.append(f'<th style="padding: 4px; text-align:center; background-color: #f0f0f0; color: #333333;">{h}</th>')
+        html_output_parts.append('</tr></thead><tbody>')
+        
+        for i in range(len(x_points) - 1):
+            interval_str = f"[{x_points[i]:.0f},{x_points[i+1]:.0f}]"
+            html_output_parts.append('<tr>')
+            html_output_parts.append(f'<td style="padding: 4px; text-align:center;">{interval_str}</td>')
+            html_output_parts.append(f'<td style="padding: 4px; text-align:right; padding-right:5px;">{x_points[i]:.4f}</td>')
+            html_output_parts.append(f'<td style="padding: 4px; text-align:right; padding-right:5px;">{cs.c[0,i]:.6f}</td>') # a_i
+            html_output_parts.append(f'<td style="padding: 4px; text-align:right; padding-right:5px;">{cs.c[1,i]:.6f}</td>') # b_i
+            html_output_parts.append(f'<td style="padding: 4px; text-align:right; padding-right:5px;">{cs.c[2,i]:.6f}</td>') # c_i
+            html_output_parts.append(f'<td style="padding: 4px; text-align:right; padding-right:5px;">{cs.c[3,i]:.6f}</td>') # d_i
+            html_output_parts.append('</tr>')
+        
+        html_output_parts.append('</tbody></table>')
+
+        html_output_parts.append('<h4 style="margin-top:20px; font-size:1.05em; font-weight:bold; color:white;">Verificaciones:</h4>')
+        html_output_parts.append('<table border="1" style="width:auto; margin-left:auto; margin-right:auto; border-collapse: collapse; font-size: 0.9em;"><tbody>')
+        html_output_parts.append(f'<tr><td style="padding: 5px; text-align:left;">Spline en x={x_points[0]}:</td><td style="padding: 5px; text-align:right;">{cs(x_points[0]):.4f} (esperado: {y_points[0]})</td></tr>')
+        if len(x_points) > 1:
+            html_output_parts.append(f'<tr><td style="padding: 5px; text-align:left;">Spline en x={x_points[-1]}:</td><td style="padding: 5px; text-align:right;">{cs(x_points[-1]):.4f} (esperado: {y_points[-1]})</td></tr>')
+        
+        # Verificar segundas derivadas en los extremos (deben ser cercanas a cero para spline natural)
+        html_output_parts.append(f'<tr><td style="padding: 5px; text-align:left;">2da derivada en x={x_points[0]}:</td><td style="padding: 5px; text-align:right;">{cs.derivative(nu=2)(x_points[0]):.4e} (esperado: 0 para natural)</td></tr>')
+        html_output_parts.append(f'<tr><td style="padding: 5px; text-align:left;">2da derivada en x={x_points[-1]}:</td><td style="padding: 5px; text-align:right;">{cs.derivative(nu=2)(x_points[-1]):.4e} (esperado: 0 para natural)</td></tr>')
+        
+        html_output_parts.append('</tbody></table>')
+
+        # Datos para el gráfico
+        chart_data_package = {
+            "x_points_input": x_points.tolist(),
+            "y_points_input": y_points.tolist(),
+            "x_smooth_curve": x_smooth.tolist(),
+            "y_smooth_curve": y_smooth.tolist()
+        }
+
+        return chart_data_package, cs.c.tolist(), "".join(html_output_parts)
+
+    except Exception as e:
+        html_output_parts.append(f'<p style="color: red; text-align:center; padding:10px;">Error de cálculo: {e}</p>')
+        return None, None, "".join(html_output_parts)
+
+
+# --- Bloque principal para ejecución en Pyodide ---
+if __name__ == "__main__":
+    py_html_buffer = []
+    
+    # Parámetros por defecto o desde la UI
+    x_input_default = "0, 1, 2"
+    y_input_default = "0, 1, 0"
+
+    try:
+        # Intentar obtener parámetros de entrada si son provistos por la UI
+        x_val_str = str(x_points_param_splines) if "x_points_param_splines" in globals() else x_input_default
+        y_val_str = str(y_points_param_splines) if "y_points_param_splines" in globals() else y_input_default
+    except NameError:
+        x_val_str = x_input_default
+        y_val_str = y_input_default
+    except Exception:
+        x_val_str = x_input_default
+        y_val_str = y_input_default
+
+    # Ejecutar el método
+    chart_data, coefficients, tabla_html = calculate_spline(x_val_str, y_val_str)
+    
+    # Añadir la tabla HTML de resultados
+    py_html_buffer.append(tabla_html)
+    
+    # Asignar a las variables globales de Python que JavaScript leerá a través de Pyodide
+    global pyodide_splines_html_output
+    pyodide_splines_html_output = "".join(py_html_buffer)
+    
+    global pyodide_splines_chart_data_package
+    if chart_data is not None:
+        # pyodide_splines_chart_data_package es un proxy, lo modificamos in-place
+        for key, value in chart_data.items():
+            pyodide_splines_chart_data_package[key] = value
+    else:
+        # Asegurar que el dict global esté vacío si hubo un error
+        pyodide_splines_chart_data_package.clear()
+                            </textarea>
+                            <div class="mt-4 flex items-center space-x-4">
+                                <label for="x-points-input-splines" class="font-medium text-gray-700">Puntos X (ej: 0, 1, 2):</label>
+                                <input type="text" id="x-points-input-splines" value="0, 1, 2" class="flex-1 p-2 border border-gray-300 rounded-md font-mono text-sm bg-white text-gray-800">
+                            </div>
+                            <div class="mt-2 flex items-center space-x-4">
+                                <label for="y-points-input-splines" class="font-medium text-gray-700">Puntos Y (ej: 0, 1, 0):</label>
+                                <input type="text" id="y-points-input-splines" value="0, 1, 0" class="flex-1 p-2 border border-gray-300 rounded-md font-mono text-sm bg-white text-gray-800">
+                            </div>
+                            <button id="run-splines-code-button" class="run-button mt-4 px-5 py-2.5 bg-custom-red text-white rounded-md hover:bg-red-700">Ejecutar Código</button>
+                            <div class="relative mt-5"> <!-- Contenedor relativo para el título y la salida -->
+                                <h4 class="mb-2 text-lg font-semibold text-gray-700">Salida:</h4>
+                                <div id="splines-output-controls-container" class="absolute top-0 right-0 z-10 flex items-center space-x-1 transition-all duration-500 ease-out">
+                                    <button id="splines-decrease-font-button" title="Disminuir fuente" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs font-semibold flex items-center justify-center" style="min-width: 30px;">
+                                        aa
+                                    </button>
+                                    <button id="splines-increase-font-button" title="Aumentar fuente" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs font-semibold flex items-center justify-center" style="min-width: 30px;">
+                                        AA
+                                    </button>
+                                    <button id="splines-fullscreen-output-button" title="Ver en pantalla completa" class="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 text-xs">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <pre id="splines-code-output" class="code-output bg-gray-900 text-white p-4 pt-8 rounded-md min-h-[100px] whitespace-pre-wrap text-xs leading-relaxed max-h-96 overflow-y-auto font-mono transition-all duration-500 ease-out">Presiona "Ejecutar Código" para ver la salida.</pre>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="graficas-splines" class="mb-10 scroll-mt-24">
+                        <h3>Visualización del Spline</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">Visualización de los puntos de datos y la curva de interpolación generada por el spline cúbico natural.</p>
+                        <div class="interactive-graphics w-full h-96 bg-white p-4 rounded-lg shadow-md">
+                            <canvas id="splines-chart-canvas"></canvas>
+                            <p id="splines-chart-loading-message" class="text-center text-gray-600 italic mt-2">Ejecute el código para generar la gráfica.</p>
+                        </div>
+                    </section>
+
+                    <section id="videos-splines" class="mb-10 scroll-mt-24">
+                        <h3>Videos Explicativos</h3>
+                        <div class="video-embed w-full h-96">
+                            <iframe class="w-full h-full rounded-lg shadow-lg" src="https://www.youtube.com/embed/5tNApkOJX2M" title="YouTube video player - Splines de Interpolación" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+                        </div>
+                    </section>
+
+                    <section id="conclusion-splines" class="mb-10 scroll-mt-24">
+                        <h3>Conclusión y Aplicaciones</h3>
+                        <p class="text-gray-600 leading-relaxed mb-4">
+                            Los splines de interpolación, especialmente los cúbicos, son una herramienta poderosa para obtener curvas suaves que pasan exactamente por un conjunto de puntos dados. Evitan las oscilaciones de los polinomios de alto grado y proporcionan una interpolación visualmente agradable y con buenas propiedades de continuidad.
+                        </p>
+                        <p class="text-gray-600 leading-relaxed mb-2 font-medium"><strong>Ventajas:</strong></p>
+                        <ul class="list-disc list-inside space-y-1 pl-4 text-gray-600 mb-4">
+                            <li>Producen curvas suaves (especialmente los cúbicos con continuidad \(C^2\)).</li>
+                            <li>Evitan el fenómeno de Runge asociado a la interpolación polinómica global.</li>
+                            <li>Son computacionalmente eficientes una vez que se han determinado los coeficientes.</li>
+                            <li>Flexibles: se pueden ajustar las condiciones de contorno (natural, sujeto, etc.).</li>
+                        </ul>
+                        <p class="text-gray-600 leading-relaxed mb-2 font-medium"><strong>Desventajas:</strong></p>
+                        <ul class="list-disc list-inside space-y-1 pl-4 text-gray-600 mb-4">
+                            <li>La determinación de los coeficientes puede ser más compleja que un único polinomio (implica resolver sistemas de ecuaciones).</li>
+                            <li>La elección del tipo de spline y las condiciones de contorno pueden afectar el resultado.</li>
+                        </ul>
+                        <p class="text-gray-600 leading-relaxed mb-2 font-medium"><strong>Aplicaciones:</strong></p>
+                        <ul class="list-disc list-inside space-y-1 pl-4 text-gray-600 mb-4">
+                            <li>Diseño gráfico por computadora (CAD/CAM) para definir curvas y superficies suaves.</li>
+                            <li>Análisis de datos y visualización para interpolar entre mediciones discretas.</li>
+                            <li>Animación para crear trayectorias suaves.</li>
+                            <li>Robótica para la planificación de movimientos.</li>
+                            <li>Ingeniería para modelar formas y procesos.</li>
+                        </ul>
+                    </section>
+
+                    <section id="progreso-metodo-splines" class="mb-10 scroll-mt-24">
+                        <h3>Tu Progreso</h3>
+                        <button id="completion-splines" class="completion-button" onclick="toggleMethodCompletion('splines', this)">Marcar como Completado</button>
+                    </section>
+
+                    <section id="cuestionario-splines" class="scroll-mt-24 mb-10">
+                        <h3>Cuestionario: Splines de Interpolación</h3>
+                        <form id="quiz-splines" class="space-y-6 bg-gray-50 p-6 rounded-lg shadow-inner">
+                            <!-- Pregunta 1 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">1. ¿Cuál es la principal ventaja de usar splines sobre un único polinomio de alto grado para la interpolación?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 1</legend>
+                                    <div class="space-y-2">
+                                        <label for="q1-opt1-splines" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt1-splines" name="question-1-splines" type="radio" value="Son más fáciles de calcular a mano." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Son más fáciles de calcular a mano.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt2-splines" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt2-splines" name="question-1-splines" type="radio" value="Siempre producen un error de interpolación menor." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Siempre producen un error de interpolación menor.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q1-opt3-splines" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q1-opt3-splines" name="question-1-splines" type="radio" value="Evitan oscilaciones indeseadas (fenómeno de Runge) y son más estables." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Evitan oscilaciones indeseadas (fenómeno de Runge) y son más estables.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-1-splines-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <!-- Pregunta 2 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">2. ¿Qué nivel de continuidad (\(C^k\)) se garantiza típicamente en los nudos interiores para un spline cúbico?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 2</legend>
+                                    <div class="space-y-2">
+                                        <label for="q2-opt1-splines" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt1-splines" name="question-2-splines" type="radio" value="C^0 (continuidad de la función)." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">\(C^0\) (continuidad de la función).</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt2-splines" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt2-splines" name="question-2-splines" type="radio" value="C^1 (continuidad de la función y primera derivada)." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">\(C^1\) (continuidad de la función y primera derivada).</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q2-opt3-splines" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q2-opt3-splines" name="question-2-splines" type="radio" value="C^2 (continuidad de la función, primera y segunda derivada)." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">\(C^2\) (continuidad de la función, primera y segunda derivada).</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-2-splines-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <!-- Pregunta 3 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">3. Un spline cúbico "natural" impone qué condiciones en los puntos extremos de la curva?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 3</legend>
+                                    <div class="space-y-2">
+                                        <label for="q3-opt1-splines" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt1-splines" name="question-3-splines" type="radio" value="Las primeras derivadas son cero." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Las primeras derivadas son cero.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt2-splines" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt2-splines" name="question-3-splines" type="radio" value="Las segundas derivadas son cero." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Las segundas derivadas son cero.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q3-opt3-splines" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q3-opt3-splines" name="question-3-splines" type="radio" value="Los valores de la función son cero." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Los valores de la función son cero.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-3-splines-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <!-- Pregunta 4 -->
+                            <div class="quiz-question space-y-2">
+                                <p class="text-sm font-medium text-gray-700">4. ¿Qué tipo de spline se obtiene al simplemente conectar puntos de datos adyacentes con segmentos de recta?</p>
+                                <fieldset class="mt-2">
+                                    <legend class="sr-only">Opciones para la pregunta 4</legend>
+                                    <div class="space-y-2">
+                                        <label for="q4-opt1-splines" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt1-splines" name="question-4-splines" type="radio" value="Spline cuadrático." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Spline cuadrático.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q4-opt2-splines" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt2-splines" name="question-4-splines" type="radio" value="Spline cúbico." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Spline cúbico.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                        <label for="q4-opt3-splines" class="quiz-option-wrapper flex items-center p-3 w-full rounded-md border border-gray-300 hover:border-gray-400 cursor-pointer transition-all duration-150 has-[:checked]:bg-red-50 has-[:checked]:border-custom-red has-[:checked]:ring-1 has-[:checked]:ring-custom-red">
+                                            <input id="q4-opt3-splines" name="question-4-splines" type="radio" value="Spline lineal." class="h-4 w-4 text-custom-red border-gray-300 focus:ring-custom-red accent-custom-red">
+                                            <span class="option-text ml-3 text-sm text-gray-700">Spline lineal.</span>
+                                            <span class="feedback-icon-placeholder ml-auto pl-2"><span class="inline-block w-5 h-5"></span></span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+                                <div id="question-4-splines-specific-feedback" class="specific-question-feedback mt-2 p-2.5 text-xs bg-red-50 text-red-600 border border-red-200 rounded-md" style="display: none;"></div>
+                            </div>
+
+                            <button type="submit" class="mt-6 w-full px-6 py-3 bg-custom-red text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors duration-150">
+                                Enviar Respuestas
+                            </button>
+                        </form>
+                        <div id="quiz-feedback-splines" class="quiz-feedback-message mt-4 p-3 rounded-md text-sm" style="display: none;"></div>
+                    </section>
+
+                </article>
+            </main>
+
+            <aside class="w-full lg:w-1/4 bg-sidebar-bg shadow-xl rounded-lg p-6 self-start sticky top-8 order-3 space-y-6 right-sidebar-fixed">
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-4">Perfil</h3>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex-shrink-0">
+                           <svg class="w-12 h-12 text-gray-400 bg-gray-100 rounded-full p-1 ring-1 ring-gray-200" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path></svg>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-800 text-md">Estudiante Modelo</p>
+                            <p class="text-sm text-gray-500">Aprendiz Activo</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pb-6 border-b border-gray-200 space-y-3">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide">Progreso en Splines</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li class="flex items-center">
+                            <span id="task-read-theory-status-splines" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Leer la teoría completa</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-run-code-status-splines" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Ejecutar el código Python</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-attempted-status-splines" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Intentar el cuestionario</span>
+                        </li>
+                        <li class="flex items-center">
+                            <span id="task-quiz-passed-status-splines" class="task-status-icon mr-2 text-gray-400"></span>
+                            <span class="text-gray-600">Aprobar el cuestionario</span>
+                        </li>
+                    </ul>
+                    <div class="flex items-center justify-between mb-1 mt-3">
+                       <span class="text-xs font-medium text-custom-red">Progreso General</span>
+                       <span id="right-sidebar-progress-text-splines" class="text-xs font-medium text-custom-red right-sidebar-progress-text">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3">
+                        <div id="right-sidebar-progress-bar-splines" class="bg-custom-red h-3 rounded-full right-sidebar-progress-bar transition-width duration-500 ease-in-out" style="width: 0%"></div>
+                    </div>
+                    <button id="completion-splines-sidebar" class="mt-4 w-full completion-button px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">Marcar Todo Completado</button>
+                </div>
+                <div class="pb-6 border-b border-gray-200">
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Recursos y Notas</h3>
+                    <p class="text-sm text-gray-600"><a href="https://archive.org/details/numerical-methods-for-engineers-7th-edit" target="_blank" rel="noopener noreferrer" class="hover:text-custom-red hover:underline">Métodos Numéricos para Ingenieros 7ma Edición de Chapra</a></p>
+                    <img src="https://images.cdn3.buscalibre.com/fit-in/360x360/97/ff/97ffa61a6adb147e569e12c4f1f797b3.jpg" alt="Portada Chapra" class="mt-2 w-full rounded-md shadow-sm">
+                </div>
+                <div>
+                    <h3 class="text-base font-semibold text-gray-500 uppercase tracking-wide mb-3">Siguiente Paso</h3>
+                    <a href="../methods/gauss-jordan.html" class="group flex items-center text-sm font-medium text-custom-red hover:text-red-700">
+                       <span>Explorar Eliminación Gauss-Jordan</span>
+                       <svg class="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
+                    </a>
+                </div>
+            </aside>
+        </div>
+
+        <footer class="bg-custom-blue text-gray-300 text-center p-6 mt-12">
+            <p>&copy; 2024 Plataforma Educativa de Métodos Numéricos. <a href="../index.html" class="hover:text-white underline">Volver al inicio</a></p>
+        </footer>
+    </div>
+
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // Este script se encarga de poblar la navegación si aún no está poblada
-            // y de manejar el estado del botón de completado.
-            // La lógica de navegación principal está en script.js
-            const navUl = document.querySelector('header nav ul');
-            const methods = [ // Esta lista es solo para este script local si script.js falla o para referencia rápida.
-                    { name: "Serie de Taylor", id: "serie-taylor" },
-                    { name: "Bisección", id: "biseccion" },
-                    { name: "Regla Falsa", id: "regla-falsa" },
-                    { name: "Punto Fijo", id: "punto-fijo" },
-                    { name: "Newton-Raphson", id: "newton-raphson" },
-                    { name: "Secante", id: "secante" },
-                    { name: "Raíces Múltiples", id: "raices-multiples" },
-                    { name: "Eliminación Gaussiana", id: "eliminacion-gaussiana"}, 
-                    { name: "Método de la Inversa", id: "metodo-inversa"}, 
-                    { name: "Regla de Cramer", id: "regla-cramer"}, 
-                    { name: "Método de Montante", id: "metodo-montante"},
-                    { name: "Splines de Interpolación", id: "splines"}, // Asegurarse que el ID es 'splines'
-                    { name: "Gauss-Jordan", id: "gauss-jordan" },
-                    { name: "Jacobi", id: "jacobi" },
-                    { name: "Gauss-Seidel", id: "gauss-seidel" },
-                    { name: "Interpolación Lineal", id: "interpolacion-lineal" },
-                    { name: "Interpolación Cuadrática", id: "interpolacion-cuadratica" },
-                    { name: "Polinomio de Newton", id: "polinomio-newton" },
-                    { name: "Polinomio de Lagrange", id: "polinomio-lagrange" },
-                    { name: "Diferenciación Numérica", id: "diferenciacion-numerica" },
-                    { name: "Integración Numérica", id: "integracion-numerica" },
-                    { name: "Método de Euler", id: "metodo-euler" },
-                    { name: "Runge-Kutta", id: "runge-kutta" },
-                    { name: "Ajuste de Curvas", id: "ajuste-curvas" }
-                    // Añadir más métodos según sea necesario
-                ];
+        const isAuthenticatedJinjaString = "{{ (current_user is not none)|tojson }}";
+        window.userIsAuthenticated = JSON.parse(isAuthenticatedJinjaString || "false");
+        console.log("[DEBUG] isAuthenticatedJinjaString:", isAuthenticatedJinjaString);
+        console.log("[DEBUG] window.userIsAuthenticated after parse:", window.userIsAuthenticated);
+    </script>
+    <!-- SPLINES SCRIPT (Splines Specific Logic) -->
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log("[DEBUG] USER_IS_AUTHENTICATED (inside DOMContentLoaded):", window.userIsAuthenticated);
+        const USER_IS_AUTHENTICATED = window.userIsAuthenticated === true;
+        console.log("[DEBUG] const USER_IS_AUTHENTICATED evaluated to:", USER_IS_AUTHENTICATED);
+        const PAGE_KEY_Splines = 'splines'; // Renamed
+        const QUIZ_FORM_ID_Splines = 'quiz-splines'; // Renamed
+        const QUIZ_FEEDBACK_ID_Splines = 'quiz-feedback-splines'; // Renamed
+        const COMPLETION_BUTTON_ID_Splines = 'completion-splines-sidebar'; // Renamed
+        const CODE_INPUT_ID_Splines = 'splines-code-input'; // Renamed
+        const X_POINTS_INPUT_ID_Splines = 'x-points-input-splines'; // New
+        const Y_POINTS_INPUT_ID_Splines = 'y-points-input-splines'; // New
+        const CODE_OUTPUT_ID_Splines = 'splines-code-output'; // Renamed
+        const RUN_CODE_BUTTON_ID_Splines = 'run-splines-code-button'; // Renamed
+        const CHART_CANVAS_ID_Splines = 'splines-chart-canvas'; // Renamed
+        const CHART_LOADING_MESSAGE_ID_Splines = 'splines-chart-loading-message'; // Renamed
+        const outputControlsContainer_Splines = document.getElementById('splines-output-controls-container'); // Renamed
+        const fullscreenButton_Splines = document.getElementById('splines-fullscreen-output-button'); // Renamed
+        const increaseFontButton_Splines = document.getElementById('splines-increase-font-button'); // Renamed
+        const decreaseFontButton_Splines = document.getElementById('splines-decrease-font-button'); // Renamed
+        let originalOutputFontSize_Splines = ''; // Renamed
+        const MIN_FONT_SIZE_PX_Splines = 8;
+        const MAX_FONT_SIZE_PX_Splines = 28;
+        const FONT_SIZE_STEP_PX_Splines = 1;
+        let splinesCodeOutputInitialRect = null; // Renamed
 
-            if (navUl && navUl.children.length === 1 && navUl.firstElementChild.textContent.includes("Generado")) {
-                navUl.innerHTML = ''; // Limpiar placeholder
-                 // Enlace a la página principal/lista de métodos
-                const homeLi = document.createElement('li');
-                const homeLink = document.createElement('a');
-                homeLink.textContent = 'Inicio (Todos los Métodos)';
-                homeLink.href = '../index.html#method-cards-container';
-                homeLi.appendChild(homeLink);
-                navUl.appendChild(homeLi);
+        const TASKS_Splines = { // Renamed
+            READ_THEORY: 'read_theory_splines',
+            RUN_CODE: 'run_code_splines',
+            QUIZ_ATTEMPTED: 'quiz_attempted_splines',
+            QUIZ_PASSED: 'quiz_passed_splines'
+        };
+        const ALL_TASK_KEYS_Splines = Object.values(TASKS_Splines); // Renamed
+        const TOTAL_TASKS_Splines = ALL_TASK_KEYS_Splines.length; // Renamed
 
-                methods.forEach(method => {
-                    const li = document.createElement('li');
-                    const a = document.createElement('a');
-                    a.textContent = method.name;
-                    a.href = `${method.id}.html`; // Asume que todas las páginas de método están en el mismo directorio
-                     if (window.location.pathname.endsWith(`${method.id}.html`)) {
-                        a.classList.add('active-nav-link');
+        const ICON_PENDING_Splines = '<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0-4.418-4.03-8-9-8S3 7.582 3 12c0 1.454.402 2.813 1.098 3.977L3 21l5.023-1.098A8.902 8.902 0 0012 21c4.97 0 9-3.582 9-9z"></path></svg>';
+        const ICON_COMPLETED_Splines = '<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>';
+        const ICON_IN_PROGRESS_Splines = '<svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V9.05a.75.75 0 011.307-.588l5.603 3.112z" clip-rule="evenodd"></path></svg>';
+        const ICON_CORRECT_ANSWER_Splines = '✔️';
+        const ICON_INCORRECT_ANSWER_Splines = '❌';
+        const ICON_THUMB_UP_Splines = '👍';
+
+        // Updated quiz data for Splines
+        const quizDataSplines = { // Renamed
+            "question-1-splines": {
+                correctAnswer: "Evitan oscilaciones indeseadas (fenómeno de Runge) y son más estables.",
+                feedback: {
+                    "Son más fáciles de calcular a mano.": "Incorrecto. Los splines cúbicos, por ejemplo, requieren resolver un sistema de ecuaciones, lo que es más complejo que un polinomio simple.",
+                    "Siempre producen un error de interpolación menor.": "Incorrecto. No siempre producen un error menor en todos los puntos, pero sí una curva visualmente más suave y estable."
+                }
+            },
+            "question-2-splines": {
+                correctAnswer: "C^2 (continuidad de la función, primera y segunda derivada).",
+                feedback: {
+                    "C^0 (continuidad de la función).": "Incorrecto. Los splines lineales garantizan C^0. Los cúbicos son más suaves.",
+                    "C^1 (continuidad de la función y primera derivada).": "Incorrecto. Los splines cuadráticos garantizan C^1. Los cúbicos son aún más suaves.",
+                    "C^3 (continuidad hasta la tercera derivada).": "Incorrecto. Los splines cúbicos garantizan C^2. Para C^3 se requerirían splines de mayor grado."
+                }
+            },
+            "question-3-splines": {
+                correctAnswer: "Las segundas derivadas son cero.",
+                feedback: {
+                    "Las primeras derivadas son cero.": "Incorrecto. Eso es una condición común para los splines 'sujetos' (clamped), no 'naturales'.",
+                    "Los valores de la función son cero.": "Incorrecto. Esto sería una condición de que los extremos pasen por cero en Y, lo cual no es una característica definitoria de los splines naturales."
+                }
+            },
+            "question-4-splines": {
+                correctAnswer: "Spline lineal.",
+                feedback: {
+                    "Spline cuadrático.": "Incorrecto. Un spline cuadrático usa polinomios de segundo grado para cada segmento.",
+                    "Spline cúbico.": "Incorrecto. Un spline cúbico usa polinomios de tercer grado para cada segmento."
+                }
+            }
+        };
+
+        let pyodide_Splines = null; // Renamed
+        let methodChart_Splines = null; // Renamed
+        const mainCompletionButton_Splines = document.getElementById(COMPLETION_BUTTON_ID_Splines); // Renamed
+        const quizForm_Splines = document.getElementById(QUIZ_FORM_ID_Splines); // Renamed
+        const generalQuizFeedbackDiv_Splines = document.getElementById(QUIZ_FEEDBACK_ID_Splines); // Renamed
+        const codeInput_Splines = document.getElementById(CODE_INPUT_ID_Splines); // Renamed
+        window.initialPythonScript_Splines = ''; // Initialize global variable
+        const xPointsInput_Splines = document.getElementById(X_POINTS_INPUT_ID_Splines); // New
+        const yPointsInput_Splines = document.getElementById(Y_POINTS_INPUT_ID_Splines); // New
+        const codeOutput_Splines = document.getElementById(CODE_OUTPUT_ID_Splines); // Renamed
+        const runCodeButton_Splines = document.getElementById(RUN_CODE_BUTTON_ID_Splines); // Renamed
+        const chartCanvas_Splines = document.getElementById(CHART_CANVAS_ID_Splines); // Renamed
+        const chartLoadingMessage_Splines = document.getElementById(CHART_LOADING_MESSAGE_ID_Splines); // Renamed
+
+        const taskStatusIcons_Splines = { // Renamed
+            [TASKS_Splines.READ_THEORY]: document.getElementById('task-read-theory-status-splines'),
+            [TASKS_Splines.RUN_CODE]: document.getElementById('task-run-code-status-splines'),
+            [TASKS_Splines.QUIZ_ATTEMPTED]: document.getElementById('task-quiz-attempted-status-splines'),
+            [TASKS_Splines.QUIZ_PASSED]: document.getElementById('task-quiz-passed-status-splines'),
+        };
+        const overallProgressText_Splines = document.getElementById('right-sidebar-progress-text-splines'); // Renamed
+        const overallProgressBar_Splines = document.getElementById('right-sidebar-progress-bar-splines'); // Renamed
+
+        // Utility to try and get the actual progress data from a potentially nested structure
+        function getCleanedProgress(progressObject) {
+            let current = progressObject;
+            let depth = 0;
+            while (current && typeof current === 'object' && current.hasOwnProperty('data') && depth < 10) {
+                current = current.data;
+                depth++;
+            }
+            if (current && typeof current === 'object' && current.hasOwnProperty('overall_progress')) {
+                return current;
+            }
+            if (progressObject && typeof progressObject === 'object' && progressObject.hasOwnProperty('overall_progress')) {
+                return progressObject;
+            }
+            return {};
+        }
+
+        async function getPageProgressFromStorage_Splines(pKey) { // Renamed
+            const defaults = ALL_TASK_KEYS_Splines.reduce((obj, task) => ({ ...obj, [task]: false }), {});
+            defaults.overall_progress = 0;
+            defaults.user_quiz_answers = {};
+            defaults.quiz_current_score = 0;
+            defaults.quiz_feedback_active = false;
+
+            if (USER_IS_AUTHENTICATED) {
+                try {
+                    const response = await fetch(`/api/load_progress/${pKey}`);
+                    if (response.ok) {
+                        const serverResponse = await response.json();
+                        console.log("[GET PROGRESS DEBUG] Raw serverResponse from API:", JSON.stringify(serverResponse));
+                        
+                        const progressData = serverResponse.progress || {};
+                        console.log("[GET PROGRESS DEBUG] Extracted progress data:", JSON.stringify(progressData));
+                        
+                        const cleanedProgress = getCleanedProgress(progressData);
+
+                        if (cleanedProgress && typeof cleanedProgress === 'object' && Object.keys(cleanedProgress).length > 0) {
+                            console.log(`[GET PROGRESS DEBUG] Cleaned server progress being merged for ${pKey}:`, JSON.stringify(cleanedProgress));
+                            return { ...defaults, ...cleanedProgress };
+                        } else {
+                            console.log(`[GET PROGRESS DEBUG] Server progress for ${pKey} is empty/invalid. Returning defaults. Not falling back to localStorage.`);
+                            return defaults;
+                        }
+                    } else if (response.status === 404) {
+                        console.log(`[GET PROGRESS DEBUG] Server returned 404 for ${pKey}. Returning defaults. Not falling back to localStorage.`);
+                        return defaults;
+                    } else {
+                        console.warn(`Error al cargar progreso desde servidor para ${pKey}: ${response.status}. Not falling back to localStorage.`);
                     }
-                    li.appendChild(a);
-                    navUl.appendChild(li);
+                } catch (e) {
+                    console.error(`Error en fetch al cargar progreso para ${pKey}:`, e);
+                }
+            }
+
+            console.log("[GET PROGRESS DEBUG] Attempting localStorage fallback for " + pKey + " (User Authenticated: " + USER_IS_AUTHENTICATED + ")");
+            try {
+                const stored = localStorage.getItem(pKey);
+                if (stored) {
+                    const localProgress = JSON.parse(stored);
+                    const cleanedLocalProgress = getCleanedProgress(localProgress);
+                    console.log("[GET PROGRESS DEBUG] Cleaned localStorage progress:", JSON.stringify(cleanedLocalProgress));
+                    return { ...defaults, ...cleanedLocalProgress };
+                }
+            } catch (e) { console.error("Error al leer localStorage para Splines:", e); }
+            
+            console.log("[GET PROGRESS DEBUG] Returning pure defaults as no server or valid local progress found.");
+            return defaults;
+        }
+
+        async function savePageProgressToStorage_Splines(pKey, progress) { // Renamed
+            if (USER_IS_AUTHENTICATED) {
+                try {
+                    const response = await fetch('/api/save_progress', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ page_key: pKey, progress_data: progress }),
+                    });
+                    if (response.ok) {
+                        console.log(`Progreso guardado en servidor para ${pKey}`);
+                    } else {
+                        console.warn(`Error al guardar progreso en servidor para ${pKey}: ${response.status}`);
+                    }
+                } catch (e) {
+                    console.error(`Error en fetch al guardar progreso para ${pKey}:`, e);
+                }
+            }
+
+            try {
+                localStorage.setItem(pKey, JSON.stringify(progress));
+                window.dispatchEvent(new CustomEvent('splinesPageProgressSaved', { detail: { pageKey: pKey, progress } })); // Renamed event
+            } catch (e) { console.error("Error al guardar en localStorage para Splines:", e); }
+        }
+
+        async function updateTaskStatusInStorage_Splines(taskName, isCompleted) { // Renamed
+            let currentProgress = await getPageProgressFromStorage_Splines(PAGE_KEY_Splines); // Renamed
+            if (currentProgress[taskName] !== isCompleted) {
+                currentProgress[taskName] = isCompleted;
+                if (taskName === TASKS_Splines.QUIZ_ATTEMPTED && !isCompleted) { // Renamed
+                    currentProgress[TASKS_Splines.QUIZ_PASSED] = false; // Renamed
+                    currentProgress.user_quiz_answers = {};
+                    currentProgress.quiz_current_score = 0;
+                    currentProgress.quiz_feedback_active = false;
+                }
+                if (taskName === TASKS_Splines.QUIZ_PASSED && isCompleted) { // Renamed
+                     currentProgress[TASKS_Splines.QUIZ_ATTEMPTED] = true; // Renamed
+                }
+                await savePageProgressToStorage_Splines(PAGE_KEY_Splines, currentProgress); // Renamed
+            }
+        }
+
+        async function renderTaskStatus_Splines() { // Renamed
+            const progress = await getPageProgressFromStorage_Splines(PAGE_KEY_Splines); // Renamed
+            ALL_TASK_KEYS_Splines.forEach(taskKey => { // Renamed
+                const iconElement = taskStatusIcons_Splines[taskKey]; // Renamed
+                if (iconElement) {
+                    let newIconHTML = ICON_PENDING_Splines; // Renamed
+                    if (progress[taskKey]) newIconHTML = ICON_COMPLETED_Splines; // Renamed
+                    else if (taskKey === TASKS_Splines.QUIZ_PASSED && progress[TASKS_Splines.QUIZ_ATTEMPTED]) newIconHTML = ICON_IN_PROGRESS_Splines; // Renamed
+                    iconElement.innerHTML = newIconHTML;
+                }
+            });
+        }
+
+        async function calculateAndUpdateOverallProgress_Splines() { // Renamed
+            let progress = await getPageProgressFromStorage_Splines(PAGE_KEY_Splines); // Renamed
+            console.log("[CALC DEBUG] Progress object received by calculateAndUpdateOverallProgress_Splines:", JSON.stringify(progress)); // Renamed
+
+            let completedTasks = ALL_TASK_KEYS_Splines.filter(taskKey => progress[taskKey]).length; // Renamed
+            const percentage = TOTAL_TASKS_Splines > 0 ? (completedTasks / TOTAL_TASKS_Splines) * 100 : 0; // Renamed
+            progress.overall_progress = percentage;
+            await savePageProgressToStorage_Splines(PAGE_KEY_Splines, progress); // Renamed
+
+            const isHundredPercent = percentage.toFixed(0) === '100';
+            if (overallProgressBar_Splines) { // Renamed
+                overallProgressBar_Splines.style.width = `${percentage.toFixed(0)}%`; // Renamed
+                overallProgressBar_Splines.classList.toggle('animate-rainbow-border', isHundredPercent); // Renamed
+            }
+            if (overallProgressText_Splines) overallProgressText_Splines.textContent = `${percentage.toFixed(0)}%`; // Renamed
+            
+            await renderTaskStatus_Splines(); // Renamed
+            await updateMainCompletionButtonState_Splines(); // Renamed
+        }
+        
+        async function handleMarkAllMouseEnter_Splines() { // Renamed
+            if (mainCompletionButton_Splines && mainCompletionButton_Splines.dataset.isUndo === "true") { // Renamed
+                mainCompletionButton_Splines.classList.remove('bg-yellow-500', 'hover:bg-yellow-600'); // Renamed
+                mainCompletionButton_Splines.classList.add('bg-red-600', 'hover:bg-red-700'); // Renamed
+            }
+        }
+
+        async function handleMarkAllMouseLeave_Splines() { // Renamed
+            if (mainCompletionButton_Splines && mainCompletionButton_Splines.dataset.isUndo === "true") { // Renamed
+                mainCompletionButton_Splines.classList.remove('bg-red-600', 'hover:bg-red-700'); // Renamed
+                mainCompletionButton_Splines.classList.add('bg-yellow-500', 'hover:bg-yellow-600'); // Renamed
+            }
+        }
+        
+        async function updateMainCompletionButtonState_Splines() { // Renamed
+            if (!mainCompletionButton_Splines) return; // Renamed
+            const progress = await getPageProgressFromStorage_Splines(PAGE_KEY_Splines); // Renamed
+            let allTasksCompleted = ALL_TASK_KEYS_Splines.every(task => progress[task]); // Renamed
+            
+            mainCompletionButton_Splines.removeEventListener('mouseenter', handleMarkAllMouseEnter_Splines); // Renamed
+            mainCompletionButton_Splines.removeEventListener('mouseleave', handleMarkAllMouseLeave_Splines); // Renamed
+            mainCompletionButton_Splines.classList.remove('bg-green-600', 'hover:bg-green-700', 'bg-yellow-500', 'hover:bg-yellow-600', 'bg-red-600', 'hover:bg-red-700'); // Renamed
+
+            if (allTasksCompleted) {
+                mainCompletionButton_Splines.textContent = 'Deshacer Completado'; // Renamed
+                mainCompletionButton_Splines.classList.add('bg-yellow-500', 'hover:bg-yellow-600'); // Renamed
+                mainCompletionButton_Splines.dataset.isUndo = "true"; // Renamed
+                mainCompletionButton_Splines.addEventListener('mouseenter', handleMarkAllMouseEnter_Splines); // Renamed
+                mainCompletionButton_Splines.addEventListener('mouseleave', handleMarkAllMouseLeave_Splines); // Renamed
+            } else {
+                mainCompletionButton_Splines.textContent = 'Marcar Todo Completado'; // Renamed
+                mainCompletionButton_Splines.classList.add('bg-green-600', 'hover:bg-green-700'); // Renamed
+                mainCompletionButton_Splines.dataset.isUndo = "false"; // Renamed
+            }
+        }
+        
+        async function clearAllVisualFeedback_Splines(clearGeneralMessage = false) { // Renamed
+            if (!quizForm_Splines) return; // Renamed
+            quizForm_Splines.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => { // Renamed
+                wrapper.classList.remove('correct-answer-splines', 'incorrect-answer-splines', 'border-green-500', 'border-red-500', 'ring-1', 'ring-green-500', 'ring-red-500', 'bg-green-50', 'bg-red-50'); // Renamed classes
+                wrapper.classList.add('border-gray-300', 'hover:border-gray-400', 'has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                const iconPlaceholder = wrapper.querySelector('.feedback-icon-placeholder span');
+                if (iconPlaceholder) iconPlaceholder.innerHTML = '';
+            });
+            quizForm_Splines.querySelectorAll('.specific-question-feedback').forEach(el => { // Renamed
+                el.textContent = '';
+                el.style.display = 'none';
+            });
+            if (clearGeneralMessage && generalQuizFeedbackDiv_Splines) { // Renamed
+                generalQuizFeedbackDiv_Splines.textContent = ''; // Renamed
+                generalQuizFeedbackDiv_Splines.style.display = 'none'; // Renamed
+                generalQuizFeedbackDiv_Splines.className = 'quiz-feedback-message mt-4 p-3 rounded-md text-sm'; // Renamed
+            }
+        }
+
+        async function displayQuizFeedback_Splines() { // Renamed
+            if (!quizForm_Splines || !generalQuizFeedbackDiv_Splines) return false; // Renamed
+            const progress = await getPageProgressFromStorage_Splines(PAGE_KEY_Splines); // Renamed
+            const userAnswers = progress.user_quiz_answers || {};
+            const submitButton = quizForm_Splines.querySelector('button[type="submit"]'); // Renamed
+
+            await clearAllVisualFeedback_Splines(false); // Renamed
+
+            if (!progress.quiz_feedback_active && Object.keys(userAnswers).length === 0) {
+                quizForm_Splines.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false); // Renamed
+                if (submitButton) {
+                    submitButton.textContent = 'Enviar Respuestas';
+                    submitButton.disabled = false;
+                }
+                return false;
+            }
+            
+            let allCorrect = true;
+            let score = 0;
+
+            for (const questionName in quizDataSplines) { // Renamed quizData
+                const userAnswer = userAnswers[questionName];
+                const questionData = quizDataSplines[questionName]; // Renamed quizData
+                const correctAnswer = questionData.correctAnswer;
+                const specificFeedbackDiv = document.getElementById(`${questionName}-specific-feedback`);
+
+                const radioInputs = quizForm_Splines.querySelectorAll(`input[name="${questionName}"]`); // Renamed
+                radioInputs.forEach(input => {
+                    const wrapper = input.closest('.quiz-option-wrapper');
+                    const iconPlaceholder = wrapper.querySelector('.feedback-icon-placeholder span');
+                    input.disabled = true;
+                    wrapper.classList.remove('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                    
+                    if (input.value === userAnswer) {
+                        input.checked = true;
+                        if (userAnswer === correctAnswer) {
+                            wrapper.classList.add('correct-answer-splines', 'border-green-500', 'ring-1', 'ring-green-500', 'bg-green-50'); // Renamed class
+                            if (iconPlaceholder) iconPlaceholder.textContent = ICON_CORRECT_ANSWER_Splines; // Renamed icon
+                            score++;
+                        } else {
+                            wrapper.classList.add('incorrect-answer-splines', 'border-red-500', 'ring-1', 'ring-red-500', 'bg-red-50'); // Renamed class
+                            if (iconPlaceholder) iconPlaceholder.textContent = ICON_INCORRECT_ANSWER_Splines; // Renamed icon
+                            allCorrect = false;
+                            if (specificFeedbackDiv && questionData.feedback && questionData.feedback[userAnswer]) {
+                                specificFeedbackDiv.textContent = "Incorrecto. " + questionData.feedback[userAnswer];
+                                specificFeedbackDiv.style.display = 'block';
+                            } else if (specificFeedbackDiv) {
+                                specificFeedbackDiv.textContent = "Incorrecto. Respuesta incorrecta.";
+                                specificFeedbackDiv.style.display = 'block';
+                            }
+                        }
+                    } else if (input.value === correctAnswer) {
+                         wrapper.classList.add('correct-answer-splines', 'border-green-500', 'bg-green-50'); // Renamed class
+                         if (userAnswer !== correctAnswer && iconPlaceholder) iconPlaceholder.textContent = ICON_THUMB_UP_Splines; // Renamed icon
+                    } else {
+                         wrapper.classList.add('border-gray-300');
+                    }
                 });
             }
+
+            progress.quiz_current_score = score;
+            progress.quiz_passed = allCorrect;
+            await savePageProgressToStorage_Splines(PAGE_KEY_Splines, progress); // Renamed
+
+            generalQuizFeedbackDiv_Splines.style.display = 'block'; // Renamed
+            if (allCorrect) {
+                generalQuizFeedbackDiv_Splines.className = 'mt-4 p-3 rounded-md text-sm bg-green-100 text-green-700 border border-green-200'; // Renamed
+                generalQuizFeedbackDiv_Splines.innerHTML = `<strong>¡Felicidades!</strong> Todas tus respuestas son correctas. (${score}/${Object.keys(quizDataSplines).length})`; // Renamed quizData
+                if (submitButton) {
+                    submitButton.textContent = 'Cuestionario Aprobado';
+                    submitButton.disabled = true;
+                }
+                await updateTaskStatusInStorage_Splines(TASKS_Splines.QUIZ_PASSED, true); // Renamed
+            } else {
+                generalQuizFeedbackDiv_Splines.className = 'mt-4 p-3 rounded-md text-sm bg-red-100 text-red-700 border border-red-200'; // Renamed
+                generalQuizFeedbackDiv_Splines.innerHTML = `Has respondido correctamente ${score} de ${Object.keys(quizDataSplines).length} preguntas. Revisa los comentarios e intenta de nuevo.`; // Renamed quizData
+                if (submitButton) {
+                    submitButton.textContent = 'Intentar de Nuevo';
+                    submitButton.disabled = false;
+                }
+                await updateTaskStatusInStorage_Splines(TASKS_Splines.QUIZ_PASSED, false); // Renamed
+            }
+            if (window.MathJax && window.MathJax.typesetPromise && quizForm_Splines) { // Renamed
+                window.MathJax.typesetPromise([quizForm_Splines]); // Renamed
+            }
+            return allCorrect;
+        }
+        
+        async function initializePyodide_Splines() { // Renamed
+            if (!window.pyodideInstance_Splines_Global) { // Renamed
+                if (codeOutput_Splines) codeOutput_Splines.innerHTML = "<p>Cargando Pyodide y entorno...</p>"; // Renamed
+                try {
+                    window.pyodideInstance_Splines_Global = await window.loadPyodide(); // Renamed
+                    // Pre-declarar/inicializar variables globales para la salida del script de Python
+                    window.pyodideInstance_Splines_Global.globals.set("pyodide_splines_html_output", ""); // Renamed
+                    window.pyodideInstance_Splines_Global.globals.set("pyodide_splines_chart_data_package", window.pyodideInstance_Splines_Global.toPy({})); // Renamed
+                    
+                    // Set initial message for codeOutput_Splines
+                    if (codeOutput_Splines) {
+                         codeOutput_Splines.innerHTML = "<p>Pyodide listo. Presiona 'Ejecutar Código' para ver la salida.</p>";
+                    }
+                    console.log('[PYODIDE_INIT] Pyodide initialization complete. Output area set to initial message.');
+                } catch (error) {
+                    console.error("Error al cargar Pyodide para Splines:", error); // Renamed
+                    if (codeOutput_Splines) codeOutput_Splines.innerHTML = "<p>Error al cargar Pyodide. Revisa la consola.</p>"; // Renamed
+                    return null;
+                }
+            }
+            return window.pyodideInstance_Splines_Global; // Renamed
+        }
+
+        async function runCodeNow_Splines() { // Renamed
+            pyodide_Splines = await initializePyodide_Splines(); // Renamed
+            if (!pyodide_Splines) { // Renamed
+                if (codeOutput_Splines) codeOutput_Splines.innerHTML = "<p>Pyodide no está listo. Intenta recargar.</p>"; // Renamed
+                return;
+            }
+            if (!codeInput_Splines || !codeOutput_Splines || !xPointsInput_Splines || !yPointsInput_Splines) return; // Renamed, added new inputs
+
+            const pythonCode = codeInput_Splines.value;
+            console.log('[RUN CODE DEBUG] Python code to execute length:', pythonCode.length);
+            const xPointsStr = xPointsInput_Splines.value; // New
+            const yPointsStr = yPointsInput_Splines.value; // New
+
+            if (codeOutput_Splines) codeOutput_Splines.innerHTML = "<p>Ejecutando código...</p>"; // Clear output before running
+            if (chartLoadingMessage_Splines) chartLoadingMessage_Splines.textContent = "Generando datos para la gráfica..."; // Renamed
+            if (chartCanvas_Splines) chartCanvas_Splines.style.display = 'none'; // Renamed
+
+            try {
+                // Limpiar/Reiniciar las variables globales de Pyodide antes de la ejecución
+                pyodide_Splines.globals.set("pyodide_splines_html_output", ""); // Renamed
+                let chartPkgProxy = pyodide_Splines.globals.get("pyodide_splines_chart_data_package"); // Renamed
+                if (chartPkgProxy && typeof chartPkgProxy.clear === 'function') chartPkgProxy.clear();
+                else pyodide_Splines.globals.set("pyodide_splines_chart_data_package", pyodide_Splines.toPy({})); // Renamed
+
+                // Set input parameters for the Python script
+                pyodide_Splines.globals.set("x_points_param_splines", xPointsStr); // New
+                pyodide_Splines.globals.set("y_points_param_splines", yPointsStr); // New
+
+                await pyodide_Splines.loadPackagesFromImports(pythonCode); // Renamed
+                await pyodide_Splines.runPythonAsync(pythonCode); // Renamed
+                
+                const htmlResult = pyodide_Splines.globals.get("pyodide_splines_html_output"); // Renamed
+                if (codeOutput_Splines) { // Renamed
+                    codeOutput_Splines.innerHTML = htmlResult || "<p>Ejecución completada. No se generó salida HTML.</p>"; // Renamed
+                }
+                
+                await updateTaskStatusInStorage_Splines(TASKS_Splines.RUN_CODE, true); // Renamed
+                await calculateAndUpdateOverallProgress_Splines(); // Renamed
+
+                if (chartCanvas_Splines) await drawChartJsGraph_Splines(); // Renamed
+
+            } catch (error) {
+                console.error("Error al ejecutar el código Python (Splines):", error); // Renamed
+                if (codeOutput_Splines) { // Renamed
+                    codeOutput_Splines.innerHTML = `<p style="color:red;">Error en la ejecución: ${error.toString().replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p><pre>${error.stack ? error.stack.replace(/</g, "&lt;").replace(/>/g, "&gt;") : ''}</pre>`;
+                }
+                if (chartLoadingMessage_Splines) chartLoadingMessage_Splines.textContent = "Error al generar datos para la gráfica."; // Renamed
+            }
+        }
+        
+        async function drawChartJsGraph_Splines() { // Renamed
+            pyodide_Splines = await initializePyodide_Splines(); // Renamed
+            if (!pyodide_Splines) { // Renamed
+                if(chartLoadingMessage_Splines) chartLoadingMessage_Splines.textContent = 'Pyodide no está listo para graficar.'; // Renamed
+                return;
+            }
+            if (!chartCanvas_Splines) return; // Renamed
             
-            const pageKey = 'splines'; // Clave única para esta página de método
-            const button = document.getElementById('completion-' + pageKey);
-            if (button && localStorage.getItem(pageKey) === 'true') {
-                button.textContent = 'Completado ✓';
-                button.classList.add('completed');
+            if(chartLoadingMessage_Splines) chartLoadingMessage_Splines.textContent = 'Generando gráfica del Spline...'; // Renamed
+            
+            try {
+                if (!pyodide_Splines.globals.has("pyodide_splines_chart_data_package")) { // Renamed
+                    if(chartLoadingMessage_Splines) chartLoadingMessage_Splines.textContent = 'Datos para la gráfica no encontrados. Ejecute el código principal primero.'; // Renamed
+                    console.warn("pyodide_splines_chart_data_package no encontrado en Pyodide globals."); // Renamed
+                    if (methodChart_Splines && typeof methodChart_Splines.destroy === 'function') methodChart_Splines.destroy(); // Renamed
+                    return;
+                }
+                const chartData = pyodide_Splines.globals.get("pyodide_splines_chart_data_package").toJs({ dict_converter: Object.fromEntries }); // Renamed
+
+                if (!chartData || !chartData.x_points_input || !chartData.y_points_input || !chartData.x_smooth_curve || !chartData.y_smooth_curve) {
+                     if(chartLoadingMessage_Splines) chartLoadingMessage_Splines.textContent = 'Formato de datos para gráfica incorrecto o incompleto.'; // Renamed
+                     console.warn("Formato de chartData incorrecto o incompleto:", chartData);
+                     if (methodChart_Splines && typeof methodChart_Splines.destroy === 'function') methodChart_Splines.destroy(); // Renamed
+                     return;
+                }
+
+                if (methodChart_Splines && typeof methodChart_Splines.destroy === 'function') methodChart_Splines.destroy(); // Renamed
+                const ctx_splines = chartCanvas_Splines.getContext('2d'); // Renamed
+                
+                const datasets_splines = []; // Renamed
+
+                // Graficar la curva del spline
+                datasets_splines.push({
+                    label: 'Spline Interpolador',
+                    data: chartData.x_smooth_curve.map((x, i) => ({x: x, y: chartData.y_smooth_curve[i]})),
+                    borderColor: 'rgb(75, 192, 192)',
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.1,
+                    type: 'line',
+                    order: 1,
+                    pointRadius: 0
+                });
+
+                // Graficar los puntos de datos de entrada
+                datasets_splines.push({
+                   label: 'Puntos de Datos',
+                   data: chartData.x_points_input.map((x, i) => ({x: x, y: chartData.y_points_input[i]})),
+                   backgroundColor: 'rgb(255, 99, 132)',
+                   borderColor: 'rgb(255, 99, 132)',
+                   pointRadius: 5,
+                   type: 'scatter',
+                   order: 0
+                });
+
+                methodChart_Splines = new Chart(ctx_splines, { // Renamed
+                    type: 'scatter', data: { datasets: datasets_splines }, // Renamed
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        scales: {
+                            x: { title: { display: true, text: 'x' }, type: 'linear' },
+                            y: { title: { display: true, text: 'y' }, type: 'linear' }
+                        },
+                        plugins: {
+                            legend: { position: 'top' },
+                            title: { display: true, text: "Interpolación con Splines", font: {size: 16} }
+                        },
+                        animation: { duration: 500 }
+                    }
+                });
+
+                if(chartLoadingMessage_Splines) chartLoadingMessage_Splines.style.display = 'none'; // Renamed
+                if (chartCanvas_Splines) chartCanvas_Splines.style.display = 'block'; // Renamed
+
+            } catch (error) {
+                if(chartLoadingMessage_Splines) chartLoadingMessage_Splines.textContent = 'Error al generar gráfica: ' + (error.message || String(error)); // Renamed
+                console.error("Error en drawChartJsGraph_Splines:", error); // Renamed
+                if (methodChart_Splines && typeof methodChart_Splines.destroy === 'function') methodChart_Splines.destroy(); // Renamed
+            }
+        }
+
+        if (runCodeButton_Splines) runCodeButton_Splines.addEventListener('click', runCodeNow_Splines); // Renamed
+
+        if (quizForm_Splines) { // Renamed
+            quizForm_Splines.addEventListener('submit', async function(event) { // Renamed
+                event.preventDefault();
+                const currentLocalProgress = await getPageProgressFromStorage_Splines(PAGE_KEY_Splines); // Renamed
+                const submitButton = quizForm_Splines.querySelector('button[type="submit"]'); // Renamed
+
+                console.log("[QUIZ SUBMIT DEBUG SPLINES] currentLocalProgress.quiz_passed:", currentLocalProgress[TASKS_Splines.QUIZ_PASSED]); // Renamed
+                console.log("[QUIZ SUBMIT DEBUG SPLINES] submitButton.textContent:", submitButton ? submitButton.textContent : 'Button not found');
+
+                if (currentLocalProgress[TASKS_Splines.QUIZ_PASSED] && submitButton && submitButton.textContent !== 'Intentar de Nuevo') { // Renamed
+                    console.log("[QUIZ SUBMIT DEBUG SPLINES] Early exit: Quiz already passed and button is not 'Intentar de Nuevo'.");
+                    return;
+                }
+
+                if (submitButton && submitButton.textContent === 'Intentar de Nuevo') {
+                    console.log("[QUIZ SUBMIT DEBUG SPLINES] 'Intentar de Nuevo' branch entered.");
+                    quizForm_Splines.reset(); // Renamed
+                    await clearAllVisualFeedback_Splines(true); // Renamed
+                    if(generalQuizFeedbackDiv_Splines) generalQuizFeedbackDiv_Splines.style.display = 'none'; // Renamed
+                    
+                    let progressToSave = await getPageProgressFromStorage_Splines(PAGE_KEY_Splines); // Renamed
+                    progressToSave.user_quiz_answers = {};
+                    progressToSave.quiz_current_score = 0;
+                    progressToSave.quiz_feedback_active = false;
+                    await savePageProgressToStorage_Splines(PAGE_KEY_Splines, progressToSave); // Renamed
+                    await updateTaskStatusInStorage_Splines(TASKS_Splines.QUIZ_PASSED, false); // Renamed
+                    
+                    quizForm_Splines.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false); // Renamed
+                    quizForm_Splines.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => { // Renamed
+                         wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                    });
+                    submitButton.textContent = 'Enviar Respuestas';
+                    return;
+                }
+
+                const formData = new FormData(quizForm_Splines); // Renamed
+                let allAnswered = true;
+                for (const qName of Object.keys(quizDataSplines)) { if (!formData.has(qName)) { allAnswered = false; break; } } // Renamed quizData
+
+                if (!allAnswered) {
+                    if (generalQuizFeedbackDiv_Splines) { // Renamed
+                        generalQuizFeedbackDiv_Splines.textContent = "Por favor, responde todas las preguntas."; // Renamed
+                        generalQuizFeedbackDiv_Splines.className = 'mt-4 p-3 rounded-md text-sm bg-yellow-100 text-yellow-700 border border-yellow-200'; // Renamed
+                        generalQuizFeedbackDiv_Splines.style.display = 'block'; // Renamed
+                    } return;
+                }
+                
+                await updateTaskStatusInStorage_Splines(TASKS_Splines.QUIZ_ATTEMPTED, true); // Renamed
+                
+                let progress = await getPageProgressFromStorage_Splines(PAGE_KEY_Splines); // Renamed
+                progress.user_quiz_answers = {};
+                for (const qName of Object.keys(quizDataSplines)) { progress.user_quiz_answers[qName] = formData.get(qName); } // Renamed quizData
+                progress.quiz_feedback_active = true;
+                await savePageProgressToStorage_Splines(PAGE_KEY_Splines, progress); // Renamed
+                
+                const quizWasPassed = await displayQuizFeedback_Splines(); // Renamed
+                
+                await calculateAndUpdateOverallProgress_Splines(); // Renamed
+            });
+        }
+        
+        if (mainCompletionButton_Splines) { // Renamed
+            mainCompletionButton_Splines.addEventListener('click', async () => { // Renamed
+                mainCompletionButton_Splines.disabled = true; // Renamed
+                
+                try {
+                    console.log('[TOGGLE DEBUG SPLINES] Iniciando acción de toggleCompletion'); // Renamed
+                    const progress = await getPageProgressFromStorage_Splines(PAGE_KEY_Splines); // Renamed
+                    let allCurrentlyCompleted = ALL_TASK_KEYS_Splines.every(taskKey => progress[taskKey]); // Renamed
+                    let markAllAs = !allCurrentlyCompleted;
+                    
+                    console.log('[TOGGLE DEBUG SPLINES] Estado inicial - allCurrentlyCompleted:', allCurrentlyCompleted, 'markAllAs:', markAllAs); // Renamed
+                    console.log('[TOGGLE DEBUG SPLINES] Progreso inicial:', JSON.stringify(progress)); // Renamed
+                    
+                    const updatedProgress = { ...progress };
+                    
+                    ALL_TASK_KEYS_Splines.forEach(taskName => { // Renamed
+                        updatedProgress[taskName] = markAllAs;
+                    });
+                    
+                    console.log('[TOGGLE DEBUG SPLINES] Progreso después de actualizar tareas:', JSON.stringify(updatedProgress)); // Renamed
+                    
+                    if (markAllAs) { // Marcar todo como completado
+                        updatedProgress[TASKS_Splines.QUIZ_ATTEMPTED] = true; // Renamed
+                        updatedProgress[TASKS_Splines.QUIZ_PASSED] = true; // Renamed
+                        
+                        updatedProgress.user_quiz_answers = {};
+                        for (const questionName in quizDataSplines) { // Renamed quizData
+                            updatedProgress.user_quiz_answers[questionName] = quizDataSplines[questionName].correctAnswer; // Renamed quizData
+                        }
+                        
+                        console.log('[TOGGLE DEBUG SPLINES] Respuestas correctas asignadas:', JSON.stringify(updatedProgress.user_quiz_answers)); // Renamed
+                        
+                        updatedProgress.quiz_current_score = 100;
+                        updatedProgress.quiz_feedback_active = true;
+                        updatedProgress.overall_progress = 100;
+                        
+                        await savePageProgressToStorage_Splines(PAGE_KEY_Splines, updatedProgress); // Renamed
+                        console.log('[TOGGLE DEBUG SPLINES] Progreso guardado (completado):', JSON.stringify(updatedProgress)); // Renamed
+                        
+                        if (quizForm_Splines) await displayQuizFeedback_Splines(); // Renamed
+                        await renderTaskStatus_Splines(); // Renamed
+                        
+                    } else { // Deshacer completado
+                        updatedProgress.user_quiz_answers = {};
+                        updatedProgress.quiz_current_score = 0;
+                        updatedProgress.quiz_feedback_active = false;
+                        updatedProgress.overall_progress = 0;
+                        
+                        await savePageProgressToStorage_Splines(PAGE_KEY_Splines, updatedProgress); // Renamed
+                        console.log('[TOGGLE DEBUG SPLINES] Progreso guardado (reseteado):', JSON.stringify(updatedProgress)); // Renamed
+                        
+                        if (quizForm_Splines) { // Renamed
+                            quizForm_Splines.reset(); // Renamed
+                            clearAllVisualFeedback_Splines(true); // Renamed
+                            quizForm_Splines.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false); // Renamed
+                            const submitButton = quizForm_Splines.querySelector('button[type="submit"]'); // Renamed
+                            if (submitButton) {
+                                submitButton.textContent = 'Enviar Respuestas';
+                                submitButton.disabled = false;
+                            }
+                            quizForm_Splines.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => { // Renamed
+                                wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red');
+                            });
+                        }
+                        if (generalQuizFeedbackDiv_Splines) generalQuizFeedbackDiv_Splines.style.display = 'none'; // Renamed
+                        await renderTaskStatus_Splines(); // Renamed
+                    }
+                    
+                    await calculateAndUpdateOverallProgress_Splines(); // Renamed
+                    await updateMainCompletionButtonState_Splines(); // Renamed
+                    
+                    console.log(markAllAs ? 'Todas las tareas marcadas como completadas.' : 'Se ha deshecho el completado.');
+                    
+                } catch (error) {
+                    console.error('[TOGGLE ERROR SPLINES]', error); // Renamed
+                    alert('Ocurrió un error al procesar la acción. Por favor, intenta nuevamente.');
+                } finally {
+                    if (mainCompletionButton_Splines) { // Renamed
+                        mainCompletionButton_Splines.disabled = false; // Renamed
+                    }
+                }
+            });
+        }
+
+        const theorySectionObserverTargetNodeSplines = document.getElementById('conclusion-splines') || document.getElementById('teoria-splines'); // Renamed
+        if (theorySectionObserverTargetNodeSplines) { // Renamed
+            const observerOptionsSplines = { root: null, rootMargin: '0px', threshold: 0.1 }; // Renamed
+            const observerCallbackSplines = (entries) => { // Renamed
+                entries.forEach(async entry => {
+                    if (entry.isIntersecting) {
+                        await updateTaskStatusInStorage_Splines(TASKS_Splines.READ_THEORY, true); // Renamed
+                        await calculateAndUpdateOverallProgress_Splines(); // Renamed
+                    }
+                });
+            };
+            const theoryObserver_Splines = new IntersectionObserver(observerCallbackSplines, observerOptionsSplines); // Renamed
+            theoryObserver_Splines.observe(theorySectionObserverTargetNodeSplines); // Renamed
+        }
+        
+        if (window.location.hash) history.replaceState(null, '', window.location.pathname + window.location.search);
+        
+        (async () => {
+            pyodide_Splines = await initializePyodide_Splines(); // Renamed
+            // Inicia la gráfica si ya hay datos de Pyodide cargados o si se ejecuta el código
+            // La función `drawChartJsGraph_Splines` ahora obtiene los datos del ámbito global de Pyodide
+            if (pyodide_Splines && chartCanvas_Splines && xPointsInput_Splines.value.trim() !== "" && yPointsInput_Splines.value.trim() !== "") {
+                 // Try to pre-run the Python code to populate chart data if inputs exist
+                // This means the initial chart will show default spline or last run.
+                try {
+                    // Temporarily set globals for initial run
+                    pyodide_Splines.globals.set("x_points_param_splines", xPointsInput_Splines.value);
+                    pyodide_Splines.globals.set("y_points_param_splines", yPointsInput_Splines.value);
+                    const pythonCode = codeInput_Splines.value;
+                    await pyodide_Splines.loadPackagesFromImports(pythonCode);
+                    await pyodide_Splines.runPythonAsync(pythonCode);
+                    await drawChartJsGraph_Splines();
+                    if(codeOutput_Splines) codeOutput_Splines.innerHTML = pyodide_Splines.globals.get("pyodide_splines_html_output") || "<p>Pyodide listo. Presiona 'Ejecutar Código'.</p>";
+                } catch (e) {
+                    console.error("Error pre-running spline code:", e);
+                    if(chartLoadingMessage_Splines) chartLoadingMessage_Splines.textContent = "Error al cargar gráfica inicial.";
+                }
+            } else if (chartCanvas_Splines && chartLoadingMessage_Splines) {
+                 chartLoadingMessage_Splines.textContent = "Ejecute el código para generar datos para la gráfica.";
             }
 
-            // Re-renderizar MathJax si es necesario
-            if (typeof MathJax !== 'undefined' && typeof MathJax.typesetPromise === 'function') {
-                MathJax.typesetPromise();
+            const initialProgress_Splines = await getPageProgressFromStorage_Splines(PAGE_KEY_Splines); // Renamed
+            if (initialProgress_Splines.quiz_feedback_active || (initialProgress_Splines[TASKS_Splines.QUIZ_ATTEMPTED] && Object.keys(initialProgress_Splines.user_quiz_answers).length > 0) ) { // Renamed
+                if (quizForm_Splines && initialProgress_Splines.user_quiz_answers) { // Renamed
+                     for (const qName in initialProgress_Splines.user_quiz_answers) {
+                        const userAnswer = initialProgress_Splines.user_quiz_answers[qName];
+                        const escapedUserAnswer = userAnswer.replace(/([\\()\[\]"'])/g, '\\$1');
+                        try {
+                            const radioToSelect = quizForm_Splines.querySelector(`input[name="${qName}"][value="${escapedUserAnswer}"]`); // Renamed
+                            if (radioToSelect) radioToSelect.checked = true;
+                        } catch (e) { console.warn(`Error seleccionando radio Splines para ${qName}`, e); } // Renamed
+                    }
+                }
+                await displayQuizFeedback_Splines(); // Renamed
+            } else if (quizForm_Splines) { // Renamed
+                const submitButton = quizForm_Splines.querySelector('button[type="submit"]'); // Renamed
+                if (submitButton) { submitButton.textContent = 'Enviar Respuestas'; submitButton.disabled = false; }
+                quizForm_Splines.querySelectorAll('input[type="radio"]').forEach(radio => radio.disabled = false); // Renamed
+                quizForm_Splines.querySelectorAll('.quiz-option-wrapper').forEach(wrapper => wrapper.classList.add('has-[:checked]:bg-red-50', 'has-[:checked]:border-custom-red', 'has-[:checked]:ring-1', 'has-[:checked]:ring-custom-red'));
+                if (window.MathJax && window.MathJax.typesetPromise) window.MathJax.typesetPromise([quizForm_Splines]); // Renamed
+            }
+            await calculateAndUpdateOverallProgress_Splines(); // Renamed
+
+            // Listener para el botón de pantalla completa de la salida de código
+            if (fullscreenButton_Splines && codeOutput_Splines && outputControlsContainer_Splines) { // Renamed
+                fullscreenButton_Splines.addEventListener('click', () => { // Renamed
+                    const isFullscreen = codeOutput_Splines.classList.contains('splines-output-fullscreen'); // Renamed class
+                    
+                    if (isFullscreen) {
+                        // === EXITING FULLSCREEN ===
+                        outputControlsContainer_Splines.style.opacity = '0'; // Renamed
+                        if(increaseFontButton_Splines) increaseFontButton_Splines.style.display = 'none'; // Renamed
+                        if(decreaseFontButton_Splines) decreaseFontButton_Splines.style.display = 'none'; // Renamed
+
+                        if (splinesCodeOutputInitialRect) { // Renamed
+                            const finalRect = codeOutput_Splines.getBoundingClientRect(); // Renamed
+                            const scaleX = splinesCodeOutputInitialRect.width / finalRect.width; // Renamed
+                            const scaleY = splinesCodeOutputInitialRect.height / finalRect.height; // Renamed
+                            const deltaX = (splinesCodeOutputInitialRect.left + splinesCodeOutputInitialRect.width / 2) - (finalRect.left + finalRect.width / 2); // Renamed
+                            const deltaY = (splinesCodeOutputInitialRect.top + splinesCodeOutputInitialRect.height / 2) - (finalRect.top + finalRect.height / 2); // Renamed
+                            codeOutput_Splines.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`; // Renamed
+                        }
+
+                        setTimeout(() => {
+                            codeOutput_Splines.style.transition = 'none'; // Renamed
+                            codeOutput_Splines.classList.remove('splines-output-fullscreen'); // Renamed class
+                            document.body.classList.remove('splines-body-fullscreen-active'); // Renamed class
+                            
+                            outputControlsContainer_Splines.classList.remove('splines-output-controls-container-fixed'); // Renamed
+                            outputControlsContainer_Splines.style.transition = 'none'; // Renamed
+                            outputControlsContainer_Splines.style.opacity = '1'; // Renamed
+                            outputControlsContainer_Splines.offsetHeight; // Renamed
+                            outputControlsContainer_Splines.style.transition = ''; // Renamed
+
+                            codeOutput_Splines.style.transform = ''; // Renamed
+                            if (originalOutputFontSize_Splines) { // Renamed
+                                codeOutput_Splines.style.fontSize = originalOutputFontSize_Splines; // Renamed
+                            }
+                            codeOutput_Splines.offsetHeight; // Renamed
+                            codeOutput_Splines.style.transition = ''; // Renamed
+
+                            fullscreenButton_Splines.innerHTML = `
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75v4.5m0-4.5h-4.5m4.5 0L15 9m5.25 11.25v-4.5m0 4.5h-4.5m4.5 0L15 15" />
+                                </svg>
+                            `;
+                            fullscreenButton_Splines.title = "Ver en pantalla completa"; // Renamed
+                            splinesCodeOutputInitialRect = null; // Renamed
+                        }, 500);
+
+                    } else {
+                        // === ENTERING FULLSCREEN ===
+                        originalOutputFontSize_Splines = window.getComputedStyle(codeOutput_Splines).fontSize; // Renamed
+                        splinesCodeOutputInitialRect = codeOutput_Splines.getBoundingClientRect(); // Renamed
+                        
+                        outputControlsContainer_Splines.style.transition = 'none'; // Renamed
+                        outputControlsContainer_Splines.style.opacity = '0'; // Renamed
+                        outputControlsContainer_Splines.offsetHeight; // Renamed
+                        outputControlsContainer_Splines.style.transition = ''; // Renamed
+
+                        codeOutput_Splines.style.transition = 'none'; // Renamed
+                        codeOutput_Splines.classList.add('splines-output-fullscreen'); // Renamed class
+                        document.body.classList.add('splines-body-fullscreen-active'); // Renamed class
+                        outputControlsContainer_Splines.classList.add('splines-output-controls-container-fixed'); // Renamed
+                        
+                        const finalRect = codeOutput_Splines.getBoundingClientRect(); // Renamed
+                        const scaleX = splinesCodeOutputInitialRect.width / finalRect.width; // Renamed
+                        const scaleY = splinesCodeOutputInitialRect.height / finalRect.height; // Renamed
+                        const deltaX = (splinesCodeOutputInitialRect.left + splinesCodeOutputInitialRect.width / 2) - (finalRect.left + finalRect.width / 2); // Renamed
+                        const deltaY = (splinesCodeOutputInitialRect.top + splinesCodeOutputInitialRect.height / 2) - (finalRect.top + finalRect.height / 2); // Renamed
+                        codeOutput_Splines.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`; // Renamed
+                        
+                        codeOutput_Splines.offsetHeight; // Renamed
+                        codeOutput_Splines.style.transition = ''; // Renamed
+                        codeOutput_Splines.style.transform = 'translate(0px, 0px) scale(1)'; // Renamed
+
+                        fullscreenButton_Splines.innerHTML = `
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9V4.5M15 9h4.5M15 9l5.25-5.25M15 15v4.5M15 15h4.5M15 15l5.25 5.25" />
+                            </svg>
+                        `;
+                        fullscreenButton_Splines.title = "Salir de pantalla completa"; // Renamed
+                        
+                        setTimeout(() => {
+                            outputControlsContainer_Splines.style.opacity = '1'; // Renamed
+                            if(increaseFontButton_Splines) increaseFontButton_Splines.style.display = 'inline-flex'; // Renamed
+                            if(decreaseFontButton_Splines) decreaseFontButton_Splines.style.display = 'inline-flex'; // Renamed
+                        }, 500);
+                    }
+                });
+            }
+
+            if (increaseFontButton_Splines && codeOutput_Splines) { // Renamed
+                increaseFontButton_Splines.addEventListener('click', () => { // Renamed
+                    if (codeOutput_Splines.classList.contains('splines-output-fullscreen')) { // Renamed class
+                        let currentSize = parseFloat(window.getComputedStyle(codeOutput_Splines).fontSize); // Renamed
+                        if (currentSize < MAX_FONT_SIZE_PX_Splines) { // Renamed
+                            codeOutput_Splines.style.fontSize = (currentSize + FONT_SIZE_STEP_PX_Splines) + 'px'; // Renamed
+                            increaseFontButton_Splines.classList.add('splines-font-button-flash-blue'); // Renamed class
+                            setTimeout(() => {
+                                increaseFontButton_Splines.classList.remove('splines-font-button-flash-blue'); // Renamed class
+                            }, 400);
+                        }
+                    }
+                });
+            }
+
+            if (decreaseFontButton_Splines && codeOutput_Splines) { // Renamed
+                decreaseFontButton_Splines.addEventListener('click', () => { // Renamed
+                    if (codeOutput_Splines.classList.contains('splines-output-fullscreen')) { // Renamed class
+                        let currentSize = parseFloat(window.getComputedStyle(codeOutput_Splines).fontSize); // Renamed
+                        if (currentSize > MIN_FONT_SIZE_PX_Splines) { // Renamed
+                            codeOutput_Splines.style.fontSize = (currentSize - FONT_SIZE_STEP_PX_Splines) + 'px'; // Renamed
+                            decreaseFontButton_Splines.classList.add('splines-font-button-flash-red'); // Renamed class
+                            setTimeout(() => {
+                                decreaseFontButton_Splines.classList.remove('splines-font-button-flash-red'); // Renamed class
+                            }, 400);
+                        }
+                    }
+                });
+            }
+            if(increaseFontButton_Splines) increaseFontButton_Splines.style.display = 'none'; // Renamed
+            if(decreaseFontButton_Splines) decreaseFontButton_Splines.style.display = 'none'; // Renamed
+        })();
+    });
+    </script>
+    <!-- END SPLINES SCRIPT -->
+
+    <!-- Vue App Initialization Script -->
+    <script type="module">
+        const { createApp, ref, onMounted, onUnmounted, watch, nextTick } = Vue;
+
+        const LeftSidebarSplines = { // Unique component name
+            template: `{% raw %}
+                <aside :class="[
+                    'bg-gradient-to-b from-red-500 to-red-700', 'shadow-xl', 'rounded-lg', 'p-4',
+                    'flex', 'flex-col',
+                    'transition-all', 'duration-300', 'ease-in-out',
+                    'order-1',
+                    isCollapsed ? 'w-full lg:w-20' : 'w-full lg:w-64',
+                    'self-start',
+                    'lg:sticky', 'lg:top-8',
+                    'lg:max-h-[calc(100vh-4rem)]',
+                    'overflow-y-auto'
+                ]">
+                    <div class="flex justify-between items-center mb-4 border-b border-red-400 pb-3">
+                        <h3 v-show="!isCollapsed" class="text-lg font-semibold text-white select-none">Contenido</h3>
+                        <button @click="toggleCollapse" class="p-1.5 ml-2 text-white hover:bg-red-700 rounded focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-75" :aria-label="isCollapsed ? 'Expandir menú' : 'Colapsar menú'">
+                            <svg v-if="!isCollapsed" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5" /></svg>
+                            <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5m-6-15l7.5 7.5-7.5 7.5" /></svg>
+                        </button>
+                    </div>
+                    <nav v-show="!isCollapsed">
+                        <ul class="space-y-1">
+                            <li v-for="item in navItems" :key="item.id">
+                                <a :href="item.href" @click.prevent="smoothScroll(item.href)"
+                                   :class="['nav-link block px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 flex items-center', isActive(item.id) ? 'bg-white text-custom-blue font-semibold shadow-sm' : 'text-red-100 hover:bg-red-700 hover:text-white']">
+                                    <span v-html="item.iconSVG" class="mr-3 translate-y-px"></span>
+                                    <span>{{ item.text }}</span>
+                                </a></li></ul></nav>
+                    <nav v-show="isCollapsed" class="mt-4">
+                         <ul class="space-y-1">
+                            <li v-for="item in navItems" :key="item.id + '-collapsed'">
+                                <a :href="item.href" @click.prevent="smoothScroll(item.href)" :title="item.text" :aria-label="item.text"
+                                   :class="['nav-link-collapsed block py-2 pl-2.5 pr-1.5 rounded-md transition-colors duration-150 flex justify-center items-center', isActive(item.id) ? 'bg-white text-custom-blue shadow-sm' : 'text-red-100 hover:bg-red-700 hover:text-white']">
+                                    <span v-html="item.iconSVG" class="w-6 h-6 translate-y-px"></span>
+                                </a></li></ul></nav></aside>{% endraw %}`,
+            setup() {
+                const isCollapsed = ref(false);
+                const activeSectionId = ref('teoria-splines'); // Renamed default active section
+                const navItems = ref([
+                    { id: 'teoria-splines', text: 'Fundamento Teórico', href: '#teoria-splines', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>' },
+                    { id: 'algoritmo-splines', text: 'Tipos de Splines', href: '#algoritmo-splines', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" /></svg>' },
+                    { id: 'ejemplo-splines', text: 'Ejemplo Detallado', href: '#ejemplo-splines', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>' },
+                    { id: 'codigo-splines', text: 'Implementación (Python)', href: '#codigo-splines', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" /></svg>' },
+                    { id: 'graficas-splines', text: 'Gráficas Interactivas', href: '#graficas-splines', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" /></svg>' },
+                    { id: 'videos-splines', text: 'Videos Explicativos', href: '#videos-splines', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.75.75 0 010 1.656l-5.603 3.113A.75.75 0 019 15.95V9.05a.75.75 0 011.307-.588l5.603 3.112z" /></svg>' },
+                    { id: 'conclusion-splines', text: 'Conclusión', href: '#conclusion-splines', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' },
+                    { id: 'cuestionario-splines', text: 'Cuestionario', href: '#cuestionario-splines', iconSVG: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>' }
+                ]);
+                let sections = [];
+                const toggleCollapse = () => isCollapsed.value = !isCollapsed.value;
+                const isActive = (id) => activeSectionId.value === id;
+                const smoothScroll = (targetHref) => {
+                    const targetId = targetHref.substring(1);
+                    const targetElement = document.getElementById(targetId);
+                    if (targetElement) {
+                        targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+                        history.pushState(null, null, targetHref);
+                    }
+                };
+                const handleScroll = () => {
+                    if (!sections.length) return;
+                    const scrollMarginTopValue = parseInt(getComputedStyle(sections[0]).scrollMarginTop) || 96;
+                    let newActiveSectionId = null;
+                    for (let i = 0; i < sections.length; i++) {
+                        const section = sections[i];
+                        const sectionTopBoundary = section.offsetTop - scrollMarginTopValue;
+                        const sectionBottomBoundary = sectionTopBoundary + section.offsetHeight;
+                        if (window.scrollY >= sectionTopBoundary && window.scrollY < sectionBottomBoundary) {
+                            newActiveSectionId = section.id; break;
+                        }
+                    }
+                    if (newActiveSectionId === null) {
+                        for (let i = sections.length - 1; i >= 0; i--) {
+                            if ((sections[i].offsetTop - scrollMarginTopValue) <= window.scrollY + 5) {
+                                newActiveSectionId = sections[i].id; break;
+                            }
+                        }
+                    }
+                    if (newActiveSectionId === null && sections.length > 0 && window.scrollY < (sections[0].offsetTop - scrollMarginTopValue)) {
+                       newActiveSectionId = sections[0].id;
+                    }
+                    if (activeSectionId.value !== newActiveSectionId) activeSectionId.value = newActiveSectionId;
+                };
+                onMounted(() => {
+                    nextTick(() => {
+                        sections = Array.from(document.querySelectorAll('main article section[id]'));
+                        handleScroll();
+                        window.addEventListener('scroll', handleScroll, { passive: true });
+                    });
+                });
+                onUnmounted(() => window.removeEventListener('scroll', handleScroll));
+                return { isCollapsed, toggleCollapse, navItems, isActive, smoothScroll, activeSectionId };
+            }
+        };
+
+        const appSplines = createApp({ // Unique app instance name
+            setup() {
+                const METHOD_KEY_Splines_VUE = "splines"; // Renamed
+                const METHOD_NAME_TITLE_CASE_Splines_VUE = "Splines de Interpolación"; // Renamed
+                return { METHOD_KEY_Splines_VUE, METHOD_NAME_TITLE_CASE_Splines_VUE }; // Renamed
             }
         });
+        appSplines.component('left-sidebar-splines', LeftSidebarSplines); // Register with unique name
+        appSplines.config.compilerOptions.isCustomElement = tag => tag.startsWith('mjx-');
+        appSplines.mount('#app-splines'); // Mount to unique ID
+        // Force set the initial message in the output area AFTER Vue has mounted,
+        // as Vue might be inadvertently populating it.
+        if (window.codeOutput_Splines) {
+            window.codeOutput_Splines.innerHTML = "<p>Pyodide listo. Presiona 'Ejecutar Código' para ver la salida.</p>";
+            console.log('[VUE_MOUNT_OVERRIDE] Ensured codeOutput_Splines has initial message after Vue mount.');
+        }
     </script>
-    <script type="text/javascript" id="MathJax-script" async
-        src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+
+    <!-- Script para controlar el preloader -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const MIN_LOADING_TIME = 1800;
+            const loadStartTime = Date.now();
+            
+            window.vueReady = false;
+            
+            const revealContent = function() {
+                if (!window.vueReady) {
+                    console.log('Esperando a que Vue esté listo...');
+                    setTimeout(revealContent, 100);
+                    return;
+                }
+                
+                const timeElapsed = Date.now() - loadStartTime;
+                const additionalWait = Math.max(0, MIN_LOADING_TIME - timeElapsed);
+                
+                setTimeout(function() {
+                    document.body.classList.add('content-ready');
+                    
+                    setTimeout(function() {
+                        document.body.classList.add('loaded');
+                        const preloader = document.getElementById('sidebar-preloader');
+                        if (preloader) {
+                            preloader.classList.add('hidden');
+                        }
+                    }, 100);
+                }, additionalWait);
+            };
+            
+            window.addEventListener('load', function() {
+                if (window.MathJax && window.MathJax.typesetPromise) {
+                    window.MathJax.typesetPromise().then(function() {
+                        setTimeout(revealContent, 800);
+                    });
+                } else {
+                    setTimeout(revealContent, 1000);
+                }
+            });
+            
+            setTimeout(function() {
+                if (!document.body.classList.contains('loaded')) {
+                    console.log('Activando temporizador de respaldo');
+                    window.vueReady = true;
+                    document.body.classList.add('content-ready');
+                    setTimeout(function() {
+                        document.body.classList.add('loaded');
+                        const preloader = document.getElementById('sidebar-preloader');
+                        if (preloader) {
+                            preloader.classList.add('hidden');
+                        }
+                        console.log('Fallback timer triggered for page load');
+                    }, 100);
+                }
+            }, 3000);
+        });
+    </script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(function() {
+                window.vueReady = true;
+                console.log('Vue marcado como listo');
+            }, 500);
+        });
     </script>
 </body>
-</html> 
+</html>

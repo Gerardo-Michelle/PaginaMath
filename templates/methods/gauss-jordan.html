@@ -127,7 +127,7 @@
     <div id="app-gj">
         <header class="bg-custom-blue text-white shadow-md">
             <div class="container mx-auto px-4 py-3 flex justify-between items-center">
-                <h1 class="text-xl font-semibold"><a href="/" class="hover:text-gray-300">Métodos Numéricos</a></h1>
+                <h1 class="text-xl font-semibold"><a href="{{ url_for('index_page') }}" class="hover:text-gray-300">Métodos Numéricos</a></h1>
                 <nav><a href="../index.html#method-cards-container" class="text-sm px-4 py-2 rounded-md hover:bg-gray-700 transition-colors duration-150">Volver a Métodos</a></nav>
             </div>
         </header>
@@ -783,7 +783,7 @@ if __name__ == "__main__":
         </div>
 
         <footer class="bg-custom-blue text-gray-300 text-center p-6 mt-12">
-            <p>&copy; 2024 Plataforma Educativa de Métodos Numéricos. <a href="../index.html" class="hover:text-white underline">Volver al inicio</a></p>
+            <p>&copy; 2024 Plataforma Educativa de Métodos Numéricos. <a href="{{ url_for('index_page') }}" class="hover:text-white underline">Volver al inicio</a></p>
         </footer>
     </div>
 
